@@ -17,6 +17,10 @@ architecture arch of tb_wave_array is
     signal sdata            : std_logic;
     signal sclk             : std_logic;
     signal wsel             : std_logic;
+    signal rx               : std_logic;
+    signal tx               : std_logic;
+    signal leds             : std_logic_vector(15 downto 0);
+    signal switches         : std_logic_vector(15 downto 0);
 
 begin
 
@@ -24,9 +28,13 @@ begin
     port map(
         EXT_CLK                 => clk,
         BTN_RESET               => reset,
+        LEDS                    => leds,
+        SWITCHES                => switches,
         I2S_SCLK                => sdata,
         I2S_WSEL                => sclk,
-        I2S_SDATA               => wsel
+        I2S_SDATA               => wsel,
+        UART_RX                 => rx,
+        UART_TX                 => tx
     );
 
     clk <= not clk after 5 ns;
