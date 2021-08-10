@@ -30,14 +30,15 @@ begin
         BTN_RESET               => reset,
         LEDS                    => leds,
         SWITCHES                => switches,
-        I2S_SCLK                => sdata,
-        I2S_WSEL                => sclk,
-        I2S_SDATA               => wsel,
+        I2S_SCLK                => sclk,
+        I2S_WSEL                => wsel,
+        I2S_SDATA               => sdata,
         UART_RX                 => rx,
         UART_TX                 => tx
     );
 
     clk <= not clk after 5 ns;
     reset <= '1' after 100 ns;
+    switches <= x"0033";
 
 end architecture;

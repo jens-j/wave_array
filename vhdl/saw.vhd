@@ -10,6 +10,7 @@ entity saw is
     port (
         clk                     : in  std_logic;
         reset                   : in  std_logic;
+        slope                   : in  std_logic_vector(15 downto 0);
         next_sample             : in  std_logic;
         sample_out              : out sample_t
     );
@@ -27,7 +28,7 @@ architecture arch of saw is
 
 begin
 
-    combinatorial : process (r, next_sample)
+    combinatorial : process (r, next_sample, slope)
     begin
 
         r_in <= r;
@@ -36,7 +37,7 @@ begin
         sample_out(1) <= std_logic_vector(to_unsigned(r.sample, SAMPLE_WIDTH));
 
         if next_sample = '1' then
-            r_in.sample <= r.sample + 1365;
+            r_in.sample <= r.sample + to_integer(unsigned(slope));
         end if;
 
     end process;

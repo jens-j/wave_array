@@ -29,6 +29,7 @@ architecture arch of wave_array is
     signal reset_ah_s           : std_logic;
     signal sample_s             : sample_t;
     signal next_sample_s        : std_logic;
+    signal saw_slope_s          : std_logic_vector(15 downto 0);
 
     component BUFG
     port (
@@ -55,6 +56,7 @@ begin
     port map(
         clk                     => clk_s,
         reset                   => reset_ah_s,
+        slope                   => saw_slope_s,
         next_sample             => next_sample_s,
         sample_out              => sample_s
     );
@@ -70,14 +72,15 @@ begin
         wsel                    => I2S_WSEL
     );
 
-    microblaze_sys : entity work.microblaze_sys
+    microblaze_sys : entity work.microblaze_sys_wrapper
     port map(
         clk_100MHz              => clk_s,
-        gpio_rtl_0_tri_o        => LEDS(14 downto 0),
-        gpio_rtl_1_tri_i        => SWITCHES,
         reset_rtl_0             => reset_al_s,
         uart_rtl_0_rxd          => UART_RX,
-        uart_rtl_0_txd          => UART_TX
+        uart_rtl_0_txd          => UART_TX,
+        leds                    => LEDS(14 downto 0),
+        switches                => SWITCHES,
+        saw_slope               => saw_slope_s
     );
 
 end architecture;
