@@ -27,7 +27,7 @@ architecture arch of wave_array is
     signal clk_s                : std_logic;
     signal reset_al_s           : std_logic;
     signal reset_ah_s           : std_logic;
-    signal sample_s             : sample_t;
+    signal sample_s             : t_stereo_sample;
     signal next_sample_s        : std_logic;
     signal saw_slope_s          : std_logic_vector(15 downto 0);
 

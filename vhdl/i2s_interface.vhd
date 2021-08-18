@@ -10,7 +10,7 @@ entity i2s_interface is
     port (
         clk                     : in  std_logic;
         reset                   : in  std_logic;
-        sample_in               : in  sample_t;
+        sample_in               : in  t_stereo_sample;
         next_sample             : out std_logic; -- strobe to request next sample
         -- I2S outputs
         sdata                   : out std_logic;
@@ -23,7 +23,7 @@ end entity;
 architecture arch of i2s_interface is
 
     type t_i2s_reg is record
-        send_buffer             : sample_t;
+        send_buffer             : t_stereo_sample;
         word_select             : std_logic;
         clk_count               : integer range 0 to I2S_CLK_DIV - 1;
         bit_count               : integer range 0 to 2 * SAMPLE_WIDTH - 1;

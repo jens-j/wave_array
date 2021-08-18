@@ -11,11 +11,11 @@ end entity;
 
 architecture arch of tb_oscillator is
 
-    constant MIDI_INIT : t_midi_voice := ('1', '0', Eb, 4);
+    constant MIDI_INIT : t_midi_voice := ('1', '1', 60, 4);
 
     signal clk_s             : std_logic := '0';
     signal reset_s           : std_logic := '1';
-    signal midi_s            : t_midi_voice := MIDI_INIT;
+    signal midi_voice_s      : t_midi_voice := MIDI_INIT;
     signal next_sample_s     : std_logic := '1';
     signal sample_s          : t_mono_sample;
 
@@ -25,7 +25,7 @@ begin
     port map(
         clk                     => clk_s,
         reset                   => reset_s,
-        midi                    => midi_s,
+        midi_voice              => midi_voice_s,
         next_sample             => next_sample_s,
         sample                  => sample_s
     );
