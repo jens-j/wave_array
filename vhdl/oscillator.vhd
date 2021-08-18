@@ -11,7 +11,7 @@ entity oscillator is
     port (
         clk                     : in  std_logic;
         reset                   : in  std_logic;
-        midi                    : in  t_midi_voice;
+        midi_voice              : in  t_midi_voice;
         next_sample             : in  std_logic;
         sample                  : out t_mono_sample
     );
@@ -21,7 +21,7 @@ architecture arch of oscillator is
 
     constant TABLE_IDX_MSB : integer := WAVE_RES_LOG2 + WAVE_PREC - 1;
     constant TABLE_IDX_LSB : integer := WAVE_PREC;
-    constant PREC_ZEROS    : signed(WAVE_PREC - 1 downto 0) := (others => '0');
+    constant PREC_ZEROS    : unsigned(WAVE_PREC - 1 downto 0) := (others => '0');
 
     -- Used for both addresses and step values. Fixed point 11.16.
     subtype t_table_address is std_logic_vector(TABLE_IDX_MSB downto 0);
@@ -31,19 +31,20 @@ architecture arch of oscillator is
         (idle, step_index, fetch_a, fetch_b, interpolate_a, interpolate_b, store, sum);
     type t_table_address_array is array (0 to 11) of t_table_address;
 
-    -- Step values for notes c9 to b9, the highest octave in midi.
+    -- Step values (angular velocity) for notes c9 to b9, the highest octave in midi.
+    -- These values are shifted to the right for lower octaves.
     constant BASE_STEP : t_table_address_array := (
         27x"16534C8", -- C9
-        27x"17A724E", -- Db9
+        27x"17A724E", -- C#9
         27x"190F323", -- D9
-        27x"1A8CAB9", -- Eb9
+        27x"1A8CAB9", -- D#9
         27x"1C20D29", -- E9
         27x"1DCD013", -- F9
-        27x"1F92A68", -- Gb9
+        27x"1F92A68", -- F#9
         27x"2173466", -- G9
-        27x"237079E", -- Ab9
+        27x"237079E", -- G#9
         27x"258BF25", -- A9
-        27x"27C780A", -- Bb9
+        27x"27C780A", -- A#9
         27x"2A250A9"  -- B9
     );
 
@@ -52,15 +53,15 @@ architecture arch of oscillator is
         sample_state            : t_sample_state;
         sample                  : t_mono_sample;
         next_sample             : t_mono_sample;
-        table_address           : t_table_address;
-        table_step              : t_table_address;
-        octave_shift            : integer range 0 to 10;
+        table_address           : t_table_address; -- fixed point wave table index
+        table_step              : t_table_address; -- fixed point wave table velocity
+        octave_shift            : integer range 0 to 10; -- number of shifts from BASE_STEP to current octave
         sample_a                : t_mono_sample;
         sample_b                : t_mono_sample;
         interpolation_buffer_a  : std_logic_vector(SAMPLE_WIDTH + WAVE_PREC - 1 downto 0);
         interpolation_buffer_b  : std_logic_vector(SAMPLE_WIDTH + WAVE_PREC - 1 downto 0);
         mul_z                   : std_logic_vector(SAMPLE_WIDTH + WAVE_PREC - 1 downto 0);
-        address_frac_inv        : std_logic_vector(WAVE_PREC - 1 downto 0); -- 1 - table index fraction
+        address_frac_inv        : std_logic_vector(WAVE_PREC - 1 downto 0); -- 1 - table address fraction
     end record;
 
     constant REG_INIT : t_osc_reg := (
@@ -100,7 +101,8 @@ begin
     wave_ram : entity work.blockram
     generic map (
         abits       => WAVE_RES_LOG2,
-        dbits       => SAMPLE_WIDTH
+        dbits       => SAMPLE_WIDTH,
+        init_file   => "saw.data"
     )
     port map(
         rclk        => clk,
@@ -126,43 +128,45 @@ begin
     --     z           => mul_z_s
     -- );
 
-    combinatorial : process (r, midi, next_sample, rdata_s, mul_x_s, mul_y_s)
+    combinatorial : process (r, midi_voice, next_sample, rdata_s, mul_x_s, mul_y_s)
         variable v_table_index_int : integer;
-        variable v_base_step : t_table_address := BASE_STEP(t_midi_note'pos(midi.note));
+        variable v_base_step : t_table_address;
         variable v_interpolation_sum : std_logic_vector(SAMPLE_WIDTH + WAVE_PREC - 1 downto 0);
     begin
+
+        v_base_step := BASE_STEP(midi_voice.note);
 
         v_table_index_int :=
             to_integer(unsigned(r.table_address(TABLE_IDX_MSB downto TABLE_IDX_LSB)));
 
         -- Default register input.
-        r_in <= r;
+        r_in        <= r;
 
         -- Default RAM inputs.
-        ren_s <= '0';
-        raddr_s <= (others => '0');
-        wen_s <= '0';
-        waddr_s <= (others => '0');
-        wdata_s <= (others => '0');
+        ren_s       <= '0';
+        raddr_s     <= (others => '0');
+        wen_s       <= '0';
+        waddr_s     <= (others => '0');
+        wdata_s     <= (others => '0');
 
         -- Default multiplier inputs.
-        mul_x_s <= (others => '0');
-        mul_y_s <= (others => '0');
+        mul_x_s     <= (others => '0');
+        mul_y_s     <= (others => '0');
 
         -- Outputs.
-        sample <= r.sample;
+        sample      <= r.sample;
 
-        -- Instantiate multiplier
-        r_in.mul_z <= std_logic_vector(signed(mul_x_s) * signed(mul_y_s));
+        -- Instantiate multiplier.
+        r_in.mul_z  <= std_logic_vector(unsigned(mul_x_s) * unsigned(mul_y_s));
 
         -- State machine that calculates a new table_step value based on the midi note.
         case (r.midi_state) is
 
             -- Wait for a midi update.
             when idle =>
-                if midi.change = '1' then
+                if midi_voice.change = '1' then
                     r_in.midi_state     <= shift_octave;
-                    r_in.octave_shift   <= 10 - midi.octave;
+                    r_in.octave_shift   <= 10 - midi_voice.octave;
                 end if;
 
             -- Shift base step value down to match correct octave.
@@ -170,7 +174,7 @@ begin
                 r_in.midi_state <= idle;
 
                 for i in 0 to t_table_address'length - 1 loop
-                    if i < WAVE_RES - r.octave_shift - 1 then
+                    if i < WAVE_RES_LOG2 - r.octave_shift - 1 then
                         r_in.table_step(i) <= v_base_step(i + r.octave_shift);
                     else
                         r_in.table_step(i) <= '0';
@@ -187,7 +191,8 @@ begin
                 if next_sample = '1' then
                     r_in.sample_state           <= step_index;
                     r_in.sample                 <= r.next_sample;
-                    r_in.interpolation_buffer_a   <= (others => '0');
+                    r_in.interpolation_buffer_a <= (others => '0');
+                    r_in.interpolation_buffer_b <= (others => '0');
                 end if;
 
             -- Increment the table address.
@@ -204,7 +209,7 @@ begin
 
                 -- Pre  calculate 1 - table index fraction.
                 r_in.address_frac_inv   <= std_logic_vector(PREC_ZEROS
-                    - signed(r.table_address(WAVE_PREC-1 downto 0)));
+                    - unsigned(r.table_address(WAVE_PREC-1 downto 0)));
 
             -- Fetch the ceiling of the table address.
             when fetch_b =>
