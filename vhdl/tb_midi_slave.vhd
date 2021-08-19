@@ -22,68 +22,26 @@ architecture arch of tb_midi_slave is
     signal next_sample_s        : std_logic;
     signal sample_s             : t_mono_sample;
     signal sample_in_s          : t_stereo_sample;
+    signal uart_s               : std_logic;
 
     signal i2s_sdata_s          : std_logic;
     signal i2s_sclk_s           : std_logic;
     signal i2s_wsel_s           : std_logic;
 
-    signal uart_byte_s          : std_logic_vector(7 downto 0);
-    signal uart_dv_s            : std_logic;
-    signal uart_active_s        : std_logic;
-    signal uart_s               : std_logic;
-    signal uart_done_s          : std_logic;
-
-    signal fifo_din_s           : std_logic_vector(7 downto 0);
-    signal fifo_rd_en_s         : std_logic;
-    signal fifo_wr_en_s         : std_logic;
-    signal fifo_empty_s         : std_logic;
-    signal fifo_full_s          : std_logic;
-    signal fifo_count_s         : std_logic_vector(4 downto 0);
-
 begin
-
-    uart_dv_s    <= not fifo_empty_s;
-    fifo_rd_en_s <= uart_done_s and not uart_active_s and not fifo_empty_s;
 
     sample_in_s(0) <= sample_s;
     sample_in_s(1) <= sample_s;
+
 
     tester : entity work.midi_tester
     port map (
         clk                     => clk_s,
         reset                   => reset_ah_s,
-        full                    => fifo_full_s,
-        write_enable            => fifo_wr_en_s,
-        data                    => fifo_din_s
+        uart_tx                 => uart_s
     );
 
-    uart : entity work.uart_tx
-    generic map (
-        g_CLKS_PER_BIT          => SYS_FREQ / MIDI_BAUD
-    )
-    port map (
-        i_Clk                   => clk_s,
-        i_TX_DV                 => uart_dv_s,
-        i_TX_Byte               => uart_byte_s,
-        o_TX_Active             => uart_active_s,
-        o_TX_Serial             => uart_s,
-        o_TX_Done               => uart_done_s
-    );
-
-    midi_fifo : entity work.midi_fifo
-    port map (
-        clk                     => clk_s,
-        srst                    => reset_ah_s,
-        din                     => fifo_din_s,
-        wr_en                   => fifo_wr_en_s,
-        rd_en                   => fifo_rd_en_s,
-        dout                    => uart_byte_s,
-        full                    => fifo_full_s,
-        empty                   => fifo_empty_s,
-        data_count              => fifo_count_s
-    );
-
-    dut : entity work.midi_slave
+    slave : entity work.midi_slave
     generic map (
         n_voices                => 1
     )

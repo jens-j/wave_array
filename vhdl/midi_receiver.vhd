@@ -49,7 +49,8 @@ begin
 
     midi_receiver : entity work.UART_RX
     generic map (
-        g_CLKS_PER_BIT          => SYS_FREQ / MIDI_BAUD
+        g_CLKS_PER_BIT          => SYS_FREQ / MIDI_BAUD,
+        g_BIT_POLARITY          => '0'
     )
     port map (
         i_Clk                   => clk,

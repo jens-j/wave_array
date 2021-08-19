@@ -1,10 +1,5 @@
-library std;
-use std.textio.all;
-
 library ieee;
 use ieee.std_logic_1164.all;
-use ieee.numeric_std.all;
-use ieee.std_logic_textio.all;
 
 library work;
 use work.wave_array_pkg.all;
@@ -12,64 +7,66 @@ use work.midi_pkg.all;
 
 
 entity midi_tester is
-    generic (
-        file_name               : string := "midi.data"
-    );
     port (
         clk                     : in  std_logic;
         reset                   : in  std_logic;
-        full                    : in  std_logic;
-        write_enable            : out std_logic;
-        data                    : out std_logic_vector(7 downto 0)
+        uart_tx                 : out std_logic
     );
 end entity;
 
 architecture arch of midi_tester is
 
+    signal uart_byte_s          : std_logic_vector(7 downto 0);
+    signal uart_dv_s            : std_logic;
+    signal uart_active_s        : std_logic;
+    signal uart_done_s          : std_logic;
+
+    signal fifo_din_s           : std_logic_vector(7 downto 0);
+    signal fifo_rd_en_s         : std_logic;
+    signal fifo_wr_en_s         : std_logic;
+    signal fifo_empty_s         : std_logic;
+    signal fifo_full_s          : std_logic;
+    signal fifo_count_s         : std_logic_vector(4 downto 0);
+
 begin
 
-    parse_file : process
+    uart_dv_s    <= not fifo_empty_s;
+    fifo_rd_en_s <= uart_done_s and not uart_active_s and not fifo_empty_s;
 
-        -- file input_file           : text;
-        -- file input_file           : text open read_mode is "midi.txt";
-        file input_file           : text is in file_name;
-        variable line_in          : line;
-        variable midi_byte        : std_logic_vector(7 downto 0);
+    tester : entity work.midi_reader
+    port map (
+        clk                     => clk,
+        reset                   => reset,
+        full                    => fifo_full_s,
+        write_enable            => fifo_wr_en_s,
+        data                    => fifo_din_s
+    );
 
-    begin
+    uart : entity work.uart_tx
+    generic map (
+        g_CLKS_PER_BIT          => SYS_FREQ / MIDI_BAUD,
+        g_BIT_POLARITY          => '0'
+    )
+    port map (
+        i_Clk                   => clk,
+        i_TX_DV                 => uart_dv_s,
+        i_TX_Byte               => uart_byte_s,
+        o_TX_Active             => uart_active_s,
+        o_TX_Serial             => uart_tx,
+        o_TX_Done               => uart_done_s
+    );
 
-        write_enable <= '0';
-        data <= (others => '0');
+    midi_fifo : entity work.midi_fifo
+    port map (
+        clk                     => clk,
+        srst                    => reset,
+        din                     => fifo_din_s,
+        wr_en                   => fifo_wr_en_s,
+        rd_en                   => fifo_rd_en_s,
+        dout                    => uart_byte_s,
+        full                    => fifo_full_s,
+        empty                   => fifo_empty_s,
+        data_count              => fifo_count_s
+    );
 
-        -- file_open(input_file, "midi.txt", read_mode);
-        
-        report "start";
-
-        -- wait until reset = '1';
-        wait until reset = '0';
-
-        while not endfile(input_file) loop
-
-            readline(input_file, line_in);
-
-            for i in 0 to 2 loop
-
-                -- wait until full = '0';
-
-                hread(line_in, midi_byte);
-                report "read byte " & integer'image(to_integer(unsigned(midi_byte)));
-
-                wait until rising_edge(clk);
-                write_enable <= '1';
-                data <= midi_byte;
-                wait until rising_edge(clk);
-                write_enable <= '0';
-
-            end loop;
-        end loop;
-
-        report "end of file";
-        -- file_close(input_file);
-
-    end process;
 end architecture;
