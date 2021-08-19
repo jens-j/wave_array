@@ -17,7 +17,8 @@ use ieee.numeric_std.all;
 
 entity UART_TX is
     generic (
-    g_CLKS_PER_BIT : integer := 115     -- Needs to be set correctly
+    g_CLKS_PER_BIT : integer := 115;    -- Needs to be set correctly
+    g_BIT_POLARITY : std_logic := '1'   -- Logic one value
     );
     port (
     i_Clk       : in  std_logic;
@@ -52,7 +53,7 @@ architecture RTL of UART_TX is
 
                     when s_Idle =>
                     o_TX_Active <= '0';
-                    o_TX_Serial <= '1';         -- Drive Line High for Idle
+                    o_TX_Serial <= g_BIT_POLARITY; -- Drive Line '1' for Idle
                     r_TX_Done   <= '0';
                     r_Clk_Count <= 0;
                     r_Bit_Index <= 0;
@@ -68,7 +69,7 @@ architecture RTL of UART_TX is
                     -- Send out Start Bit. Start bit = 0
                     when s_TX_Start_Bit =>
                     o_TX_Active <= '1';
-                    o_TX_Serial <= '0';
+                    o_TX_Serial <= not g_BIT_POLARITY;
 
                     -- Wait g_CLKS_PER_BIT-1 clock cycles for start bit to finish
                     if r_Clk_Count < g_CLKS_PER_BIT-1 then
@@ -82,14 +83,14 @@ architecture RTL of UART_TX is
 
                     -- Wait g_CLKS_PER_BIT-1 clock cycles for data bits to finish
                     when s_TX_Data_Bits =>
-                    o_TX_Serial <= r_TX_Data(r_Bit_Index);
+                    o_TX_Serial <= r_TX_Data(r_Bit_Index) xor not g_BIT_POLARITY;
 
                     if r_Clk_Count < g_CLKS_PER_BIT-1 then
                         r_Clk_Count <= r_Clk_Count + 1;
                         r_SM_Main   <= s_TX_Data_Bits;
                     else
                         r_Clk_Count <= 0;
-                        
+
                         -- Check if we have sent out all bits
                         if r_Bit_Index < 7 then
                             r_Bit_Index <= r_Bit_Index + 1;
@@ -103,7 +104,7 @@ architecture RTL of UART_TX is
 
                     -- Send out Stop bit.  Stop bit = 1
                     when s_TX_Stop_Bit =>
-                    o_TX_Serial <= '1';
+                    o_TX_Serial <= g_BIT_POLARITY;
 
                     -- Wait g_CLKS_PER_BIT-1 clock cycles for Stop bit to finish
                     if r_Clk_Count < g_CLKS_PER_BIT-1 then

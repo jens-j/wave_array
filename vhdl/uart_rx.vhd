@@ -17,7 +17,8 @@ use ieee.numeric_std.all;
 
 entity UART_RX is
     generic (
-    g_CLKS_PER_BIT : integer := 115     -- Needs to be set correctly
+    g_CLKS_PER_BIT : integer := 115;    -- Needs to be set correctly
+    g_BIT_POLARITY : std_logic := '1'   -- Logic one value
     );
     port (
     i_Clk       : in  std_logic;
@@ -68,7 +69,7 @@ architecture rtl of UART_RX is
                     r_Clk_Count <= 0;
                     r_Bit_Index <= 0;
 
-                    if r_RX_Data = '0' then       -- Start bit detected
+                    if r_RX_Data = not g_BIT_POLARITY then -- Start bit detected
                     r_SM_Main <= s_RX_Start_Bit;
                 else
                     r_SM_Main <= s_Idle;
@@ -78,7 +79,7 @@ architecture rtl of UART_RX is
                 -- Check middle of start bit to make sure it's still low
                 when s_RX_Start_Bit =>
                 if r_Clk_Count = (g_CLKS_PER_BIT-1)/2 then
-                    if r_RX_Data = '0' then
+                    if r_RX_Data = not g_BIT_POLARITY then
                         r_Clk_Count <= 0;  -- reset counter since we found the middle
                         r_SM_Main   <= s_RX_Data_Bits;
                     else
@@ -97,7 +98,7 @@ architecture rtl of UART_RX is
                     r_SM_Main   <= s_RX_Data_Bits;
                 else
                     r_Clk_Count            <= 0;
-                    r_RX_Byte(r_Bit_Index) <= r_RX_Data;
+                    r_RX_Byte(r_Bit_Index) <= r_RX_Data xor not g_BIT_POLARITY;
 
                     -- Check if we have sent out all bits
                     if r_Bit_Index < 7 then
