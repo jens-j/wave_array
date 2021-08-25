@@ -19,4 +19,7 @@ package wave_array_pkg is
     subtype t_mono_sample is std_logic_vector(SAMPLE_WIDTH - 1 downto 0); -- Mono audio sample
     type t_stereo_sample is array (1 downto 0) of t_mono_sample; -- L/R audio sample
 
+    type t_mono_sample_array is array (integer range <>) t_mono_sample;
+    type t_stereo_sample_array is array (integer range <>) t_stereo_sample;
+
 end package;

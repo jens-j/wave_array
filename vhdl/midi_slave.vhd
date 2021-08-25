@@ -23,7 +23,8 @@ end entity;
 
 architecture arch of midi_slave is
 
-    type t_state is (idle, parse_note, voice_on_0, voice_on_1, voice_on_2, voice_off_0, voice_off_1);
+    type t_state is (idle, parse_note, find_free_voice, find_active_voice,
+        voice_on_0, voice_on_1, voice_off_0, voice_off_1);
 
     type t_midi_slave_reg is record
         state                   : t_state;
@@ -32,19 +33,21 @@ architecture arch of midi_slave is
         voices                  : t_voice_array(n_voices - 1 downto 0);
         voice_select            : integer range 0 to n_voices - 1;
         octave                  : t_midi_octave;
-        midi_note               : integer range 0 to 127;
+        midi_note               : integer range 0 to 127; -- conversion buffer from midi note to t_midi_key
+        velocity                : t_midi_word;
+        midi_command            : std_logic_vector(3 downto 0);
     end record;
-
-    constant VOICE_INIT : t_midi_voice := ('0', '0', 0, 0);
 
     constant REG_INIT : t_midi_slave_reg := (
         state                   => idle,
         next_state              => idle,
         voice_enable            => (others => '0'),
-        voices                  => (others => VOICE_INIT),
+        voices                  => (others => MIDI_VOICE_INIT),
         voice_select            => 0,
         octave                  => 0,
-        midi_note               => 0
+        midi_note               => 0,
+        velocity                => (others => '0'),
+        midi_command            => (others => '0')
     );
 
     -- Register.
@@ -67,6 +70,7 @@ begin
 
 
     combinatorial : process (r, message_valid_s, midi_message_s)
+        variable v_enable : std_logic;
     begin
 
         -- Default register input.
@@ -99,32 +103,21 @@ begin
 
                     r_in.octave <= 10;
                     r_in.voice_select <= 0;
-                    r_in.midi_note <=
-                        to_integer(unsigned(midi_message_s.data(0)(6 downto 0)));
+                    r_in.midi_command <= midi_message_s.status_byte(7 downto 4);
+                    r_in.velocity <= midi_message_s.data(1)(6 downto 0);
+                    r_in.midi_note <= to_integer(unsigned(midi_message_s.data(0)(6 downto 0)));
+
                 end if;
 
-            -- Play note if an empty voice is available.
+            -- First check if the note is alresy playing, otherwise find an free voice.
             when voice_on_0 =>
-                if r.voice_enable /= (n_voices - 1 downto 0 => '1') then
-                    r_in.next_state <= voice_on_1;
-                    r_in.state <= parse_note;
-                else
-                    r_in.state <= idle;
-                end if;
+                r_in.next_state <= voice_on_1;
+                r_in.state <= parse_note;
 
             -- Find first unused voice.
             when voice_on_1 =>
-                if r.voices(r.voice_select).enable = '0' then
-                    r_in.state <= voice_on_2;
-                elsif r.voice_select = n_voices - 1 then
-                    r_in.state <= idle;
-                else
-                    r_in.voice_select <= r.voice_select + 1;
-                end if;
-
-            -- Write voice output
-            when voice_on_2 =>
-                r_in.voices(r.voice_select) <= ('1', '1', r.midi_note, r.octave);
+                v_enable := '0' when r.velocity = (6 downto 0 => '0') else '1';
+                r_in.voices(r.voice_select) <= (v_enable, '1', (r.midi_note, r.octave), r.velocity);
                 r_in.state <= idle;
 
             when voice_off_0 =>
@@ -132,13 +125,33 @@ begin
                 r_in.state <= parse_note;
 
             when voice_off_1 =>
-                if r.voices(r.voice_select).note = r.midi_note then
-                    r_in.voices(r.voice_select) <= ('0', '1', 0, 0);
-                end if;
-                if r.voice_select < n_voices - 1 then
-                    r_in.voice_select <= r.voice_select + 1;
+                r_in.voices(r.voice_select) <= ('0', '1', (r.midi_note, r.octave), (others => '0'));
+                r_in.state <= idle;
+
+            -- Find first unused voice
+            when find_free_voice =>
+                if r.voices(r.voice_select).enable = '0' then
+                    r_in.state <= r.next_state;
+                elsif r.voice_select = n_voices - 1 then
+                    r_in.state <= idle; -- No free voices.
                 else
-                    r_in.state <= idle;
+                    r_in.voice_select <= r.voice_select + 1;
+                end if;
+
+            -- Find voice playing a certain voice
+            when find_active_voice =>
+
+                if r.voices(r.voice_select).note.key = r.midi_note and
+                        r.voices(r.voice_select).note.octave = r.octave then
+                    r_in.state <= r.next_state;
+                elsif r.voice_select = n_voices - 1 then
+                    if r.midi_command = MIDI_VOICE_MSG_ON then
+                        r_in.state <= find_free_voice;
+                    else
+                        r_in.state <= idle; -- Note not found in active voices.
+                    end if;
+                else
+                    r_in.voice_select <= r.voice_select + 1;
                 end if;
 
             -- Translate midi note number to note + octave
@@ -147,7 +160,7 @@ begin
                     r_in.octave <= r.octave - 1;
                     r_in.midi_note <= r.midi_note - 12;
                 else
-                    r_in.state <= r.next_state;
+                    r_in.state <= find_active_voice;
                 end if;
         end case;
 

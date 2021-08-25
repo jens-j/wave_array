@@ -16,6 +16,7 @@ entity wave_array is
         LEDS                    : out std_logic_vector(15 downto 0);
         UART_RX                 : in  std_logic;
         UART_TX                 : out std_logic;
+        MIDI_RX                 : in  std_logic;
         I2S_SCLK                : out std_logic;
         I2S_WSEL                : out std_logic;
         I2S_SDATA               : out std_logic
@@ -29,7 +30,8 @@ architecture arch of wave_array is
     signal reset_ah_s           : std_logic;
     signal sample_s             : t_stereo_sample;
     signal next_sample_s        : std_logic;
-    signal saw_slope_s          : std_logic_vector(15 downto 0);
+    signal voices_s             : t_voice_array(0 downto 0);
+
 
     component BUFG
     port (
@@ -45,6 +47,7 @@ begin
 
     -- Connect outputs
     LEDS(15) <= BTN_RESET;
+    LEDS(0)  <= voices_s(0).enable;
 
     clk_buffer : BUFG
     port map(
@@ -52,13 +55,25 @@ begin
         O => clk_s
     );
 
-    saw : entity work.saw
-    port map(
+    slave : entity work.midi_slave
+    generic map (
+        n_voices                => 1
+    )
+    port map (
         clk                     => clk_s,
         reset                   => reset_ah_s,
-        slope                   => saw_slope_s,
+        uart_rx                 => MIDI_RX,
+        midi_channel            => SWITCHES(3 downto 0),
+        voices                  => voices_s
+    );
+
+    oscillator : entity work.oscillator
+    port map (
+        clk                     => clk_s,
+        reset                   => reset_ah_s,
+        midi_voice              => voices_s(0),
         next_sample             => next_sample_s,
-        sample_out              => sample_s
+        sample                  => sample_s
     );
 
     i2s_interface : entity work.i2s_interface
@@ -72,15 +87,15 @@ begin
         wsel                    => I2S_WSEL
     );
 
-    microblaze_sys : entity work.microblaze_sys_wrapper
-    port map(
-        clk_100MHz              => clk_s,
-        reset_rtl_0             => reset_al_s,
-        uart_rtl_0_rxd          => UART_RX,
-        uart_rtl_0_txd          => UART_TX,
-        leds                    => LEDS(14 downto 0),
-        switches                => SWITCHES,
-        saw_slope               => saw_slope_s
-    );
+    -- microblaze_sys : entity work.microblaze_sys_wrapper
+    -- port map(
+    --     clk_100MHz              => clk_s,
+    --     reset_rtl_0             => reset_al_s,
+    --     uart_rtl_0_rxd          => UART_RX,
+    --     uart_rtl_0_txd          => UART_TX,
+    --     leds                    => open,
+    --     switches                => SWITCHES,
+    --     saw_slope               => saw_slope_s
+    -- );
 
 end architecture;

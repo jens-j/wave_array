@@ -27,8 +27,8 @@ architecture arch of oscillator is
     subtype t_table_address is std_logic_vector(TABLE_IDX_MSB downto 0);
 
     type t_midi_state is (idle, shift_octave);
-    type t_sample_state is
-        (idle, step_index, fetch_a, fetch_b, interpolate_a, interpolate_b, store, sum);
+    type t_sample_state is (idle, fetch_a, fetch_b, interpolate_a, interpolate_b,
+        store, sum, scale, finalize);
     type t_table_address_array is array (0 to 11) of t_table_address;
 
     -- Step values (angular velocity) for notes c9 to b9, the highest octave in midi.
@@ -50,6 +50,7 @@ architecture arch of oscillator is
 
     type t_osc_reg is record
         midi_state              : t_midi_state;
+        midi_voice              : t_midi_voice;
         sample_state            : t_sample_state;
         sample                  : t_mono_sample;
         next_sample             : t_mono_sample;
@@ -66,7 +67,8 @@ architecture arch of oscillator is
 
     constant REG_INIT : t_osc_reg := (
         midi_state              => idle,
-        sample_state            => step_index, -- Prefetch one sample.
+        midi_voice              => MIDI_VOICE_INIT,
+        sample_state            => idle,
         sample                  => (others => '0'),
         next_sample             => (others => '0'),
         table_address           => (others => '0'),
@@ -134,7 +136,7 @@ begin
         variable v_interpolation_sum : std_logic_vector(SAMPLE_WIDTH + WAVE_PREC - 1 downto 0);
     begin
 
-        v_base_step := BASE_STEP(midi_voice.note);
+        v_base_step := BASE_STEP(midi_voice.note.key);
 
         v_table_index_int :=
             to_integer(unsigned(r.table_address(TABLE_IDX_MSB downto TABLE_IDX_LSB)));
@@ -158,15 +160,16 @@ begin
 
         -- Instantiate multiplier.
         r_in.mul_z  <= std_logic_vector(unsigned(mul_x_s) * unsigned(mul_y_s));
+        r_in.midi_voice <= midi_voice;
 
         -- State machine that calculates a new table_step value based on the midi note.
         case (r.midi_state) is
 
             -- Wait for a midi update.
             when idle =>
-                if midi_voice.change = '1' then
+                if r.midi_voice.change = '1' then
                     r_in.midi_state     <= shift_octave;
-                    r_in.octave_shift   <= 10 - midi_voice.octave;
+                    r_in.octave_shift   <= 10 - r.midi_voice.note.octave;
                 end if;
 
             -- Shift base step value down to match correct octave.
@@ -174,13 +177,12 @@ begin
                 r_in.midi_state <= idle;
 
                 for i in 0 to t_table_address'length - 1 loop
-                    if i < WAVE_RES_LOG2 - r.octave_shift - 1 then
+                    if i < t_table_address'length - r.octave_shift - 1 then
                         r_in.table_step(i) <= v_base_step(i + r.octave_shift);
                     else
                         r_in.table_step(i) <= '0';
                     end if;
                 end loop;
-
         end case;
 
         -- State machine that generates a new sample when triggered by next_sample.
@@ -188,18 +190,23 @@ begin
 
             -- Wait for a pulse on next_sample.
             when idle =>
-                if next_sample = '1' then
-                    r_in.sample_state           <= step_index;
-                    r_in.sample                 <= r.next_sample;
-                    r_in.interpolation_buffer_a <= (others => '0');
-                    r_in.interpolation_buffer_b <= (others => '0');
-                end if;
+                r_in.interpolation_buffer_a <= (others => '0');
+                r_in.interpolation_buffer_b <= (others => '0');
 
-            -- Increment the table address.
-            when step_index =>
-                r_in.sample_state   <= fetch_a;
-                r_in.table_address  <= std_logic_vector(
-                    unsigned(r.table_address) + unsigned(r.table_step));
+                if next_sample = '1' then
+                    r_in.sample <= r.next_sample;
+
+                    -- Update table address even when the voice is disabled.
+                    r_in.table_address  <= std_logic_vector(
+                        unsigned(r.table_address) + unsigned(r.table_step));
+
+                    if r.midi_voice.enable = '0' then
+                        r_in.sample_state <= idle;
+                        r_in.next_sample  <= (others => '0');
+                    else
+                        r_in.sample_state <= fetch_a;
+                    end if;
+                end if;
 
             -- Fetch the floor of the table address.
             when fetch_a =>
@@ -239,14 +246,25 @@ begin
 
             -- Sum the two interpolation parts.
             when sum =>
-                r_in.sample_state           <= idle;
+                r_in.sample_state <= scale;
 
                 v_interpolation_sum := std_logic_vector(
                     unsigned(r.interpolation_buffer_a) + unsigned(r.interpolation_buffer_b));
 
                 -- Round to integer
-                r_in.next_sample    <=
+                r_in.next_sample <=
                     v_interpolation_sum(SAMPLE_WIDTH + WAVE_PREC - 1 downto WAVE_PREC);
+
+            -- Apply note enable and velocity.
+            when scale =>
+                r_in.sample_state <= finalize;
+                mul_x_s           <= r.next_sample;
+                mul_y_s           <= (WAVE_PREC - 1 downto 7 => '0') & r.midi_voice.velocity;
+
+            -- Normalize through dividing by 128
+            when finalize =>
+                r_in.sample_state <= idle;
+                r_in.next_sample  <= r.mul_z(SAMPLE_WIDTH - 1 + 7  downto 7);
 
         end case;
 

@@ -45,7 +45,7 @@ begin
     uart : entity work.uart_tx
     generic map (
         g_CLKS_PER_BIT          => SYS_FREQ / MIDI_BAUD,
-        g_BIT_POLARITY          => '0'
+        g_BIT_POLARITY          => '1'
     )
     port map (
         i_Clk                   => clk,

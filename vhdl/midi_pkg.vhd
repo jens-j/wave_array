@@ -9,15 +9,19 @@ package midi_pkg is
     subtype t_midi_word is std_logic_vector(6 downto 0);
     subtype t_midi_dword is std_logic_vector(13 downto 0);
 
-    subtype t_midi_note is integer range 0 to 11; -- C, C#, D, D#, E, F, F#, G, G#, A, A#, B;
+    subtype t_midi_key is integer range 0 to 11; -- C, C#, D, D#, E, F, F#, G, G#, A, A#, B;
     subtype t_midi_octave is integer range 0 to 10; -- Corresponds with octaves -1 to 9 (C-1 to G9)
+
+    type t_midi_note is record
+        key                     : t_midi_key;
+        octave                  : t_midi_octave;
+    end record;
 
     type t_midi_voice is record
         enable                  : std_logic;
         change                  : std_logic; -- pulse high upon change
         note                    : t_midi_note;
-        octave                  : t_midi_octave;
-        -- velocity                : t_midi_word;
+        velocity                : t_midi_word;
         -- bend                    : t_midi_dword;
     end record;
 
@@ -27,6 +31,8 @@ package midi_pkg is
     end record;
 
     type t_voice_array is array (integer range <>) of t_midi_voice;
+
+    constant MIDI_VOICE_INIT : t_midi_voice := ('0', '0', (0, 0), (others =>'0'));
 
     constant MIDI_BAUD                      : integer := 31250;
 

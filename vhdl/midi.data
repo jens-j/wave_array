@@ -1,2 +1,4 @@
 95 3C 7F # note C4 on with max velocity
+3C 00 # running state C4 0 velocity
+3C 7F # running state C4 max velocity
 85 3C 00 # note C4 off

@@ -33,7 +33,6 @@ begin
     sample_in_s(0) <= sample_s;
     sample_in_s(1) <= sample_s;
 
-
     tester : entity work.midi_tester
     port map (
         clk                     => clk_s,
@@ -77,18 +76,5 @@ begin
 
     reset_ah_s <= '1',
                   '0' after 100 ns;
-
-    -- uart_byte_s <= x"00",
-    --              MIDI_VOICE_MSG_ON & MIDI_CHANNEL after 200 ns,
-    --              x"3C" after 400_000 ns,
-    --              x"7F" after 800_000 ns;
-    --
-    -- uart_dv_s <=   '0',
-    --              '1' after 200 ns,
-    --              '0' after 210 ns,
-    --              '1' after 400_000 ns,
-    --              '0' after 400_010 ns,
-    --              '1' after 800_000 ns,
-    --              '0' after 800_010 ns;
 
 end architecture;

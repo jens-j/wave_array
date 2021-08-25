@@ -21,6 +21,10 @@ set_property IOSTANDARD LVCMOS33 [get_ports {I2S_SCLK}]
 set_property PACKAGE_PIN D17 [get_ports {I2S_WSEL}]
 set_property IOSTANDARD LVCMOS33 [get_ports {I2S_WSEL}]
 
+## Bank = 15, Pin name = IO_L16P_T2_A28_15, Sch name = JA4
+set_property PACKAGE_PIN E17 [get_ports {MIDI_RX}]
+set_property IOSTANDARD LVCMOS33 [get_ports {MIDI_RX}]
+
 ## USB-RS232 Interface (Nexys labels from the PC perspective)
 ## Bank = 35, Pin name = IO_L7P_T1_AD6P_35, Sch name = UART_TXD_IN
 set_property PACKAGE_PIN C4 [get_ports UART_RX]

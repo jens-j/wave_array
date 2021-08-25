@@ -21,7 +21,7 @@ end entity;
 
 architecture arch of midi_receiver is
 
-    type t_state is (init, channel);
+    type t_state is (init, recv_1b_msg, recv_2b_msg);
 
     type t_midi_receiver_reg is record
         state                   : t_state;
@@ -50,7 +50,7 @@ begin
     midi_receiver : entity work.UART_RX
     generic map (
         g_CLKS_PER_BIT          => SYS_FREQ / MIDI_BAUD,
-        g_BIT_POLARITY          => '0'
+        g_BIT_POLARITY          => '1'
     )
     port map (
         i_Clk                   => clk,
@@ -70,43 +70,61 @@ begin
         midi_message <= r.midi_message;
         message_valid <= r.message_valid;
 
-        -- Inputs
+        -- Inputs.
         r_in.midi_channel <= midi_channel;
         r_in.message_valid <= '0';
 
         if uart_valid_s = '1' then
 
-            -- Process status byte
+            -- Process status byte.
             if uart_data_s(7) = '1' then
 
                 r_in.databyte_count <= 0;
                 r_in.midi_message.status_byte <= uart_data_s;
+                r_in.midi_message.data <= (others => (others => '0'));
 
-                -- TODO: must support mode running status
-                if uart_data_s(3 downto 0) = r.midi_channel and uart_data_s(7 downto 4) /= x"F" then
-                    r_in.state <= channel;
-                else
+                -- System messages, only timing is supported.
+                if uart_data_s(7 downto 4) = "1111" then
                     r_in.state <= init;
+                    if uart_data_s(3) = '1' then
+                        r_in.message_valid <= '1';
+                    end if;
+
+                -- 1 byte long messages program change and channel pressure.
+                elsif uart_data_s(6 downto 5) = "10" then
+                    r_in.state <= recv_1b_msg;
+
+                -- 2 byte messages.
+                else
+                    r_in.state <= recv_2b_msg;
                 end if;
 
-            -- Process data byte
+            -- Process data byte.
             else
+
                 r_in.midi_message.data(r.databyte_count) <= uart_data_s;
-                r_in.databyte_count <= r.databyte_count + 1;
 
-                case (r.state) is
+                case(r.state) is
 
-                    when init =>
-                        r_in.databyte_count <= 0;
+                    when recv_1b_msg =>
+                        r_in.message_valid <= '1';
 
-                    when channel =>
+                    when recv_2b_msg =>
                         if r.databyte_count = 1 then
-                            r_in.databyte_count <= 0;
                             r_in.message_valid <= '1';
+                            r_in.databyte_count <= 0;
+                        else
+                            r_in.databyte_count <= 1;
                         end if;
+
+                    -- Receive data byte without prior status byte.
+                    when others =>
+                        -- Do nothing.
+
                 end case;
             end if;
         end if;
+
     end process;
 
 
