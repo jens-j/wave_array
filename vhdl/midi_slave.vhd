@@ -16,7 +16,8 @@ entity midi_slave is
         reset                   : in  std_logic;
         uart_rx                 : in  std_logic;
         midi_channel            : in  std_logic_vector(3 downto 0);
-        voices                  : out t_voice_array(n_voices - 1 downto 0)
+        voices                  : out t_voice_array(n_voices - 1 downto 0);
+        status_byte             : out t_byte
     );
 end entity;
 
@@ -78,7 +79,7 @@ begin
 
         -- Outputs.
         voices <= r.voices;
-
+        status_byte <= midi_message_s.status_byte;
 
         for i in 0 to n_voices - 1 loop
             r_in.voices(i).change <= '0';
@@ -101,7 +102,7 @@ begin
                     --     voice_off_0 when MIDI_VOICE_MSG_OFF,
                     --     idle when others;
 
-                    r_in.octave <= 10;
+                    r_in.octave <= 0;
                     r_in.voice_select <= 0;
                     r_in.midi_command <= midi_message_s.status_byte(7 downto 4);
                     r_in.velocity <= midi_message_s.data(1)(6 downto 0);
@@ -157,7 +158,7 @@ begin
             -- Translate midi note number to note + octave
             when parse_note =>
                 if r.midi_note > 11 then
-                    r_in.octave <= r.octave - 1;
+                    r_in.octave <= r.octave + 1;
                     r_in.midi_note <= r.midi_note - 12;
                 else
                     r_in.state <= find_active_voice;

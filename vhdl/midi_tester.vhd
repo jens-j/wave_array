@@ -33,7 +33,7 @@ begin
     uart_dv_s    <= not fifo_empty_s;
     fifo_rd_en_s <= uart_done_s and not uart_active_s and not fifo_empty_s;
 
-    tester : entity work.midi_reader
+    reader : entity work.midi_reader
     port map (
         clk                     => clk,
         reset                   => reset,

@@ -7,6 +7,7 @@ use unisim.vcomponents.all;
 
 library work;
 use work.wave_array_pkg.all;
+use work.midi_pkg.all;
 
 entity wave_array is
     port (
@@ -28,10 +29,11 @@ architecture arch of wave_array is
     signal clk_s                : std_logic;
     signal reset_al_s           : std_logic;
     signal reset_ah_s           : std_logic;
-    signal sample_s             : t_stereo_sample;
+    signal mono_sample_s        : t_mono_sample;
+    signal stereo_sample_s      : t_stereo_sample;
     signal next_sample_s        : std_logic;
     signal voices_s             : t_voice_array(0 downto 0);
-
+    signal status_byte_s        : t_byte;
 
     component BUFG
     port (
@@ -46,8 +48,14 @@ begin
     reset_al_s <= BTN_RESET;
 
     -- Connect outputs
-    LEDS(15) <= BTN_RESET;
-    LEDS(0)  <= voices_s(0).enable;
+    LEDS(15)           <= BTN_RESET;
+    LEDS(14)           <= voices_s(0).enable;
+    LEDS(13 downto 8)  <= (others => '0');
+    LEDS(7 downto 0)   <= status_byte_s;
+    UART_TX            <= MIDI_RX;
+
+    stereo_sample_s(0) <= mono_sample_s;
+    stereo_sample_s(1) <= mono_sample_s;
 
     clk_buffer : BUFG
     port map(
@@ -64,7 +72,8 @@ begin
         reset                   => reset_ah_s,
         uart_rx                 => MIDI_RX,
         midi_channel            => SWITCHES(3 downto 0),
-        voices                  => voices_s
+        voices                  => voices_s,
+        status_byte             => status_byte_s
     );
 
     oscillator : entity work.oscillator
@@ -73,14 +82,14 @@ begin
         reset                   => reset_ah_s,
         midi_voice              => voices_s(0),
         next_sample             => next_sample_s,
-        sample                  => sample_s
+        sample                  => mono_sample_s
     );
 
     i2s_interface : entity work.i2s_interface
     port map(
         clk                     => clk_s,
         reset                   => reset_ah_s,
-        sample_in               => sample_s,
+        sample_in               => stereo_sample_s,
         next_sample             => next_sample_s,
         sdata                   => I2S_SDATA,
         sclk                    => I2S_SCLK,
