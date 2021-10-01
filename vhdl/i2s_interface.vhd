@@ -2,8 +2,8 @@ library IEEE;
 use IEEE.std_logic_1164.all;
 use IEEE.numeric_std.all;
 
-library work;
-use work.wave_array_pkg.all;
+library wave;
+use wave.wave_array_pkg.all;
 
 
 entity i2s_interface is

@@ -2,9 +2,9 @@ library ieee;
 use ieee.std_logic_1164.all;
 use ieee.numeric_std.all;
 
-library work;
-use work.wave_array_pkg.all;
-use work.midi_pkg.all;
+library wave;
+use wave.wave_array_pkg.all;
+use wave.midi_pkg.all;
 
 entity tb_oscillator is
 end entity;
@@ -21,7 +21,7 @@ architecture arch of tb_oscillator is
 
 begin
 
-    dut : entity work.oscillator
+    dut : entity wave.oscillator
     port map(
         clk                     => clk_s,
         reset                   => reset_s,

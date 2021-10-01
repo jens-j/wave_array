@@ -2,9 +2,9 @@ library ieee;
 use ieee.std_logic_1164.all;
 use ieee.numeric_std.all;
 
-library work;
-use work.wave_array_pkg.all;
-use work.midi_pkg.all;
+library wave;
+use wave.wave_array_pkg.all;
+use wave.midi_pkg.all;
 
 
 entity midi_receiver is
@@ -47,7 +47,7 @@ architecture arch of midi_receiver is
 
 begin
 
-    midi_receiver : entity work.UART_RX
+    midi_receiver : entity wave.UART_RX
     generic map (
         g_CLKS_PER_BIT          => SYS_FREQ / MIDI_BAUD,
         g_BIT_POLARITY          => '1'

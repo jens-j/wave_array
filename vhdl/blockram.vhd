@@ -27,10 +27,11 @@ architecture spwram_arch of blockram is
     type mem_type is array(0 to (2**abits - 1)) of std_logic_vector(dbits-1 downto 0);
 
     impure function init_ram (file_name : in string) return mem_type is
-        FILE ram_file : text is in file_name;
+        FILE ram_file : text;
         variable ram_line : line;
         variable ram : mem_type;
     begin
+        file_open(ram_file, file_name,  read_mode);
         for i in mem_type'range loop
             readline(ram_file, ram_line);
             hread(ram_line, ram(i));

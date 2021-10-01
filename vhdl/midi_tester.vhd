@@ -1,12 +1,15 @@
 library ieee;
 use ieee.std_logic_1164.all;
 
-library work;
-use work.wave_array_pkg.all;
-use work.midi_pkg.all;
+library wave;
+use wave.wave_array_pkg.all;
+use wave.midi_pkg.all;
 
 
 entity midi_tester is
+    generic (
+        FILENAME                : string := "midi.txt"
+    );
     port (
         clk                     : in  std_logic;
         reset                   : in  std_logic;
@@ -33,7 +36,10 @@ begin
     uart_dv_s    <= not fifo_empty_s;
     fifo_rd_en_s <= uart_done_s and not uart_active_s and not fifo_empty_s;
 
-    reader : entity work.midi_reader
+    reader : entity wave.midi_reader
+    generic map(
+        FILENAME                => FILENAME
+    )
     port map (
         clk                     => clk,
         reset                   => reset,
@@ -42,7 +48,7 @@ begin
         data                    => fifo_din_s
     );
 
-    uart : entity work.uart_tx
+    uart : entity wave.uart_tx
     generic map (
         g_CLKS_PER_BIT          => SYS_FREQ / MIDI_BAUD,
         g_BIT_POLARITY          => '1'
@@ -56,7 +62,7 @@ begin
         o_TX_Done               => uart_done_s
     );
 
-    midi_fifo : entity work.midi_fifo
+    midi_fifo : entity wave.midi_fifo
     port map (
         clk                     => clk,
         srst                    => reset,

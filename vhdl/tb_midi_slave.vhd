@@ -2,9 +2,9 @@ library IEEE;
 use IEEE.std_logic_1164.all;
 use IEEE.numeric_std.all;
 
-library work;
-use work.wave_array_pkg.all;
-use work.midi_pkg.all;
+library wave;
+use wave.wave_array_pkg.all;
+use wave.midi_pkg.all;
 
 
 entity tb_midi_slave is
@@ -33,14 +33,14 @@ begin
     sample_in_s(0) <= sample_s;
     sample_in_s(1) <= sample_s;
 
-    tester : entity work.midi_tester
+    tester : entity wave.midi_tester
     port map (
         clk                     => clk_s,
         reset                   => reset_ah_s,
         uart_tx                 => uart_s
     );
 
-    slave : entity work.midi_slave
+    slave : entity wave.midi_slave
     generic map (
         n_voices                => 1
     )
@@ -52,7 +52,7 @@ begin
         voices                  => voices_s
     );
 
-    oscillator : entity work.oscillator
+    oscillator : entity wave.oscillator
     port map (
         clk                     => clk_s,
         reset                   => reset_ah_s,
@@ -61,7 +61,7 @@ begin
         sample                  => sample_s
     );
 
-    i2s_interface : entity work.i2s_interface
+    i2s_interface : entity wave.i2s_interface
     port map(
         clk                     => clk_s,
         reset                   => reset_ah_s,

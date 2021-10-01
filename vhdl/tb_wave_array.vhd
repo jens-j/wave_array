@@ -2,8 +2,8 @@ library IEEE;
 use IEEE.std_logic_1164.all;
 use IEEE.numeric_std.all;
 
-library work;
-use work.wave_array_pkg.all;
+library wave;
+use wave.wave_array_pkg.all;
 
 
 entity tb_wave_array is
@@ -25,14 +25,17 @@ architecture arch of tb_wave_array is
 
 begin
 
-    tester : entity work.midi_tester
+    tester : entity wave.midi_tester
+    generic map (
+        FILENAME                => "two_notes.txt"
+    )
     port map (
         clk                     => clk,
         reset                   => not reset,
         uart_tx                 => midi_uart
     );
 
-    wave_array : entity work.wave_array
+    wave_array : entity wave.wave_array
     port map(
         EXT_CLK                 => clk,
         BTN_RESET               => reset,

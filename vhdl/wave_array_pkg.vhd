@@ -8,7 +8,7 @@ package wave_array_pkg is
 
     constant SAMPLE_WIDTH           : integer := 16;
     constant SAMPLE_MAX             : integer := 2**SAMPLE_WIDTH - 1;
-    constant SAMPLE_RATE            : integer := 48_000;
+    constant SAMPLE_RATE            : integer := 2**16; -- This is fixed because it is used to simplify a lot of things.
 
     constant WAVE_RES_LOG2          : integer := 11;
     constant WAVE_RES               : integer := 2**WAVE_RES_LOG2; -- Number of samples per wave table
@@ -19,7 +19,7 @@ package wave_array_pkg is
     subtype t_mono_sample is std_logic_vector(SAMPLE_WIDTH - 1 downto 0); -- Mono audio sample
     type t_stereo_sample is array (1 downto 0) of t_mono_sample; -- L/R audio sample
 
-    type t_mono_sample_array is array (integer range <>) t_mono_sample;
-    type t_stereo_sample_array is array (integer range <>) t_stereo_sample;
+    type t_mono_sample_array is array (integer range <>) of t_mono_sample;
+    type t_stereo_sample_array is array (integer range <>) of t_stereo_sample;
 
 end package;

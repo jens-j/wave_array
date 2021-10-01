@@ -2,21 +2,21 @@ library ieee;
 use ieee.std_logic_1164.all;
 use ieee.numeric_std.all;
 
-library work;
-use work.wave_array_pkg.all;
-use work.midi_pkg.all;
+library wave;
+use wave.wave_array_pkg.all;
+use wave.midi_pkg.all;
 
 
 entity midi_slave is
     generic (
-        n_voices                : integer
+        N_VOICES                : integer
     );
     port (
         clk                     : in  std_logic;
         reset                   : in  std_logic;
         uart_rx                 : in  std_logic;
         midi_channel            : in  std_logic_vector(3 downto 0);
-        voices                  : out t_voice_array(n_voices - 1 downto 0);
+        voices                  : out t_voice_array(N_VOICES - 1 downto 0);
         status_byte             : out t_byte
     );
 end entity;
@@ -30,9 +30,9 @@ architecture arch of midi_slave is
     type t_midi_slave_reg is record
         state                   : t_state;
         next_state              : t_state;
-        voice_enable            : std_logic_vector(n_voices - 1 downto 0);
-        voices                  : t_voice_array(n_voices - 1 downto 0);
-        voice_select            : integer range 0 to n_voices - 1;
+        voice_enable            : std_logic_vector(N_VOICES - 1 downto 0);
+        voices                  : t_voice_array(N_VOICES - 1 downto 0);
+        voice_select            : integer range 0 to N_VOICES - 1;
         octave                  : t_midi_octave;
         midi_note               : integer range 0 to 127; -- conversion buffer from midi note to t_midi_key
         velocity                : t_midi_word;
@@ -59,7 +59,7 @@ architecture arch of midi_slave is
 
 begin
 
-    midi_receiver : entity work.midi_receiver
+    midi_receiver : entity wave.midi_receiver
     port map (
         clk                     => clk,
         reset                   => reset,
@@ -81,12 +81,12 @@ begin
         voices <= r.voices;
         status_byte <= midi_message_s.status_byte;
 
-        for i in 0 to n_voices - 1 loop
+        for i in 0 to N_VOICES - 1 loop
             r_in.voices(i).change <= '0';
         end loop;
 
 
-        case(r.state) is
+        case (r.state) is
 
             when idle =>
                 if message_valid_s = '1' then
@@ -133,7 +133,7 @@ begin
             when find_free_voice =>
                 if r.voices(r.voice_select).enable = '0' then
                     r_in.state <= r.next_state;
-                elsif r.voice_select = n_voices - 1 then
+                elsif r.voice_select = N_VOICES - 1 then
                     r_in.state <= idle; -- No free voices.
                 else
                     r_in.voice_select <= r.voice_select + 1;
@@ -145,9 +145,10 @@ begin
                 if r.voices(r.voice_select).note.key = r.midi_note and
                         r.voices(r.voice_select).note.octave = r.octave then
                     r_in.state <= r.next_state;
-                elsif r.voice_select = n_voices - 1 then
+                elsif r.voice_select = N_VOICES - 1 then
                     if r.midi_command = MIDI_VOICE_MSG_ON then
                         r_in.state <= find_free_voice;
+                        r_in.voice_select <= 0;
                     else
                         r_in.state <= idle; -- Note not found in active voices.
                     end if;

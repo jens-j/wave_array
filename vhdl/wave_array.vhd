@@ -5,9 +5,9 @@ use IEEE.numeric_std.all;
 library unisim;
 use unisim.vcomponents.all;
 
-library work;
-use work.wave_array_pkg.all;
-use work.midi_pkg.all;
+library wave;
+use wave.wave_array_pkg.all;
+use wave.midi_pkg.all;
 
 entity wave_array is
     port (
@@ -29,10 +29,12 @@ architecture arch of wave_array is
     signal clk_s                : std_logic;
     signal reset_al_s           : std_logic;
     signal reset_ah_s           : std_logic;
-    signal mono_sample_s        : t_mono_sample;
-    signal stereo_sample_s      : t_stereo_sample;
-    signal next_sample_s        : std_logic;
-    signal voices_s             : t_voice_array(0 downto 0);
+    signal osc_samples_s        : t_mono_sample_array(1 downto 0);
+    signal mono_mix_s           : t_mono_sample;
+    signal stereo_mix_s         : t_stereo_sample;
+    signal next_osc_sample_s    : std_logic_vector(1 downto 0);
+    signal next_mixer_sample_s  : std_logic;
+    signal voices_s             : t_voice_array(1 downto 0);
     signal status_byte_s        : t_byte;
 
     component BUFG
@@ -54,8 +56,8 @@ begin
     LEDS(7 downto 0)   <= status_byte_s;
     UART_TX            <= MIDI_RX;
 
-    stereo_sample_s(0) <= mono_sample_s;
-    stereo_sample_s(1) <= mono_sample_s;
+    stereo_mix_s(0)    <= mono_mix_s;
+    stereo_mix_s(1)    <= mono_mix_s;
 
     clk_buffer : BUFG
     port map(
@@ -63,9 +65,9 @@ begin
         O => clk_s
     );
 
-    slave : entity work.midi_slave
+    slave : entity wave.midi_slave
     generic map (
-        n_voices                => 1
+        n_voices                => 2
     )
     port map (
         clk                     => clk_s,
@@ -76,27 +78,49 @@ begin
         status_byte             => status_byte_s
     );
 
-    oscillator : entity work.oscillator
+    oscillator_0 : entity wave.oscillator
     port map (
         clk                     => clk_s,
         reset                   => reset_ah_s,
         midi_voice              => voices_s(0),
-        next_sample             => next_sample_s,
-        sample                  => mono_sample_s
+        next_sample             => next_osc_sample_s(0),
+        sample                  => osc_samples_s(0)
     );
 
-    i2s_interface : entity work.i2s_interface
+    oscillator_1 : entity wave.oscillator
+    port map (
+        clk                     => clk_s,
+        reset                   => reset_ah_s,
+        midi_voice              => voices_s(1),
+        next_sample             => next_osc_sample_s(1),
+        sample                  => osc_samples_s(1)
+    );
+
+    mixer : entity wave.mixer
+    generic map (
+        N_INPUTS                => 2
+    )
+    port map (
+        clk                     => clk_s,
+        reset                   => reset_ah_s,
+        next_sample_in          => next_osc_sample_s,
+        sample_in               => osc_samples_s,
+        next_sample_out         => next_mixer_sample_s,
+        sample_out              => mono_mix_s
+    );
+
+    i2s_interface : entity wave.i2s_interface
     port map(
         clk                     => clk_s,
         reset                   => reset_ah_s,
-        sample_in               => stereo_sample_s,
-        next_sample             => next_sample_s,
+        sample_in               => stereo_mix_s,
+        next_sample             => next_mixer_sample_s,
         sdata                   => I2S_SDATA,
         sclk                    => I2S_SCLK,
         wsel                    => I2S_WSEL
     );
 
-    -- microblaze_sys : entity work.microblaze_sys_wrapper
+    -- microblaze_sys : entity wave.microblaze_sys_wrapper
     -- port map(
     --     clk_100MHz              => clk_s,
     --     reset_rtl_0             => reset_al_s,
