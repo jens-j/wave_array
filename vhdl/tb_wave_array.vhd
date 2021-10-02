@@ -27,7 +27,7 @@ begin
 
     tester : entity wave.midi_tester
     generic map (
-        FILENAME                => "two_notes.txt"
+        FILENAME                => "four_notes.txt"
     )
     port map (
         clk                     => clk,

@@ -2,9 +2,9 @@ library ieee;
 use ieee.std_logic_1164.all;
 use ieee.numeric_std.all;
 
-library work;
-use work.wave_array_pkg.all;
-use work.midi_pkg.all;
+library wave;
+use wave.wave_array_pkg.all;
+use wave.midi_pkg.all;
 
 
 entity oscillator is
@@ -100,7 +100,7 @@ architecture arch of oscillator is
 begin
 
     -- Wave table ram
-    wave_ram : entity work.blockram
+    wave_ram : entity wave.blockram
     generic map (
         abits       => WAVE_RES_LOG2,
         dbits       => SAMPLE_WIDTH,
@@ -118,7 +118,7 @@ begin
     );
 
     -- -- Multiplier used for interpolation
-    -- multiplier : entity work.mul
+    -- multiplier : entity wave.mul
     -- generic map (
     --     size_x      => SAMPLE_WIDTH,
     --     size_y      => WAVE_PREC

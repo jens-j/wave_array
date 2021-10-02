@@ -72,7 +72,7 @@ begin
 
                 loop
                     -- Wait until the midi uart fifo has room
-                    -- wait until full'event and full = '0'; -- This does not work in modelsim
+                    wait until clk'event and full = '0'; -- This does not work in modelsim
 
                     hread(v_line_in, v_midi_byte, v_hread_success);
 

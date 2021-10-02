@@ -29,12 +29,12 @@ architecture arch of wave_array is
     signal clk_s                : std_logic;
     signal reset_al_s           : std_logic;
     signal reset_ah_s           : std_logic;
-    signal osc_samples_s        : t_mono_sample_array(1 downto 0);
+    signal osc_samples_s        : t_mono_sample_array(NUMBER_OF_VOICES - 1 downto 0);
     signal mono_mix_s           : t_mono_sample;
     signal stereo_mix_s         : t_stereo_sample;
-    signal next_osc_sample_s    : std_logic_vector(1 downto 0);
+    signal next_osc_sample_s    : std_logic_vector(NUMBER_OF_VOICES - 1 downto 0);
     signal next_mixer_sample_s  : std_logic;
-    signal voices_s             : t_voice_array(1 downto 0);
+    signal voices_s             : t_voice_array(NUMBER_OF_VOICES - 1 downto 0);
     signal status_byte_s        : t_byte;
 
     component BUFG
@@ -50,12 +50,13 @@ begin
     reset_al_s <= BTN_RESET;
 
     -- Connect outputs
-    LEDS(15)           <= BTN_RESET;
-    LEDS(14)           <= voices_s(0).enable;
-    LEDS(13 downto 8)  <= (others => '0');
+    gen_voice_led: for i in 0 to NUMBER_OF_VOICES - 1 generate
+        LEDS(15 - i) <= voices_s(i).enable;
+    end generate;
+
+    LEDS(15 - NUMBER_OF_VOICES downto 8) <= (others => '0');
     LEDS(7 downto 0)   <= status_byte_s;
     UART_TX            <= MIDI_RX;
-
     stereo_mix_s(0)    <= mono_mix_s;
     stereo_mix_s(1)    <= mono_mix_s;
 
@@ -67,7 +68,7 @@ begin
 
     slave : entity wave.midi_slave
     generic map (
-        n_voices                => 2
+        n_voices                => NUMBER_OF_VOICES
     )
     port map (
         clk                     => clk_s,
@@ -78,27 +79,20 @@ begin
         status_byte             => status_byte_s
     );
 
-    oscillator_0 : entity wave.oscillator
-    port map (
-        clk                     => clk_s,
-        reset                   => reset_ah_s,
-        midi_voice              => voices_s(0),
-        next_sample             => next_osc_sample_s(0),
-        sample                  => osc_samples_s(0)
-    );
-
-    oscillator_1 : entity wave.oscillator
-    port map (
-        clk                     => clk_s,
-        reset                   => reset_ah_s,
-        midi_voice              => voices_s(1),
-        next_sample             => next_osc_sample_s(1),
-        sample                  => osc_samples_s(1)
-    );
+    voice_gen : for i in 0 to NUMBER_OF_VOICES - 1 generate
+        voice_n : entity wave.oscillator
+        port map (
+            clk                     => clk_s,
+            reset                   => reset_ah_s,
+            midi_voice              => voices_s(i),
+            next_sample             => next_osc_sample_s(i),
+            sample                  => osc_samples_s(i)
+        );
+    end generate;
 
     mixer : entity wave.mixer
     generic map (
-        N_INPUTS                => 2
+        N_INPUTS                => NUMBER_OF_VOICES
     )
     port map (
         clk                     => clk_s,
