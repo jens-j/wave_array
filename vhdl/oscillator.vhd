@@ -19,9 +19,10 @@ end entity;
 
 architecture arch of oscillator is
 
-    constant TABLE_IDX_MSB : integer := WAVE_RES_LOG2 + WAVE_PREC - 1;
-    constant TABLE_IDX_LSB : integer := WAVE_PREC;
-    constant PREC_ZEROS    : unsigned(WAVE_PREC - 1 downto 0) := (others => '0');
+    constant TABLE_IDX_MSB  : integer := WAVE_RES_LOG2 + WAVE_PREC - 1;
+    constant TABLE_IDX_LSB  : integer := WAVE_PREC;
+    constant TABLE_IDX_SIZE : integer := 2**(WAVE_RES_LOG2 + WAVE_PREC);
+    constant PREC_ZEROS     : unsigned(WAVE_PREC - 1 downto 0) := (others => '0');
 
     -- Used for both addresses and step values. Fixed point 11.16.
     subtype t_table_address is std_logic_vector(TABLE_IDX_MSB downto 0);
@@ -30,30 +31,58 @@ architecture arch of oscillator is
     type t_sample_state is (idle, fetch_a, fetch_b, interpolate_a, interpolate_b,
         store, sum, scale, finalize);
     type t_table_address_array is array (0 to 11) of t_table_address;
+    type t_scale_array is array (0 to 11) of real;
+
+    -- Frequencies of the 9th octave (starting at C)
+    constant OCT9_FREQS : t_scale_array := (
+        8372.16,  -- C
+        8869.76,  -- C#
+        9397.12,  -- D
+        9956.16,  -- D#
+        10548.16, -- E
+        11175.36, -- F
+        11839.68, -- F#
+        12544.00, -- G
+        13289.60, -- G#
+        14080.00, -- A
+        14917.12, -- A#
+        15804.16  -- B
+    );
+
+    function generate_base_step_array return t_table_address_array is
+        -- variable v_real : real;
+        -- variable v_integer : integer;
+        -- variable v_unsigned : unsigned(t_table_address'length - 1 downto 0);
+        variable v_base_step_array : t_table_address_array;
+    begin
+        for i in 0 to 11  loop
+            -- v_real := real(TABLE_IDX_MAX) / (real(SAMPLE_RATE) * OCT9_FREQS(i));
+            -- v_integer := integer(v_real);
+            -- v_unsigned := to_unsigned(v_integer, t_table_address'length);
+            -- v_base_step_array(i) := std_logic_vector(v_unsigned);
+
+            v_base_step_array(i) :=
+                std_logic_vector(
+                    to_unsigned(
+                        integer(real(TABLE_IDX_SIZE) * OCT9_FREQS(i) / real(SAMPLE_RATE)),
+                        t_table_address'length
+                    )
+                );
+        end loop;
+
+        return v_base_step_array;
+    end function;
 
     -- Step values (angular velocity) for notes c9 to b9, the highest octave in midi.
     -- These values are shifted to the right for lower octaves.
-    constant BASE_STEP : t_table_address_array := (
-        27x"16534C8", -- C9
-        27x"17A724E", -- C#9
-        27x"190F323", -- D9
-        27x"1A8CAB9", -- D#9
-        27x"1C20D29", -- E9
-        27x"1DCD013", -- F9
-        27x"1F92A68", -- F#9
-        27x"2173466", -- G9
-        27x"237079E", -- G#9
-        27x"258BF25", -- A9
-        27x"27C780A", -- A#9
-        27x"2A250A9"  -- B9
-    );
+    constant BASE_STEP : t_table_address_array := generate_base_step_array;
 
     type t_osc_reg is record
         midi_state              : t_midi_state;
         midi_voice              : t_midi_voice;
         sample_state            : t_sample_state;
         sample                  : t_mono_sample;
-        next_sample             : t_mono_sample;
+        sample_buffer           : t_mono_sample;
         table_address           : t_table_address; -- fixed point wave table index
         table_step              : t_table_address; -- fixed point wave table velocity
         octave_shift            : integer range 0 to 10; -- number of shifts from BASE_STEP to current octave
@@ -70,7 +99,7 @@ architecture arch of oscillator is
         midi_voice              => MIDI_VOICE_INIT,
         sample_state            => idle,
         sample                  => (others => '0'),
-        next_sample             => (others => '0'),
+        sample_buffer           => (others => '0'),
         table_address           => (others => '0'),
         table_step              => (others => '0'),
         octave_shift            => 0,
@@ -104,7 +133,7 @@ begin
     generic map (
         abits       => WAVE_RES_LOG2,
         dbits       => SAMPLE_WIDTH,
-        init_file   => "saw.data"
+        init_file   => "sine.data"
     )
     port map(
         rclk        => clk,
@@ -194,7 +223,7 @@ begin
                 r_in.interpolation_buffer_b <= (others => '0');
 
                 if next_sample = '1' then
-                    r_in.sample <= r.next_sample;
+                    r_in.sample <= r.sample_buffer;
 
                     -- Update table address even when the voice is disabled.
                     r_in.table_address  <= std_logic_vector(
@@ -202,7 +231,7 @@ begin
 
                     if r.midi_voice.enable = '0' then
                         r_in.sample_state <= idle;
-                        r_in.next_sample  <= (others => '0');
+                        r_in.sample_buffer  <= (others => '0');
                     else
                         r_in.sample_state <= fetch_a;
                     end if;
@@ -252,19 +281,19 @@ begin
                     unsigned(r.interpolation_buffer_a) + unsigned(r.interpolation_buffer_b));
 
                 -- Round to integer
-                r_in.next_sample <=
+                r_in.sample_buffer <=
                     v_interpolation_sum(SAMPLE_WIDTH + WAVE_PREC - 1 downto WAVE_PREC);
 
             -- Apply note enable and velocity.
             when scale =>
                 r_in.sample_state <= finalize;
-                mul_x_s           <= r.next_sample;
-                mul_y_s           <= (WAVE_PREC - 1 downto 7 => '0') & r.midi_voice.velocity;
+                mul_x_s           <= r.sample_buffer;
+                mul_y_s           <= (7 to WAVE_PREC - 1 => '0') & r.midi_voice.velocity;
 
             -- Normalize through dividing by 128
             when finalize =>
-                r_in.sample_state <= idle;
-                r_in.next_sample  <= r.mul_z(SAMPLE_WIDTH - 1 + 7  downto 7);
+                r_in.sample_state  <= idle;
+                r_in.sample_buffer <= r.mul_z(SAMPLE_WIDTH - 1 + 7  downto 7);
 
         end case;
 

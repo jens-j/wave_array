@@ -69,9 +69,10 @@ begin
             if r.bit_count = 0 then
                 r_in.bit_count <= SAMPLE_WIDTH - 1;
                 r_in.word_select <= not r.word_select;
-                if r.word_select = '1' then
+
+                if r.word_select = '0' then
                     -- Convert samples to 2s complement.
-                    r_in.send_buffer <= stereo_sample_to_2sc(sample_in);
+                    r_in.send_buffer <= sample_in;
                     r_in.next_sample <= '1';
                 end if;
             else

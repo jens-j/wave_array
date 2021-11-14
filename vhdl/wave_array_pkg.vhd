@@ -10,7 +10,7 @@ package wave_array_pkg is
 
     constant SAMPLE_WIDTH           : integer := 16;
     constant SAMPLE_MAX             : integer := 2**SAMPLE_WIDTH - 1;
-    constant SAMPLE_RATE            : integer := 2**16; -- This is fixed because it is used to simplify a lot of things.
+    constant SAMPLE_RATE            : integer := 50_000; -- SYS_FREQ should be an integer multiple of SAMPLE_RATE
 
     constant WAVE_RES_LOG2          : integer := 11;
     constant WAVE_RES               : integer := 2**WAVE_RES_LOG2; -- Number of samples per wave table.
@@ -26,10 +26,10 @@ package wave_array_pkg is
     type t_stereo_sample_array is array (integer range <>) of t_stereo_sample;
 
     -- Re-scale sample from unsigned to signed while preserving the full range.
-    pure function mono_sample_to_2sc (x : t_mono_sample) return t_mono_sample;
+    function mono_sample_to_2sc (x : t_mono_sample) return t_mono_sample;
 
     -- Re-scale sample from unsigned to signed while preserving the full range.
-    pure function stereo_sample_to_2sc (x : t_stereo_sample) return t_stereo_sample;
+    function stereo_sample_to_2sc (x : t_stereo_sample) return t_stereo_sample;
 
 end package;
 
@@ -37,7 +37,7 @@ end package;
 package body wave_array_pkg is
 
     -- Re-scale sample from unsigned to signed while preserving the full range.
-    pure function mono_sample_to_2sc (x : t_mono_sample) return t_mono_sample is
+    function mono_sample_to_2sc (x : t_mono_sample) return t_mono_sample is
         variable v_return : t_mono_sample := x;
     begin
         -- Flip the msb.
@@ -46,7 +46,7 @@ package body wave_array_pkg is
     end function;
 
     -- Re-scale sample from unsigned to signed while preserving the full range.
-    pure function stereo_sample_to_2sc (x : t_stereo_sample) return t_stereo_sample is
+    function stereo_sample_to_2sc (x : t_stereo_sample) return t_stereo_sample is
     begin
         return (mono_sample_to_2sc(x(0)), mono_sample_to_2sc(x(1)));
     end function;

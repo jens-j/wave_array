@@ -32,8 +32,7 @@ architecture arch of wave_array is
     signal osc_samples_s        : t_mono_sample_array(NUMBER_OF_VOICES - 1 downto 0);
     signal mono_mix_s           : t_mono_sample;
     signal stereo_mix_s         : t_stereo_sample;
-    signal next_osc_sample_s    : std_logic_vector(NUMBER_OF_VOICES - 1 downto 0);
-    signal next_mixer_sample_s  : std_logic;
+    signal next_sample_s        : std_logic;
     signal voices_s             : t_voice_array(NUMBER_OF_VOICES - 1 downto 0);
     signal status_byte_s        : t_byte;
 
@@ -85,7 +84,7 @@ begin
             clk                     => clk_s,
             reset                   => reset_ah_s,
             midi_voice              => voices_s(i),
-            next_sample             => next_osc_sample_s(i),
+            next_sample             => next_sample_s,
             sample                  => osc_samples_s(i)
         );
     end generate;
@@ -97,9 +96,8 @@ begin
     port map (
         clk                     => clk_s,
         reset                   => reset_ah_s,
-        next_sample_in          => next_osc_sample_s,
         sample_in               => osc_samples_s,
-        next_sample_out         => next_mixer_sample_s,
+        next_sample             => next_sample_s,
         sample_out              => mono_mix_s
     );
 
@@ -108,7 +106,7 @@ begin
         clk                     => clk_s,
         reset                   => reset_ah_s,
         sample_in               => stereo_mix_s,
-        next_sample             => next_mixer_sample_s,
+        next_sample             => next_sample_s,
         sdata                   => I2S_SDATA,
         sclk                    => I2S_SCLK,
         wsel                    => I2S_WSEL
