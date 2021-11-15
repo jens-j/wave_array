@@ -88,10 +88,11 @@ architecture arch of oscillator is
         octave_shift            : integer range 0 to 10; -- number of shifts from BASE_STEP to current octave
         sample_a                : t_mono_sample;
         sample_b                : t_mono_sample;
-        interpolation_buffer_a  : std_logic_vector(SAMPLE_WIDTH + WAVE_PREC - 1 downto 0);
-        interpolation_buffer_b  : std_logic_vector(SAMPLE_WIDTH + WAVE_PREC - 1 downto 0);
-        mul_z                   : std_logic_vector(SAMPLE_WIDTH + WAVE_PREC - 1 downto 0);
+        interpolation_buffer_a  : std_logic_vector(SAMPLE_WIDTH + WAVE_PREC downto 0);
+        interpolation_buffer_b  : std_logic_vector(SAMPLE_WIDTH + WAVE_PREC downto 0);
+        mul_z                   : std_logic_vector(SAMPLE_WIDTH + WAVE_PREC downto 0);
         address_frac_inv        : std_logic_vector(WAVE_PREC - 1 downto 0); -- 1 - table address fraction
+        scaled_velocity         : std_logic_vector(7 downto 0); -- increase midi velocity range to [0, 2 - 128] to allow easy normalization
     end record;
 
     constant REG_INIT : t_osc_reg := (
@@ -108,7 +109,8 @@ architecture arch of oscillator is
         interpolation_buffer_a  => (others => '0'),
         interpolation_buffer_b  => (others => '0'),
         mul_z                   => (others => '0'),
-        address_frac_inv        => (others => '0')
+        address_frac_inv        => (others => '0'),
+        scaled_velocity         => (others => '0')
     );
 
     -- Register.
@@ -123,8 +125,8 @@ architecture arch of oscillator is
     signal wdata_s              : std_logic_vector(SAMPLE_WIDTH-1 downto 0);
 
     -- Multipler signals.
-    signal mul_x_s              : std_logic_vector(SAMPLE_WIDTH - 1 downto 0);
-    signal mul_y_s              : std_logic_vector(WAVE_PREC - 1 downto 0);
+    signal mul_x_s              : std_logic_vector(SAMPLE_WIDTH - 1 downto 0); -- Sample input.
+    signal mul_y_s              : std_logic_vector(WAVE_PREC downto 0); -- Table address fraction input. Add one bit for 2's comp encoding.
 
 begin
 
@@ -162,7 +164,7 @@ begin
     combinatorial : process (r, midi_voice, next_sample, rdata_s, mul_x_s, mul_y_s)
         variable v_table_index_int : integer;
         variable v_base_step : t_table_address;
-        variable v_interpolation_sum : std_logic_vector(SAMPLE_WIDTH + WAVE_PREC - 1 downto 0);
+        variable v_interpolation_sum : std_logic_vector(SAMPLE_WIDTH + WAVE_PREC downto 0);
     begin
 
         v_base_step := BASE_STEP(midi_voice.note.key);
@@ -188,7 +190,7 @@ begin
         sample      <= r.sample;
 
         -- Instantiate multiplier.
-        r_in.mul_z  <= std_logic_vector(unsigned(mul_x_s) * unsigned(mul_y_s));
+        r_in.mul_z  <= std_logic_vector(signed(mul_x_s) * signed(mul_y_s));
         r_in.midi_voice <= midi_voice;
 
         -- State machine that calculates a new table_step value based on the midi note.
@@ -243,9 +245,17 @@ begin
                 ren_s                   <= '1';
                 raddr_s                 <= r.table_address(TABLE_IDX_MSB downto TABLE_IDX_LSB);
 
-                -- Pre  calculate 1 - table index fraction.
+                -- Pre-calculate 1 - table index fraction.
                 r_in.address_frac_inv   <= std_logic_vector(PREC_ZEROS
                     - unsigned(r.table_address(WAVE_PREC-1 downto 0)));
+
+                -- Scale midi velocity
+                if r.midi_voice.velocity = (0 to 6 => '0') then
+                    r_in.scaled_velocity <= (others => '0');
+                else
+                    r_in.scaled_velocity <= std_logic_vector(
+                        resize(unsigned(r.midi_voice.velocity), 8) + 1);
+                end if;
 
             -- Fetch the ceiling of the table address.
             when fetch_b =>
@@ -260,14 +270,14 @@ begin
                 r_in.sample_state   <= interpolate_b;
                 r_in.sample_b       <= rdata_s;
                 mul_x_s             <= r.sample_a;
-                mul_y_s             <= r.address_frac_inv;
+                mul_y_s             <= '0' & r.address_frac_inv;
 
             -- Multiply second part of interpolation.
             when interpolate_b =>
                 r_in.sample_state           <= store;
                 r_in.interpolation_buffer_a <= r.mul_z;
                 mul_x_s                     <= r.sample_b;
-                mul_y_s                     <= r.table_address(WAVE_PREC-1 downto 0);
+                mul_y_s                     <= '0' & r.table_address(WAVE_PREC-1 downto 0);
 
             when store =>
                 r_in.sample_state           <= sum;
@@ -278,7 +288,7 @@ begin
                 r_in.sample_state <= scale;
 
                 v_interpolation_sum := std_logic_vector(
-                    unsigned(r.interpolation_buffer_a) + unsigned(r.interpolation_buffer_b));
+                    signed(r.interpolation_buffer_a) + signed(r.interpolation_buffer_b));
 
                 -- Round to integer
                 r_in.sample_buffer <=
@@ -288,7 +298,7 @@ begin
             when scale =>
                 r_in.sample_state <= finalize;
                 mul_x_s           <= r.sample_buffer;
-                mul_y_s           <= (7 to WAVE_PREC - 1 => '0') & r.midi_voice.velocity;
+                mul_y_s           <= (8 to WAVE_PREC => '0') & r.scaled_velocity;
 
             -- Normalize through dividing by 128
             when finalize =>
