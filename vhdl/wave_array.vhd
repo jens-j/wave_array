@@ -26,7 +26,8 @@ end entity;
 
 architecture arch of wave_array is
 
-    signal clk_s                : std_logic;
+    signal system_clk_s         : std_logic;
+    signal i2s_clk_s            : std_logic;
     signal reset_al_s           : std_logic;
     signal reset_ah_s           : std_logic;
     signal osc_samples_s        : t_mono_sample_array(NUMBER_OF_VOICES - 1 downto 0);
@@ -36,33 +37,31 @@ architecture arch of wave_array is
     signal voices_s             : t_voice_array(NUMBER_OF_VOICES - 1 downto 0);
     signal status_byte_s        : t_byte;
 
-    component BUFG
-    port (
-        I: in std_logic;
-        O: out std_logic);
-    end component;
-
 begin
 
     -- Connect inputs.
     reset_ah_s <= not BTN_RESET;
     reset_al_s <= BTN_RESET;
 
-    -- Connect outputs
+    -- Connect outputs.
     gen_voice_led: for i in 0 to NUMBER_OF_VOICES - 1 generate
         LEDS(15 - i) <= voices_s(i).enable;
     end generate;
-
     LEDS(15 - NUMBER_OF_VOICES downto 8) <= (others => '0');
     LEDS(7 downto 0)   <= status_byte_s;
     UART_TX            <= MIDI_RX;
+    I2S_SCLK           <= i2s_clk_s;
+
+    -- Connect internal signals.
     stereo_mix_s(0)    <= mono_mix_s;
     stereo_mix_s(1)    <= mono_mix_s;
 
-    clk_buffer : BUFG
-    port map(
-        I => EXT_CLK,
-        O => clk_s
+    clk_gen : entity wave.clk_generator_wrapper
+    port map (
+        reset                   => reset_ah_s,
+        ext_clk                 => EXT_CLK,         -- 100 MHz
+        system_clk              => system_clk_s,    -- 100 MHz
+        i2s_clk                 => i2s_clk_s        -- 1536017.5 Hz
     );
 
     slave : entity wave.midi_slave
@@ -70,7 +69,7 @@ begin
         n_voices                => NUMBER_OF_VOICES
     )
     port map (
-        clk                     => clk_s,
+        clk                     => system_clk_s,
         reset                   => reset_ah_s,
         uart_rx                 => MIDI_RX,
         midi_channel            => SWITCHES(3 downto 0),
@@ -81,7 +80,7 @@ begin
     voice_gen : for i in 0 to NUMBER_OF_VOICES - 1 generate
         voice_n : entity wave.oscillator
         port map (
-            clk                     => clk_s,
+            clk                     => system_clk_s,
             reset                   => reset_ah_s,
             midi_voice              => voices_s(i),
             next_sample             => next_sample_s,
@@ -94,7 +93,7 @@ begin
         N_INPUTS                => NUMBER_OF_VOICES
     )
     port map (
-        clk                     => clk_s,
+        clk                     => system_clk_s,
         reset                   => reset_ah_s,
         sample_in               => osc_samples_s,
         next_sample             => next_sample_s,
@@ -103,18 +102,18 @@ begin
 
     i2s_interface : entity wave.i2s_interface
     port map(
-        clk                     => clk_s,
+        system_clk              => system_clk_s,
+        i2s_clk                 => i2s_clk_s,
         reset                   => reset_ah_s,
         sample_in               => stereo_mix_s,
         next_sample             => next_sample_s,
         sdata                   => I2S_SDATA,
-        sclk                    => I2S_SCLK,
         wsel                    => I2S_WSEL
     );
 
     -- microblaze_sys : entity wave.microblaze_sys_wrapper
     -- port map(
-    --     clk_100MHz              => clk_s,
+    --     clk_100MHz              => system_clk_s,
     --     reset_rtl_0             => reset_al_s,
     --     uart_rtl_0_rxd          => UART_RX,
     --     uart_rtl_0_txd          => UART_TX,
