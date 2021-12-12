@@ -92,7 +92,7 @@ architecture arch of oscillator is
         interpolation_buffer_b  : std_logic_vector(SAMPLE_WIDTH + WAVE_PREC downto 0);
         mul_z                   : std_logic_vector(SAMPLE_WIDTH + WAVE_PREC downto 0);
         address_frac_inv        : std_logic_vector(WAVE_PREC - 1 downto 0); -- 1 - table address fraction
-        scaled_velocity         : std_logic_vector(7 downto 0); -- increase midi velocity range to [0, 2 - 128] to allow easy normalization
+        offset_velocity         : std_logic_vector(7 downto 0); -- offset midi velocity range to [1 - 128] to allow easy normalization
     end record;
 
     constant REG_INIT : t_osc_reg := (
@@ -110,7 +110,7 @@ architecture arch of oscillator is
         interpolation_buffer_b  => (others => '0'),
         mul_z                   => (others => '0'),
         address_frac_inv        => (others => '0'),
-        scaled_velocity         => (others => '0')
+        offset_velocity         => (others => '0')
     );
 
     -- Register.
@@ -227,15 +227,16 @@ begin
                 if next_sample = '1' then
                     r_in.sample <= r.sample_buffer;
 
-                    -- Update table address even when the voice is disabled.
-                    r_in.table_address  <= std_logic_vector(
-                        unsigned(r.table_address) + unsigned(r.table_step));
-
-                    if r.midi_voice.enable = '0' then
+                    if r.midi_voice.enable = '0' or r.midi_voice.velocity = (0 to 6 => '0') then
                         r_in.sample_state <= idle;
-                        r_in.sample_buffer  <= (others => '0');
+                        r_in.sample_buffer <= (others => '0');
+                        r_in.table_address <= (others => '0'); -- Reset phase when voice is disabled.
                     else
                         r_in.sample_state <= fetch_a;
+
+                        -- Update table address.
+                        r_in.table_address <= std_logic_vector(
+                            unsigned(r.table_address) + unsigned(r.table_step));
                     end if;
                 end if;
 
@@ -249,13 +250,9 @@ begin
                 r_in.address_frac_inv   <= std_logic_vector(PREC_ZEROS
                     - unsigned(r.table_address(WAVE_PREC-1 downto 0)));
 
-                -- Scale midi velocity
-                if r.midi_voice.velocity = (0 to 6 => '0') then
-                    r_in.scaled_velocity <= (others => '0');
-                else
-                    r_in.scaled_velocity <= std_logic_vector(
-                        resize(unsigned(r.midi_voice.velocity), 8) + 1);
-                end if;
+                -- offset midi velocity to [1 - 128] to allow for easy normalization.
+                r_in.offset_velocity <= std_logic_vector(
+                    resize(unsigned(r.midi_voice.velocity), 8) + 1);
 
             -- Fetch the ceiling of the table address.
             when fetch_b =>
@@ -298,7 +295,7 @@ begin
             when scale =>
                 r_in.sample_state <= finalize;
                 mul_x_s           <= r.sample_buffer;
-                mul_y_s           <= (8 to WAVE_PREC => '0') & r.scaled_velocity;
+                mul_y_s           <= (8 to WAVE_PREC => '0') & r.offset_velocity;
 
             -- Normalize through dividing by 128
             when finalize =>

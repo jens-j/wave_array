@@ -4,6 +4,12 @@ use IEEE.numeric_std.all;
 
 package wave_array_pkg is
 
+    constant SIMULATION : boolean := false
+ -- synthesis translate_off
+    or true
+ -- synthesis translate_on
+    ;
+
     constant SYS_FREQ               : integer := 100_000_000;
 
     constant NUMBER_OF_VOICES       : positive := 4;
