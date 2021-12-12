@@ -1,5 +1,7 @@
 
-create_clock -add -name sys_clk_pin -period 10.00 -waveform {0 5} [get_nets clk_s]
+create_clock -add -name system_clk -period 10.00 -waveform {0 5} [get_nets system_clk_s]
+create_clock -add -name i2s_clk -period 10.00 -waveform {0 5} [get_nets i2s_clk_s]
+
 
 ## Bank = 35, Pin name = IO_L12P_T1_MRCC_35, Sch name = CLK100MHZ
 set_property PACKAGE_PIN E3 [get_ports EXT_CLK]
