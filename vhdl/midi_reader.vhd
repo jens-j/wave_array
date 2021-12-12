@@ -61,6 +61,11 @@ begin
             --string_init(v_command);
             string_read(v_line_in, v_command, v_string_length);
 
+            -- Skip comment lines (strings start at 1).
+            if v_command(1) = '#' then
+                next;
+            end if;
+
             if v_command = "wait" then
 
                 -- Read wait time in ms from line
