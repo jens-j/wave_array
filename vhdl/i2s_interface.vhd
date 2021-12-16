@@ -26,22 +26,48 @@ architecture arch of i2s_interface is
     signal serializer_sample_in_s   : std_logic_vector(2 * SAMPLE_WIDTH - 1 downto 0);
     signal fifo_full_s              : std_logic;
 
+    component i2s_fifo
+    port (
+        rst : in std_logic;
+        wr_clk : in std_logic;
+        rd_clk : in std_logic;
+        din : in std_logic_vector(31 downto 0);
+        wr_en : in std_logic;
+        rd_en : in std_logic;
+        dout : out std_logic_vector(31 downto 0);
+        full : out std_logic;
+        empty : out std_logic);
+    end component;
+
 begin
 
     next_sample <= not fifo_full_s;
 
-    i2s_fifo : entity wave.i2s_fifo
+    fifo : i2s_fifo
     port map (
         rst                     => reset,
         wr_clk                  => system_clk,
         rd_clk                  => i2s_clk,
-        din                     => sample_in(1) & sample_in(0),
+        din                     => std_logic_vector'(sample_in(1) & sample_in(0)),
         wr_en                   => not fifo_full_s,
         rd_en                   => serializer_next_sample_s,
         dout                    => serializer_sample_in_s,
         full                    => fifo_full_s,
         empty                   => open
     );
+    --
+    -- i2s_fifo : entity wave.i2s_fifo
+    -- port map (
+    --     rst                     => reset,
+    --     wr_clk                  => system_clk,
+    --     rd_clk                  => i2s_clk,
+    --     din                     => std_logic_vector'(sample_in(1) & sample_in(0)),
+    --     wr_en                   => not fifo_full_s,
+    --     rd_en                   => serializer_next_sample_s,
+    --     dout                    => serializer_sample_in_s,
+    --     full                    => fifo_full_s,
+    --     empty                   => open
+    -- );
 
     i2s_serializer : entity wave.i2s_serializer
     port map (

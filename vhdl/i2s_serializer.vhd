@@ -71,7 +71,7 @@ begin
 
     reg_process : process(i2s_clk)
     begin
-        if rising_edge(i2s_clk) then
+        if falling_edge(i2s_clk) then
             if reset = '1' then
                 r <= R_INIT;
             else
