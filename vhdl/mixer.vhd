@@ -30,7 +30,7 @@ architecture arch of mixer is
 
     type t_mixer_reg is record
         state                   : t_state;
-        mix_buffer              : t_mix_buffer;
+        mix_buffer              : signed(t_mix_buffer'length - 1 downto 0);
         sample_out              : t_mono_sample;
         counter                 : integer range 0 to N_INPUTS - 1;
     end record;
@@ -63,13 +63,9 @@ begin
                 r_in.counter    <= 0;
             end if;
         else
-            -- Extend msb of sample to accomodate accumulator width.
-            v_extended_sample :=
-                (N_INPUTS_LOG2 - 1 downto 0 => sample_in(r.counter)(t_mono_sample'length - 1))
-                & sample_in(r.counter);
 
-            -- Add shifted sample to accumulator.
-            r_in.mix_buffer <= std_logic_vector(unsigned(r.mix_buffer) + unsigned(v_extended_sample));
+            r_in.mix_buffer <= resize(signed(r.mix_buffer), t_mono_sample'length + N_INPUTS_LOG2)
+                + resize(signed(sample_in(r.counter)), t_mono_sample'length + N_INPUTS_LOG2);
 
             if r.counter = N_INPUTS - 1 then
                 r_in.state <= idle;

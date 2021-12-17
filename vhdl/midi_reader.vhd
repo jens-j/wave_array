@@ -55,7 +55,7 @@ begin
         while not endfile(input_file) loop
 
             readline(input_file, v_line_in);
-            report "line read: " & integer'image(v_line_in'length);
+            -- report "line read: " & integer'image(v_line_in'length);
             next when v_line_in'length = 0;  -- Skip empty lines
 
             --string_init(v_command);
@@ -70,7 +70,7 @@ begin
 
                 -- Read wait time in ms from line
                 read(v_line_in, v_wait_time, v_hread_success);
-                report "wait for " & integer'image(v_wait_time) & " ms";
+                -- report "wait for " & integer'image(v_wait_time) & " ms";
                 wait for v_wait_time * 1 ms;
 
             elsif v_command = "send" then
@@ -85,7 +85,7 @@ begin
                         exit;
                     end if;
 
-                    report "send byte " & integer'image(to_integer(unsigned(v_midi_byte)));
+                    -- report "send byte " & integer'image(to_integer(unsigned(v_midi_byte)));
 
                     -- report boolean'image(v_hread_success);
                         -- & boolean'image(v_hread_success));

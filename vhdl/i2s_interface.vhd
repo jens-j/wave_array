@@ -48,7 +48,7 @@ begin
         rst                     => reset,
         wr_clk                  => system_clk,
         rd_clk                  => i2s_clk,
-        din                     => std_logic_vector'(sample_in(1) & sample_in(0)),
+        din                     => std_logic_vector(sample_in(1)) & std_logic_vector(sample_in(0)),
         wr_en                   => not fifo_full_s,
         rd_en                   => serializer_next_sample_s,
         dout                    => serializer_sample_in_s,
