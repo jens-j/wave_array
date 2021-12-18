@@ -180,28 +180,28 @@ set_property IOSTANDARD LVCMOS33 [get_ports {DISPLAY_ANODES[6]}]
 set_property PACKAGE_PIN M1 [get_ports {DISPLAY_ANODES[7]}]
 set_property IOSTANDARD LVCMOS33 [get_ports {DISPLAY_ANODES[7]}]
 
-## Pmod Header JXADC
+## Pmod Header JXADC (schematic numbers do not match pcb print and example project [1,2,3,4] -> [3,10,2,11])
 ## Bank = 15, Pin name = IO_L9P_T1_DQS_AD3P_15,Sch name = XADC1_P -> XA1_P
-set_property PACKAGE_PIN A13 [get_ports {XADC_IN_P[0]}]
-set_property IOSTANDARD LVCMOS33 [get_ports {XADC_IN_P[0]}]
+set_property PACKAGE_PIN A13 [get_ports {XADC_3P}]
+set_property IOSTANDARD LVCMOS33 [get_ports {XADC_3P}]
 ## Bank = 15, Pin name = IO_L8P_T1_AD10P_15,Sch name = XADC2_P -> XA2_P
-set_property PACKAGE_PIN A15 [get_ports {XADC_IN_P[1]}]
-set_property IOSTANDARD LVCMOS33 [get_ports {XADC_IN_P[1]}]
+#set_property PACKAGE_PIN A15 [get_ports {XADC_10P}]
+#set_property IOSTANDARD LVCMOS33 [get_ports {XADC_10P}]
 ## Bank = 15, Pin name = IO_L7P_T1_AD2P_15,Sch name = XADC3_P -> XA3_P
-set_property PACKAGE_PIN B16 [get_ports {XADC_IN_P[2]}]
-set_property IOSTANDARD LVCMOS33 [get_ports {XADC_IN_P[2]}]
+#set_property PACKAGE_PIN B16 [get_ports {XADC_2P}]
+#set_property IOSTANDARD LVCMOS33 [get_ports {XADC_2P}]
 ## Bank = 15, Pin name = IO_L10P_T1_AD11P_15,Sch name = XADC4_P -> XA4_P
-set_property PACKAGE_PIN B18 [get_ports {XADC_IN_P[3]}]
-set_property IOSTANDARD LVCMOS33 [get_ports {XADC_IN_P[3]}]
+#set_property PACKAGE_PIN B18 [get_ports {XADC_11P}]
+#set_property IOSTANDARD LVCMOS33 [get_ports {XADC_11P}]
 ## Bank = 15, Pin name = IO_L9N_T1_DQS_AD3N_15,Sch name = XADC1_N -> XA1_N
-set_property PACKAGE_PIN A14 [get_ports {XADC_IN_N[0]}]
-set_property IOSTANDARD LVCMOS33 [get_ports {XADC_IN_N[0]}]
+set_property PACKAGE_PIN A14 [get_ports {XADC_3N}]
+set_property IOSTANDARD LVCMOS33 [get_ports {XADC_3N}]
 ## Bank = 15, Pin name = IO_L8N_T1_AD10N_15,Sch name = XADC2_N -> XA2_N
-set_property PACKAGE_PIN A16 [get_ports {XADC_IN_N[1]}]
-set_property IOSTANDARD LVCMOS33 [get_ports {XADC_IN_N[1]}]
+#set_property PACKAGE_PIN A16 [get_ports {XADC_10N}]
+#set_property IOSTANDARD LVCMOS33 [get_ports {XADC_10N}]
 ## Bank = 15, Pin name = IO_L7N_T1_AD2N_15,Sch name = XADC3_N -> XA3_N
-set_property PACKAGE_PIN B17 [get_ports {XADC_IN_N[2]}]
-set_property IOSTANDARD LVCMOS33 [get_ports {XADC_IN_N[2]}]
+#set_property PACKAGE_PIN B17 [get_ports {XADC_2N}]
+#set_property IOSTANDARD LVCMOS33 [get_ports {XADC_2N}]
 ## Bank = 15, Pin name = IO_L10N_T1_AD11N_15,Sch name = XADC4_N -> XA4_N
-set_property PACKAGE_PIN A18 [get_ports {XADC_IN_N[3]}]
-set_property IOSTANDARD LVCMOS33 [get_ports {XADC_IN_N[3]}]
+#set_property PACKAGE_PIN A18 [get_ports {XADC_11N}]
+#set_property IOSTANDARD LVCMOS33 [get_ports {XADC_11N}]

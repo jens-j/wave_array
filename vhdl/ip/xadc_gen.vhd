@@ -63,8 +63,8 @@ entity xadc_gen is
     drdy_out        : out  STD_LOGIC;                        -- Data ready signal for the dynamic reconfiguration port
     dclk_in         : in  STD_LOGIC;                         -- Clock input for the dynamic reconfiguration port
     reset_in        : in  STD_LOGIC;                         -- Reset signal for the System Monitor control logic
-    vauxp0          : in  STD_LOGIC;                         -- Auxiliary Channel 0
-    vauxn0          : in  STD_LOGIC;
+    vauxp3          : in  STD_LOGIC;                         -- Auxiliary Channel 3
+    vauxn3          : in  STD_LOGIC;
     busy_out        : out  STD_LOGIC;                        -- ADC Busy signal
     channel_out     : out  STD_LOGIC_VECTOR (4 downto 0);    -- Channel Selection Outputs
     eoc_out         : out  STD_LOGIC;                        -- End of Conversion Signal
@@ -94,8 +94,8 @@ begin
 
        alarm_out <= alm_int(7);
 
-        aux_channel_p(0) <= vauxp0;
-        aux_channel_n(0) <= vauxn0;
+        aux_channel_p(0) <= '0';
+        aux_channel_n(0) <= '0';
 
         aux_channel_p(1) <= '0';
         aux_channel_n(1) <= '0';
@@ -103,8 +103,8 @@ begin
         aux_channel_p(2) <= '0';
         aux_channel_n(2) <= '0';
 
-        aux_channel_p(3) <= '0';
-        aux_channel_n(3) <= '0';
+        aux_channel_p(3) <= vauxp3;
+        aux_channel_n(3) <= vauxn3;
 
         aux_channel_p(4) <= '0';
         aux_channel_n(4) <= '0';
@@ -144,7 +144,7 @@ begin
 
  U0 : XADC
      generic map(
-        INIT_40 => X"2010", -- config reg 0
+        INIT_40 => X"2013", -- config reg 0
         INIT_41 => X"31AF", -- config reg 1
         INIT_42 => X"0400", -- config reg 2
         INIT_48 => X"0100", -- Sequencer channel selection

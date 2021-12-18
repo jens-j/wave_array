@@ -21,8 +21,8 @@ entity wave_array is
         I2S_SCLK                : out std_logic;
         I2S_WSEL                : out std_logic;
         I2S_SDATA               : out std_logic;
-        XADC_IN_P               : in  std_logic_vector(3 downto 0);
-        XADC_IN_N               : in  std_logic_vector(3 downto 0);
+        XADC_3P                 : in  std_logic;
+        XADC_3N                 : in  std_logic;
         DISPLAY_SEGMENTS        : out std_logic_vector(6 downto 0);
         DISPLAY_ANODES          : out std_logic_vector(7 downto 0)
     );
@@ -112,8 +112,8 @@ begin
     port map (
         clk                     => system_clk_s,
         reset                   => reset_ah_s,
-        vauxp0                  => XADC_IN_P(0),
-        vauxn0                  => XADC_IN_N(0),
+        vauxp3                  => XADC_3P,
+        vauxn3                  => XADC_3N,
         value                   => input_value_s
     );
 

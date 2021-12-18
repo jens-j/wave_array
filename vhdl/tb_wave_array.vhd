@@ -22,8 +22,8 @@ architecture arch of tb_wave_array is
     signal midi_uart        : std_logic;
     signal leds             : std_logic_vector(15 downto 0);
     signal switches         : std_logic_vector(15 downto 0);
-    signal xadc_in_p        : std_logic_vector(3 downto 0);
-    signal xadc_in_n        : std_logic_vector(3 downto 0);
+    signal xadc_3p          : std_logic;
+    signal xadc_3n          : std_logic;
     signal display_segments : std_logic_vector(6 downto 0);
     signal display_anodes   : std_logic_vector(7 downto 0);
 
@@ -51,8 +51,8 @@ begin
         I2S_SCLK                => sclk,
         I2S_WSEL                => wsel,
         I2S_SDATA               => sdata,
-        XADC_IN_P               => xadc_in_p,
-        XADC_IN_N               => xadc_in_n,
+        XADC_3P                 => xadc_3p,
+        XADC_3N                 => xadc_3n,
         DISPLAY_SEGMENTS        => display_segments,
         DISPLAY_ANODES          => display_anodes
     );

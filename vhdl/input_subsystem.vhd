@@ -10,8 +10,8 @@ entity input_subsystem is
     port (
         clk                     : in  std_logic;
         reset                   : in  std_logic;
-        vauxp0                  : in  std_logic;
-        vauxn0                  : in  std_logic;
+        vauxp3                  : in  std_logic;
+        vauxn3                  : in  std_logic;
         value                   : out std_logic_vector(15 downto 0)
     );
 end entity;
@@ -53,8 +53,8 @@ architecture arch of input_subsystem is
         drdy_out                : out  std_logic;
         dclk_in                 : in   std_logic;
         reset_in                : in   std_logic;
-        vauxp0                  : in   std_logic;
-        vauxn0                  : in   std_logic;
+        vauxp3                  : in   std_logic;
+        vauxn3                  : in   std_logic;
         busy_out                : out  std_logic;
         channel_out             : out  std_logic_vector (4 downto 0);
         eoc_out                 : out  std_logic;
@@ -77,8 +77,8 @@ begin
         drdy_out                => drp_drdy_s,   -- Data ready signal for the dynamic reconfiguration port
         dclk_in                 => clk,          -- Clock input for the dynamic reconfiguration port
         reset_in                => reset,        -- Reset signal for the System Monitor control logic
-        vauxp0                  => vauxp0,       -- Auxiliary Channel 0
-        vauxn0                  => vauxn0,
+        vauxp3                  => vauxp3,       -- Auxiliary Channel 0
+        vauxn3                  => vauxn3,
         busy_out                => xadc_busy_s,  -- ADC Busy signal
         channel_out             => open,         -- Channel Selection Outputs
         eoc_out                 => xadc_eoc_s,   -- End of Conversion Signal
@@ -89,22 +89,26 @@ begin
     );
 
 
-    comb_proc : process (r, drp_drdy_s)
+    comb_proc : process (r, xadc_eoc_s, drp_do_s)
     begin
 
+        r_in <= r;
+
+        drp_den_s <= '0';
         drp_dwe_s <= '0';
-        drp_daddr_s <= 7x"10";
+        drp_daddr_s <= 7x"13";
         drp_di_s <= (others => '0');
-        value <= drp_do_s;
+        value <= (15 downto 10 => '0') & drp_do_s(9 downto 0);
 
         case (r.state) is
 
             when idle =>
-                drp_den_s <= '1';
-                r_in.state <= waiting;
+                if xadc_eoc_s = '1' then
+                    drp_den_s <= '1';
+                    r_in.state <= waiting;
+                end if;
 
             when waiting =>
-                drp_den_s <= '0';
                 if drp_drdy_s = '1' then
                     r_in.state <= idle;
                 end if;
