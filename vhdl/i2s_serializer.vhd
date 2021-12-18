@@ -7,7 +7,7 @@ use wave.wave_array_pkg.all;
 
 entity i2s_serializer is
     port (
-        i2s_clk                 : in  std_logic;
+        clk                     : in  std_logic;
         reset                   : in  std_logic;
         sample_in               : in  std_logic_vector(2 * SAMPLE_WIDTH - 1 downto 0);
         next_sample             : out std_logic;
@@ -69,9 +69,9 @@ begin
 
     end process;
 
-    reg_process : process(i2s_clk)
+    reg_process : process(clk)
     begin
-        if falling_edge(i2s_clk) then
+        if falling_edge(clk) then
             if reset = '1' then
                 r <= R_INIT;
             else
