@@ -9,7 +9,7 @@ entity i2s_serializer is
     port (
         clk                     : in  std_logic;
         reset                   : in  std_logic;
-        sample_in               : in  std_logic_vector(2 * SAMPLE_WIDTH - 1 downto 0);
+        sample_in               : in  std_logic_vector(2 * SAMPLE_SIZE - 1 downto 0);
         next_sample             : out std_logic;
         sdata                   : out std_logic;
         wsel                    : out std_logic
@@ -19,9 +19,9 @@ end entity;
 architecture arch of i2s_serializer is
 
     type t_i2s_serializer_reg is record
-        send_buffer             : std_logic_vector(2 * SAMPLE_WIDTH - 1 downto 0);
+        send_buffer             : std_logic_vector(2 * SAMPLE_SIZE - 1 downto 0);
         word_select             : std_logic; -- 1 cycle ahead of sdata
-        bit_count               : integer range 0 to 2 * SAMPLE_WIDTH - 1;
+        bit_count               : integer range 0 to 2 * SAMPLE_SIZE - 1;
         next_sample             : std_logic;
         sdata                   : std_logic;
     end record;
@@ -29,7 +29,7 @@ architecture arch of i2s_serializer is
     constant R_INIT : t_i2s_serializer_reg := (
         send_buffer             => (others => '0'),
         word_select             => '0',
-        bit_count               => SAMPLE_WIDTH - 1,
+        bit_count               => SAMPLE_SIZE - 1,
         next_sample             => '0',
         sdata                   => '0'
     );
@@ -52,13 +52,13 @@ begin
         wsel <= r.word_select;
 
         -- Toggle word select output one cycle ahead of the data line compliant to the protocol.
-        if r.bit_count = SAMPLE_WIDTH then
+        if r.bit_count = SAMPLE_SIZE then
             r_in.word_select <= '1';
         end if;
 
         -- Load next sample.
         if r.bit_count = 0 then
-            r_in.bit_count <= 2 * SAMPLE_WIDTH - 1;
+            r_in.bit_count <= 2 * SAMPLE_SIZE - 1;
             r_in.send_buffer <= sample_in;
             r_in.next_sample <= '1';
             r_in.word_select <= '0';

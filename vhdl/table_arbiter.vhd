@@ -14,7 +14,7 @@ entity table_arbiter is
         table_outputs           : out t_table_arb_output_array(0 to NUMBER_OF_VOICES - 1);
         ram_read_enable         : out std_logic;
         ram_address             : out std_logic_vector(MIPMAP_ADDR_SIZE - 1 downto 0);
-        ram_data                : in  std_logic_vector(SAMPLE_WIDTH - 1 downto 0)
+        ram_data                : in  std_logic_vector(SAMPLE_SIZE - 1 downto 0)
     );
 end entity;
 

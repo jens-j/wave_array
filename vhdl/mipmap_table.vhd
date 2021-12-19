@@ -19,10 +19,10 @@ architecture arch of mapmap_table is
     -- Blockram signals.
     signal ren_s                : std_logic;
     signal raddr_s              : std_logic_vector(WAVE_RES_LOG2-1 downto 0);
-    signal rdata_s              : std_logic_vector(SAMPLE_WIDTH-1 downto 0);
+    signal rdata_s              : std_logic_vector(SAMPLE_SIZE-1 downto 0);
     signal wen_s                : std_logic;
     signal waddr_s              : std_logic_vector(WAVE_RES_LOG2-1 downto 0);
-    signal wdata_s              : std_logic_vector(SAMPLE_WIDTH-1 downto 0);
+    signal wdata_s              : std_logic_vector(SAMPLE_SIZE-1 downto 0);
 
 begin
 
@@ -41,7 +41,7 @@ begin
     wave_ram : entity wave.blockram
     generic map (
         abits       => TABLE_ADDR_SIZE,
-        dbits       => SAMPLE_WIDTH,
+        dbits       => SAMPLE_SIZE,
         init_file   => "sine.data"
     )
     port map(

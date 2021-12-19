@@ -88,9 +88,9 @@ architecture arch of oscillator is
         octave_shift            : integer range 0 to 10; -- number of shifts from BASE_STEP to current octave
         sample_a                : t_mono_sample;
         sample_b                : t_mono_sample;
-        interpolation_buffer_a  : std_logic_vector(SAMPLE_WIDTH + WAVE_PREC downto 0);
-        interpolation_buffer_b  : std_logic_vector(SAMPLE_WIDTH + WAVE_PREC downto 0);
-        mul_z                   : std_logic_vector(SAMPLE_WIDTH + WAVE_PREC downto 0);
+        interpolation_buffer_a  : std_logic_vector(SAMPLE_SIZE + WAVE_PREC downto 0);
+        interpolation_buffer_b  : std_logic_vector(SAMPLE_SIZE + WAVE_PREC downto 0);
+        mul_z                   : std_logic_vector(SAMPLE_SIZE + WAVE_PREC downto 0);
         address_frac_inv        : std_logic_vector(WAVE_PREC - 1 downto 0); -- 1 - table address fraction
         offset_velocity         : std_logic_vector(7 downto 0); -- offset midi velocity range to [1 - 128] to allow easy normalization
     end record;
@@ -119,13 +119,13 @@ architecture arch of oscillator is
     -- Blockram signals.
     signal ren_s                : std_logic;
     signal raddr_s              : std_logic_vector(WAVE_RES_LOG2-1 downto 0);
-    signal rdata_s              : std_logic_vector(SAMPLE_WIDTH-1 downto 0);
+    signal rdata_s              : std_logic_vector(SAMPLE_SIZE-1 downto 0);
     signal wen_s                : std_logic;
     signal waddr_s              : std_logic_vector(WAVE_RES_LOG2-1 downto 0);
-    signal wdata_s              : std_logic_vector(SAMPLE_WIDTH-1 downto 0);
+    signal wdata_s              : std_logic_vector(SAMPLE_SIZE-1 downto 0);
 
     -- Multipler signals.
-    signal mul_x_s              : std_logic_vector(SAMPLE_WIDTH - 1 downto 0); -- Sample input.
+    signal mul_x_s              : std_logic_vector(SAMPLE_SIZE - 1 downto 0); -- Sample input.
     signal mul_y_s              : std_logic_vector(WAVE_PREC downto 0); -- Table address fraction input. Add one bit for 2's comp encoding.
 
 begin
@@ -134,7 +134,7 @@ begin
     wave_ram : entity wave.blockram
     generic map (
         abits       => WAVE_RES_LOG2,
-        dbits       => SAMPLE_WIDTH,
+        dbits       => SAMPLE_SIZE,
         init_file   => "sine.data"
     )
     port map(
@@ -151,7 +151,7 @@ begin
     -- -- Multiplier used for interpolation
     -- multiplier : entity wave.mul
     -- generic map (
-    --     size_x      => SAMPLE_WIDTH,
+    --     size_x      => SAMPLE_SIZE,
     --     size_y      => WAVE_PREC
     -- )
     -- port map (
@@ -164,7 +164,7 @@ begin
     combinatorial : process (r, midi_voice, next_sample, rdata_s, mul_x_s, mul_y_s)
         variable v_table_index_int : integer;
         variable v_base_step : t_table_address;
-        variable v_interpolation_sum : std_logic_vector(SAMPLE_WIDTH + WAVE_PREC downto 0);
+        variable v_interpolation_sum : std_logic_vector(SAMPLE_SIZE + WAVE_PREC downto 0);
     begin
 
         v_base_step := BASE_STEP(midi_voice.note.key);
@@ -289,7 +289,7 @@ begin
 
                 -- Round to integer
                 r_in.sample_buffer <=
-                    v_interpolation_sum(SAMPLE_WIDTH + WAVE_PREC - 1 downto WAVE_PREC);
+                    v_interpolation_sum(SAMPLE_SIZE + WAVE_PREC - 1 downto WAVE_PREC);
 
             -- Apply note enable and velocity.
             when scale =>
@@ -300,7 +300,7 @@ begin
             -- Normalize through dividing by 128
             when finalize =>
                 r_in.sample_state  <= idle;
-                r_in.sample_buffer <= r.mul_z(SAMPLE_WIDTH - 1 + 7  downto 7);
+                r_in.sample_buffer <= r.mul_z(SAMPLE_SIZE - 1 + 7  downto 7);
 
         end case;
 

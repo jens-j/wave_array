@@ -23,7 +23,7 @@ end entity;
 architecture arch of i2s_interface is
 
     signal serializer_next_sample_s : std_logic;
-    signal serializer_sample_in_s   : std_logic_vector(2 * SAMPLE_WIDTH - 1 downto 0);
+    signal serializer_sample_in_s   : std_logic_vector(2 * SAMPLE_SIZE - 1 downto 0);
     signal fifo_full_s              : std_logic;
 
     component i2s_fifo
