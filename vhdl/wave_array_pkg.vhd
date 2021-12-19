@@ -4,12 +4,17 @@ use IEEE.numeric_std.all;
 
 package wave_array_pkg is
 
-    constant SYS_FREQ               : integer := 100_000_000;
+    constant SIMULATION             : boolean := false
+    --pragma synthesis_off
+                                      or true
+    --pragma synthesis_on
+    ;
 
+    constant SYS_FREQ               : integer := 100_000_000;
     constant NUMBER_OF_VOICES       : positive := 4;
 
-    constant SAMPLE_WIDTH           : integer := 16;
-    constant SAMPLE_MAX             : integer := 2**SAMPLE_WIDTH - 1;
+    constant SAMPLE_SIZE            : integer := 16;
+    constant SAMPLE_MAX             : integer := 2**SAMPLE_SIZE - 1;
     constant SAMPLE_RATE            : integer := 96_000; -- Oversampling by 2x simplifies mip-mapping
 
     constant TABLE_SIZE_LOG2        : integer := 11;
@@ -22,8 +27,11 @@ package wave_array_pkg is
     constant MIPMAP_TABLE_SIZE      : integer := 4092;
     constant MIPMAP_ADDR_SIZE       : integer := 12;
 
+    constant ADC_SAMPLE_SIZE        : integer := 12;
+    constant ADC_FILTER_FRAC        : integer := 8;
+
     -- Audio sample types.
-    subtype t_mono_sample is signed(SAMPLE_WIDTH - 1 downto 0);
+    subtype t_mono_sample is signed(SAMPLE_SIZE - 1 downto 0);
     type t_stereo_sample is array (1 downto 0) of t_mono_sample;
     type t_mono_sample_array is array (integer range <>) of t_mono_sample;
     type t_stereo_sample_array is array (integer range <>) of t_stereo_sample;
@@ -37,7 +45,7 @@ package wave_array_pkg is
     type t_table_arb_output is record
         ack                         : std_logic;
         valid                       : std_logic;
-        data                        : std_logic_vector(SAMPLE_WIDTH - 1 downto 0);
+        data                        : std_logic_vector(SAMPLE_SIZE - 1 downto 0);
     end record;
 
     type t_table_arb_input_array is array (integer range <>) of t_table_arb_input;

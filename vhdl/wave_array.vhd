@@ -39,7 +39,7 @@ architecture arch of wave_array is
     signal sample_s             : t_stereo_sample;
     signal voices_s             : t_voice_array(NUMBER_OF_VOICES - 1 downto 0);
     signal midi_status_byte_s   : t_byte;
-    signal input_value_s        : std_logic_vector(15 downto 0);
+    signal input_value_s        : std_logic_vector(ADC_SAMPLE_SIZE - 1 downto 0);
 
 begin
 
@@ -103,7 +103,7 @@ begin
     port map (
         clk                     => system_clk_s,
         reset                   => reset_ah_s,
-        display_data            => (31 downto 16 => '0') & input_value_s,
+        display_data            => (31 downto ADC_SAMPLE_SIZE => '0') & input_value_s,
         segments                => DISPLAY_SEGMENTS,
         anodes                  => DISPLAY_ANODES
     );
@@ -114,6 +114,8 @@ begin
         reset                   => reset_ah_s,
         vauxp3                  => XADC_3P,
         vauxn3                  => XADC_3N,
+        average                 => b"10",
+        filter_length           => SWITCHES(15 downto 13),
         value                   => input_value_s
     );
 
