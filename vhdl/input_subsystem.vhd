@@ -40,7 +40,7 @@ architecture arch of input_subsystem is
     constant DSPL_UPDATE_CYCLES : integer := SYS_FREQ / 1000 * DSPL_UPDATE_MS;
     constant GND                : std_logic := '0';
 
-    type t_state is (idle, s1, s2, s3, s4, s5);
+    type t_state is (idle, s1, s2, s3, s4, s5, s6);
     type t_input_sys_reg is record
         state                   : t_state;
         display_count           : integer range 0 to DSPL_UPDATE_CYCLES - 1;
@@ -48,6 +48,7 @@ architecture arch of input_subsystem is
         value                   : std_logic_vector(ADC_SAMPLE_SIZE - 1 downto 0);
         filter_b0               : t_filter_coeff;
         filter_a0               : t_filter_coeff;
+        drp_do                  : std_logic_vector(15 downto 0);
     end record;
 
     constant R_INIT : t_input_sys_reg := (
@@ -56,7 +57,8 @@ architecture arch of input_subsystem is
         filter_accumulator      => (others => '0'),
         value                   => (others => '0'),
         filter_b0               => (others => '0'),
-        filter_a0               => (others => '0')
+        filter_a0               => (others => '0'),
+        drp_do                  => (others => '0')
     );
 
     signal r, r_in              : t_input_sys_reg := R_INIT;
@@ -147,7 +149,7 @@ begin
     );
 
 
-    comb_proc : process (r, filter_length, drp_do_s, drp_drdy_s, xadc_eoc_s, mul_p)
+    comb_proc : process (r, filter_length, average, drp_do_s, drp_drdy_s, xadc_eoc_s, mul_p)
         variable v_filter_b0 : t_filter_coeff;
         variable v_xadc_control0 : std_logic_vector(15 downto 0);
     begin
@@ -227,19 +229,24 @@ begin
                 r_in.state <= s4;
 
             when s4 =>
+                -- Cannot issue the next command before drdy is deasserted
                 if drp_drdy_s = '1' then
-                    drp_daddr_s <= 7x"40";
-                    drp_dwe_s <= '1';
-                    drp_den_s <= '1';
-
-                    v_xadc_control0 := drp_do_s;
-                    v_xadc_control0(13 downto 12) := average;
-                    drp_di_s <= v_xadc_control0;
-
+                    r_in.drp_do <= drp_do_s;
                     r_in.state <= s5;
                 end if;
 
             when s5 =>
+                drp_daddr_s <= 7x"40";
+                drp_dwe_s <= '1';
+                drp_den_s <= '1';
+
+                v_xadc_control0 := r.drp_do;
+                v_xadc_control0(13 downto 12) := average;
+                drp_di_s <= v_xadc_control0;
+
+                r_in.state <= s6;
+
+            when s6 =>
                 if drp_drdy_s = '1' then
                     r_in.state <= idle;
                 end if;
