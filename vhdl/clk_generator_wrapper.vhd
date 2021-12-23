@@ -2,6 +2,9 @@ library IEEE;
 use IEEE.std_logic_1164.all;
 use IEEE.numeric_std.all;
 
+library unisim;
+use unisim.vcomponents.all;
+
 library wave;
 use wave.wave_array_pkg.all;
 
@@ -51,8 +54,6 @@ begin
         I => counter_r(1),
         O => i2s_clk
     );
-
-    -- i2s_clk <= counter_r(1);
 
     divider_proc : process (i2s_intermediate_clk_s)
     begin

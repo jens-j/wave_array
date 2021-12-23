@@ -117,7 +117,7 @@ begin
 
             -- Find first unused voice.
             when voice_on_1 =>
-                v_enable := '0' when r.velocity = (6 downto 0 => '0') else '1';
+                v_enable := '0' when r.velocity = (0 to 6 => '0') else '1';
                 r_in.voices(r.voice_select) <= (v_enable, '1', (r.midi_note, r.octave), r.velocity);
                 r_in.state <= idle;
 

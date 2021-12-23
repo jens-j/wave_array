@@ -20,12 +20,12 @@ end entity;
 
 architecture arch of input_subsystem is
 
-    function get_period_ms return integer
+    function get_period_us return integer
     is begin
         if SIMULATION then
-            return 1;
+            return 10;
         else
-            return 250;
+            return 250000;
         end if;
     end function;
 
@@ -36,8 +36,8 @@ architecture arch of input_subsystem is
     subtype t_filter_result is std_logic_vector(t_filter_sample'length + t_filter_coeff'length downto 0);
 
     constant COEFF_ONE          : t_filter_coeff := '1' & (0 to t_filter_coeff'length - 2 => '0');
-    constant DSPL_UPDATE_MS     : integer := get_period_ms;
-    constant DSPL_UPDATE_CYCLES : integer := SYS_FREQ / 1000 * DSPL_UPDATE_MS;
+    constant DSPL_UPDATE_MS     : integer := get_period_us;
+    constant DSPL_UPDATE_CYCLES : integer := SYS_FREQ / 1000_000 * DSPL_UPDATE_MS;
     constant GND                : std_logic := '0';
 
     type t_state is (idle, s1, s2, s3, s4, s5, s6);
@@ -198,13 +198,12 @@ begin
             when idle =>
 
                 -- Read a new ADC sample from the XADC.
-                -- Also perform the recursive part of the filter
                 if xadc_eoc_s = '1' then
                     drp_den_s <= '1';
                     r_in.state <= s1;
                 end if;
 
-            -- Multiply b[0] of the IIR filter
+            -- Issue a[0] * acc; wait for drp_drdy_s and issue b[0] * sample.
             when s1 =>
                 if drp_drdy_s = '1' then
                     mul_b <= r.filter_b0;
