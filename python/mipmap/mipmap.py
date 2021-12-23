@@ -14,11 +14,13 @@ class Mipmap:
 
         self.name = name
         self.waveform_orig = waveform
-        self.tables = []
-        self.table = self._create_table()
+        self.mipmap_table = self._create_table()
+        self.write_table()
 
 
     def _create_table(self):
+
+        mipmap_table = []
 
         spectrum_orig = np.fft.rfft(self.waveform_orig, self.L0_SIZE)
         spectrum_tables = []
@@ -41,6 +43,8 @@ class Mipmap:
             scale = (2**15 - 1) / np.max(small_table)
             small_table *= scale
 
+            mipmap_table.extend(small_table)
+
             # Plot tables
             axes[level, 0].plot(spectrum_x[:(self.L0_SIZE // 2**(level + 1) + 1)],
                 np.abs(spectrum_tables[level][:(self.L0_SIZE // 2**(level + 1) + 1)] / self.L0_SIZE)**2)
@@ -55,8 +59,19 @@ class Mipmap:
             axes[level, 2].plot(small_table, 'ro', markersize=2)
             axes[level, 2].set_title('L{} table'.format(level))
 
-    def write_table():
-        pass
+        # Pad mipmap with zero's to power of two
+        pad_length = 2**self.L0_SIZE_LOG2 * 2 - len(mipmap_table)
+        mipmap_table.extend([0] * pad_length)
+
+        return mipmap_table
+
+
+    def write_table(self):
+
+        filename = f"{self.name}_mipmap.data"
+        with open(filename, 'w') as f:
+            for value in self.mipmap_table:
+                f.write(f"{int(value) & 0xFFFF:04X}\n")
 
 
 def main():
@@ -65,8 +80,8 @@ def main():
     square = np.concatenate((np.ones(Mipmap.L0_SIZE // 2), -np.ones(Mipmap.L0_SIZE // 2)))
     acid = read("Acid.wav")[1][:2048] * 2
 
-    # Mipmap('saw', saw)
-    # Mipmap('square', square)
+    Mipmap('saw', saw)
+    Mipmap('square', square)
     Mipmap('acid', acid)
 
     # plt.tight_layout()
