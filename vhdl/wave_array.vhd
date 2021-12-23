@@ -79,14 +79,14 @@ begin
         status_byte             => midi_status_byte_s
     );
 
-    -- synth : entity wave.synth_subsystem
-    -- port map (
-    --     clk                     => system_clk_s,
-    --     reset                   => reset_ah_s,
-    --     voices                  => voices_s,
-    --     next_sample             => next_sample_s,
-    --     sample                  => sample_s
-    -- );
+    synth : entity wave.synth_subsystem
+    port map (
+        clk                     => system_clk_s,
+        reset                   => reset_ah_s,
+        value                   => input_value_s,
+        next_sample             => next_sample_s,
+        sample                  => sample_s
+    );
 
     i2s_interface : entity wave.i2s_interface
     port map (
@@ -114,7 +114,7 @@ begin
         reset                   => reset_ah_s,
         vauxp3                  => XADC_3P,
         vauxn3                  => XADC_3N,
-        average                 => b"10",
+        average                 => SWITCHES(12 downto 11),
         filter_length           => SWITCHES(15 downto 13),
         value                   => input_value_s
     );

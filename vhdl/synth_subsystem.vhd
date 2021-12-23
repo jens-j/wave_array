@@ -11,7 +11,7 @@ entity synth_subsystem is
     port (
         clk                     : in  std_logic;
         reset                   : in  std_logic;
-        voices                  : in  t_voice_array(NUMBER_OF_VOICES - 1 downto 0);
+        value                   : in  std_logic_vector(ADC_SAMPLE_SIZE - 1 downto 0);
         next_sample             : in  std_logic;
         sample                  : out t_stereo_sample
     );
@@ -19,36 +19,28 @@ end entity;
 
 architecture arch of synth_subsystem is
 
-
+    signal velocities_s         : t_table_phase_array(NUMBER_OF_VOICES - 1 downto  0);
     signal osc_samples_s        : t_mono_sample_array(NUMBER_OF_VOICES - 1 downto 0);
-    signal mono_sample_s        : t_mono_sample;
 
 begin
 
-    sample(0) <= mono_sample_s;
-    sample(1) <= mono_sample_s;
+    sample(0) <= osc_samples_s(0);
+    sample(1) <= osc_samples_s(0);
 
-    voice_gen : for i in 0 to NUMBER_OF_VOICES - 1 generate
-        voice_n : entity wave.oscillator
-        port map (
-            clk                 => clk,
-            reset               => reset,
-            midi_voice          => voices(i),
-            next_sample         => next_sample,
-            sample              => osc_samples_s(i)
-        );
-    end generate;
+    -- Map value to 0 - 1/4 phase max phase
+    velocities_s(0) <=
+        "00" & unsigned(value) & (0 to t_table_phase'length - ADC_SAMPLE_SIZE - 3 => '0');
 
-    mixer : entity wave.mixer
+    oscillator : entity wave.oscillator
     generic map (
-        N_INPUTS                => NUMBER_OF_VOICES
+        N_OSCILLATORS       => NUMBER_OF_VOICES,
+        INIT_FILE           => string'("saw_mipmap.data")
     )
     port map (
-        clk                     => clk,
-        reset                   => reset,
-        sample_in               => osc_samples_s,
-        next_sample             => next_sample,
-        sample_out              => mono_sample_s
+        clk                 => clk,
+        reset               => reset,
+        velocities          => velocities_s,
+        next_sample         => next_sample,
+        samples             => osc_samples_s
     );
-
 end architecture;
