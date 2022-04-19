@@ -223,6 +223,9 @@ begin
                 r_in.state <= s3;
 
             when s3 =>
+                r_in.value <= std_logic_vector(r.filter_accumulator(
+                    t_filter_sample'length + ADC_FILTER_FRAC - 2 downto 2 * ADC_FILTER_FRAC));
+
                 drp_daddr_s <= 7x"40";
                 drp_den_s <= '1';
                 r_in.state <= s4;

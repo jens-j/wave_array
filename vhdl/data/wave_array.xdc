@@ -11,14 +11,14 @@ set_property PACKAGE_PIN C12 [get_ports BTN_RESET]
 set_property IOSTANDARD LVCMOS33 [get_ports BTN_RESET]
 
 ## Bank = 35, Pin name = IO_L23P_T3_35, Sch name = JC1
-set_property PACKAGE_PIN K2 [get_ports {I2S_SDATA}]
-set_property IOSTANDARD LVCMOS33 [get_ports {I2S_SDATA}]
-## Bank = 35, Pin name = IO_L6P_T0_35, Sch name = JC2
-set_property PACKAGE_PIN E7 [get_ports {I2S_SCLK}]
+set_property PACKAGE_PIN K2 [get_ports {I2S_SCLK}]
 set_property IOSTANDARD LVCMOS33 [get_ports {I2S_SCLK}]
-## Bank = 35, Pin name = IO_L22P_T3_35, Sch name = JC3
-set_property PACKAGE_PIN J3 [get_ports {I2S_WSEL}]
+## Bank = 35, Pin name = IO_L6P_T0_35, Sch name = JC2
+set_property PACKAGE_PIN E7 [get_ports {I2S_WSEL}]
 set_property IOSTANDARD LVCMOS33 [get_ports {I2S_WSEL}]
+## Bank = 35, Pin name = IO_L22P_T3_35, Sch name = JC3
+set_property PACKAGE_PIN J3 [get_ports {I2S_SDATA}]
+set_property IOSTANDARD LVCMOS33 [get_ports {I2S_SDATA}]
 ## Bank = 35, Pin name = IO_L21P_T3_DQS_35, Sch name = JC4
 set_property PACKAGE_PIN J4 [get_ports {MIDI_RX}]
 set_property IOSTANDARD LVCMOS33 [get_ports {MIDI_RX}]

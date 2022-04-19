@@ -14,8 +14,11 @@ entity oscillator is
     port (
         clk                     : in  std_logic;
         reset                   : in  std_logic;
+        mipmap_enable           : in  std_logic;
+        interpolate_enable      : in  std_logic;
         next_sample             : in  std_logic;
         velocities              : in  t_table_phase_array(N_OSCILLATORS - 1 downto  0);
+        mipmap_level            : out integer range 0 to MIPMAP_LEVELS - 1;
         samples                 : out t_mono_sample_array(N_OSCILLATORS - 1 downto  0)
     );
 end entity;
@@ -185,15 +188,19 @@ begin
                 r_in.wave_address <= v_wave_address;
             end if;
         else
-            r_in.mipmap_level <= 0;
-            r_in.wave_address <= (others => '0');
+            -- r_in.mipmap_level <= 0;
+            -- r_in.wave_address <= (others => '0');
         end if;
 
         -- Pipeline stage 1: calculate mipmap address A.
-        r_in.mipmap_address_a <= std_logic_vector(
-            unsigned(MIPMAP_OFFSETS(r.mipmap_level)) +
-            resize(r.wave_address(WAVE_SIZE_LOG2 - 1 downto r.mipmap_level),
-                   MIPMAP_ADDR_SIZE));
+        if mipmap_enable = '1' then
+            r_in.mipmap_address_a <= std_logic_vector(
+                unsigned(MIPMAP_OFFSETS(r.mipmap_level)) +
+                resize(r.wave_address(WAVE_SIZE_LOG2 - 1 downto r.mipmap_level),
+                       MIPMAP_ADDR_SIZE));
+        else
+            r_in.mipmap_address_a <= std_logic_vector(resize(r.wave_address, MIPMAP_ADDR_SIZE));
+        end if;
 
         -- Pipeline stage 2: calculate mipmap address B.
         r_in.mipmap_address_b <= std_logic_vector(unsigned(r.mipmap_address_a) + 1);
@@ -213,14 +220,23 @@ begin
         if r.count >= 4 and r.count < 2 * N_OSCILLATORS + 4 then
             v_address_frac := r.phases((r.count - 4) / 2)(WAVE_ADDR_FRAC - 1 downto 0);
 
-            if v_odd then
-                -- Coeff B range [0x0 - 0xFF]. Leading zero to make unsigned.
-                r_in.mul_coeff <= "00" & std_logic_vector(v_address_frac);
+
+            if interpolate_enable = '1' then
+                if v_odd then
+                    -- Coeff B range [0x0 - 0xFF]. Leading zero to make unsigned.
+                    r_in.mul_coeff <= "00" & std_logic_vector(v_address_frac);
+                else
+                    -- Coeff A is 1 - Coeff A. Range [0x0 - 0x100]. Leading zero to make unsigned.
+                    r_in.mul_coeff <= "0" & std_logic_vector(
+                        unsigned(unsigned'("1" & (0 to WAVE_ADDR_FRAC - 1 => '0')))
+                        - resize(v_address_frac, WAVE_ADDR_FRAC + 1));
+                end if;
             else
-                -- Coeff A is 1 - Coeff A. Range [0x0 - 0x100]. Leading zero to make unsigned.
-                r_in.mul_coeff <= "0" & std_logic_vector(
-                    unsigned(unsigned'("1" & (0 to WAVE_ADDR_FRAC - 1 => '0')))
-                    - resize(v_address_frac, WAVE_ADDR_FRAC + 1));
+                if v_odd then
+                    r_in.mul_coeff <= (t_mul_coeff'length - 1 downto 0 => '0');
+                else
+                    r_in.mul_coeff <= "01" & (0 to t_mul_coeff'length - 3 => '0');
+                end if;
             end if;
         else
             r_in.mul_coeff <= (others => '0');
@@ -243,11 +259,12 @@ begin
         -- Pipeline stage 7: write sample to buffer.
         if r.count > PIPELINE_STAGES - 1 and not v_odd then
             r_in.sample_buffer((r.count - PIPELINE_STAGES) / 2) <=
-                signed(r_in.mul_res(SAMPLE_SIZE + WAVE_ADDR_FRAC - 1 downto WAVE_ADDR_FRAC));
+                signed(r.mul_res(SAMPLE_SIZE + WAVE_ADDR_FRAC - 1 downto WAVE_ADDR_FRAC));
         end if;
 
         -- Output ports.
         samples <= r.samples;
+        mipmap_level <= r.mipmap_level;
 
     end process;
 

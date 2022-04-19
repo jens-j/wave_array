@@ -110,7 +110,7 @@ begin
 
                 end if;
 
-            -- First check if the note is alresy playing, otherwise find an free voice.
+            -- First check if the note is already playing, otherwise find an free voice.
             when voice_on_0 =>
                 r_in.next_state <= voice_on_1;
                 r_in.state <= parse_note;

@@ -34,6 +34,22 @@ package midi_pkg is
 
     constant MIDI_VOICE_INIT : t_midi_voice := ('0', '0', (0, 0), (others =>'0'));
 
+   --  -- Frequencies of the 9th octave (starting at C)
+   -- constant OCT9_VELOCITIES : t_table_phase_array(0 to 11) := (
+   --      2**WAVE_ADDR_SIZE / SYS_FREQ * 8372.16,  -- C
+   --      2**WAVE_ADDR_SIZE / SYS_FREQ * 8869.76,  -- C#
+   --      2**WAVE_ADDR_SIZE / SYS_FREQ * 9397.12,  -- D
+   --      2**WAVE_ADDR_SIZE / SYS_FREQ * 9956.16,  -- D#
+   --      2**WAVE_ADDR_SIZE / SYS_FREQ * 10548.16, -- E
+   --      2**WAVE_ADDR_SIZE / SYS_FREQ * 11175.36, -- F
+   --      2**WAVE_ADDR_SIZE / SYS_FREQ * 11839.68, -- F#
+   --      2**WAVE_ADDR_SIZE / SYS_FREQ * 12544.00, -- G
+   --      2**WAVE_ADDR_SIZE / SYS_FREQ * 13289.60, -- G#
+   --      2**WAVE_ADDR_SIZE / SYS_FREQ * 14080.00, -- A
+   --      2**WAVE_ADDR_SIZE / SYS_FREQ * 14917.12, -- A#
+   --      2**WAVE_ADDR_SIZE / SYS_FREQ * 15804.16  -- B
+   -- );
+
     constant MIDI_BAUD                      : integer := 31250;
 
     -- Midi voice message opcodes.

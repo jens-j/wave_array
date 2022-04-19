@@ -39,7 +39,8 @@ architecture arch of wave_array is
     signal sample_s             : t_stereo_sample;
     signal voices_s             : t_voice_array(NUMBER_OF_VOICES - 1 downto 0);
     signal midi_status_byte_s   : t_byte;
-    signal input_value_s        : std_logic_vector(ADC_SAMPLE_SIZE - 1 downto 0);
+    signal analog_value_s       : std_logic_vector(ADC_SAMPLE_SIZE - 1 downto 0);
+    signal mipmap_level_s       : integer range 0 to MIPMAP_LEVELS - 1;
 
 begin
 
@@ -83,8 +84,11 @@ begin
     port map (
         clk                     => system_clk_s,
         reset                   => reset_ah_s,
-        value                   => input_value_s,
+        mipmap_enable           => SWITCHES(10),
+        interpolate_enable      => SWITCHES(9),
+        value                   => analog_value_s,
         next_sample             => next_sample_s,
+        mipmap_level            => mipmap_level_s,
         sample                  => sample_s
     );
 
@@ -103,7 +107,8 @@ begin
     port map (
         clk                     => system_clk_s,
         reset                   => reset_ah_s,
-        display_data            => (31 downto ADC_SAMPLE_SIZE => '0') & input_value_s,
+        display_data            => std_logic_vector(to_unsigned(mipmap_level_s, 16))
+            & (16 - ADC_SAMPLE_SIZE - 1 downto 0 => '0') & analog_value_s,
         segments                => DISPLAY_SEGMENTS,
         anodes                  => DISPLAY_ANODES
     );
@@ -116,7 +121,7 @@ begin
         vauxn3                  => XADC_3N,
         average                 => SWITCHES(12 downto 11),
         filter_length           => SWITCHES(15 downto 13),
-        value                   => input_value_s
+        value                   => analog_value_s
     );
 
     -- microblaze_sys : entity wave.microblaze_sys_wrapper
