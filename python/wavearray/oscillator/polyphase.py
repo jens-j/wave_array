@@ -46,6 +46,42 @@ class PolyphaseFilter:
             # self.filterbank.append(self.remez[i::self.M])
 
 
+    def interpolate(self, data, phase):
+        """ Interpolate a sample based on an array of input data and a phase offset
+            which is the table index fraction in [0.0, 1.0].
+            Linear interpolation is used to refine the filter coefficients.
+        """
+
+        assert len(data) == self.N
+
+        m0 = int(phase * self.M) # Coeffient index 0
+        m1 = (m0 + 1) % self.M # Coeffient index 1
+        d = phase * self.M - m0 # [0.0, 1.0) Fractional part of phase (interpolation weight).
+
+        sample = 0.0
+
+        # print('')
+        # print('m0 =', m0)
+        # print('m1 =', m1)
+        # print('d  =', d)
+
+        # Interpolate coefficients.
+        if m1 == 0:
+            c = (1.0 - d) * self.filterbank[m0] + d * np.append(self.filterbank[m1][1:], 0)
+        else:
+            c = (1.0 - d) * self.filterbank[m0] + d * self.filterbank[m1]
+
+        # print('c =', c)
+
+        # Filter input.
+        # for n in range(self.N):
+        #     sample += c[n] * data[self.N - 1 - n]
+
+        sample = np.sum(c * data[::-1])
+
+        return sample
+
+
     def plot(self):
 
         fig, axes = plt.subplots(2)
@@ -72,8 +108,47 @@ class PolyphaseFilter:
 
 
 def main():
-    pfb = PolyphaseFilter(16, 4, 0.25)
-    pfb.plot()
+
+    l = 2048    # Number of samples in waveform.
+    fc = 0.3    # normalized cutoff frequency.
+    N = 5      # Number of filter taps.
+    M = 4       # Number of phases.
+    d = 4       # Number of interpolation points between phases.
+
+    pfb = PolyphaseFilter(N, M, fc)
+    # pfb.plot()
+
+    # Generate some waveforms.
+    saw = np.array([(2.0 * (i + 0.5) / l + 1.0) % 2 - 1.0
+        for i in range(l)])
+
+    output_samples = []
+
+    for i in range(l * M * d):
+
+        index_int = int(i // (M * d))
+        index_frac = i / (M * d) - index_int
+        start_index = (index_int - N // 2) % l
+
+        input_samples = saw[index_int:index_int + N]
+        input_samples = np.append(input_samples, saw[:max(0, index_int + N - l)])
+
+        # print('')
+        # print('i           =', i)
+        # print('index_int   =', index_int)
+        # print('index_frac  =', index_frac)
+        # print('start_index =', start_index)
+        #
+        # if i == 16:
+        #     exit()
+
+        output_samples.append(pfb.interpolate(input_samples, index_frac))
+
+
+    fig, axis = plt.subplots(1)
+    axis.plot(output_samples, '.')
+    plt.show()
+
 
 
 if __name__ == '__main__':
