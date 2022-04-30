@@ -1,13 +1,14 @@
 import numpy as np
-import matplotlib.pyplot as plt
+from scipy import signal
 from scipy.io import wavfile
+import matplotlib.pyplot as plt
 
 from wavearray.mipmap.mipmap import Mipmap
 from wavearray.oscillator.polyphase import PolyphaseFilter
 
 class Oscillator:
 
-    FFT_LENGTH = 2048
+    FFT_LENGTH = int(2**16)
 
     def __init__(self, mipmap, frequency, sample_rate):
 
@@ -57,10 +58,10 @@ class Oscillator:
             table_index_start = (table_index_int - self.pfb.N // 2) % table_length
 
             # Collect input samples.
-            samples = self.mipmap.decimated_tables[self.l][
+            samples = self.mipmap.subtables[self.l][
                 table_index_start:(table_index_start+self.pfb.N)]
 
-            samples = np.append(samples, self.mipmap.decimated_tables[self.l][
+            samples = np.append(samples, self.mipmap.subtables[self.l][
                 :max(0, table_index_start+self.pfb.N-table_length)])
 
             # Halve the input to avoid overflow because of interpolation
@@ -74,14 +75,25 @@ class Oscillator:
 
     def plot(self):
 
-        psd_x = np.linspace(0, 0.5, self.FFT_LENGTH // 2 + 1)
-        psd = 20 * np.log10(np.abs(np.fft.rfft(self.waveform, self.FFT_LENGTH))
-            / len(self.waveform) / Mipmap.SAMPLE_MAX)
+        # print(self.waveform / Mipmap.SAMPLE_MAX)
 
-        fig, axes = plt.subplots(2)
+        psd_x = np.linspace(0, 0.5, self.FFT_LENGTH // 2 + 1)
+        # window = signal.chebwin(len(self.waveform), 80)
+        power_spectrum = np.abs(np.fft.rfft(self.waveform / Mipmap.SAMPLE_MAX, self.FFT_LENGTH) / self.FFT_LENGTH)**2
+
+        # print(self.waveform / Mipmap.SAMPLE_MAX)
+        # print(psd)
+        # print(len(psd))
+
+        print('len(waveform)       =', len(self.waveform))
+        print('sum(samples)        =', np.sum(np.abs(self.waveform / Mipmap.SAMPLE_MAX)**2))
+        print('sum(power_spectrum) =', np.sum(power_spectrum))
+
+        fig, axes = plt.subplots(3)
         axes[0].plot(self.waveform)
-        axes[1].plot(psd_x, psd)
-        axes[1].set_ylim([-100, 1])
+        axes[1].plot(psd_x, 10 * np.log10(2 * power_spectrum / (2 * self.Fs)))
+        # axes[1].set_ylim([-300, 25])
+        axes[2].psd(self.waveform / Mipmap.SAMPLE_MAX, NFFT=2048, Fs=96000)
         plt.show()
 
 
@@ -90,6 +102,7 @@ def main():
     acid = wavfile.read("Acid.wav")[1][:2048] * 2
     # print(max(np.abs(acid)))
     acid *= Mipmap.SAMPLE_MAX / max(np.abs(acid))
+
     square = np.concatenate(
         (np.ones(Mipmap.L0_SIZE // 2), -np.ones(Mipmap.L0_SIZE // 2))) * Mipmap.SAMPLE_MAX
 
@@ -98,7 +111,7 @@ def main():
     # mm = Mipmap('acid', acid)
     mm = Mipmap('square', square)
 
-    osc = Oscillator(mm, 48, 48000)
+    osc = Oscillator(mm, 200, 48000)
     waveform = osc.generate_waveform(1)
     # print(waveform)
     osc.plot()

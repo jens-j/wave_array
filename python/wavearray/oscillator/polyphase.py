@@ -1,5 +1,6 @@
 import numpy as np
 from scipy import signal
+from scipy.io import wavfile
 import matplotlib.pyplot as plt
 
 class PolyphaseFilter:
@@ -111,14 +112,15 @@ def main():
 
     l = 2048    # Number of samples in waveform.
     fc = 0.3    # normalized cutoff frequency.
-    N = 5      # Number of filter taps.
-    M = 4       # Number of phases.
-    d = 4       # Number of interpolation points between phases.
+    N = 15      # Number of filter taps.
+    M = 16      # Number of phases.
+    d = 16      # Number of interpolation points between phases.
 
     pfb = PolyphaseFilter(N, M, fc)
     # pfb.plot()
 
     # Generate some waveforms.
+    acid = wavfile.read("Acid.wav")[1][:2048] * 2
     saw = np.array([(2.0 * (i + 0.5) / l + 1.0) % 2 - 1.0
         for i in range(l)])
 
@@ -146,7 +148,20 @@ def main():
 
 
     fig, axis = plt.subplots(1)
-    axis.plot(output_samples, '.')
+
+    # axis.plot(saw, '.')
+
+    # axis.plot(output_samples, '.k')
+    axis.plot(output_samples, 'k')
+
+    phase_points = np.array([np.nan] * l * M * d)
+    phase_points[::d] = output_samples[::d]
+    axis.plot(phase_points, '.c')
+
+    sample_points = np.array([np.nan] * l * M * d)
+    sample_points[::d * M] = output_samples[::d * M]
+    axis.plot(sample_points, '.r')
+
     plt.show()
 
 
