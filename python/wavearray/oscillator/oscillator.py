@@ -2,13 +2,14 @@ import numpy as np
 from scipy import signal
 from scipy.io import wavfile
 import matplotlib.pyplot as plt
+from matplotlib import mlab
 
 from wavearray.mipmap.mipmap import Mipmap
 from wavearray.oscillator.polyphase import PolyphaseFilter
 
 class Oscillator:
 
-    FFT_LENGTH = int(2**16)
+    FFT_LENGTH = int(2**11)
 
     def __init__(self, mipmap, frequency, sample_rate):
 
@@ -77,9 +78,11 @@ class Oscillator:
 
         # print(self.waveform / Mipmap.SAMPLE_MAX)
 
-        psd_x = np.linspace(0, 0.5, self.FFT_LENGTH // 2 + 1)
+        #psd_x = np.linspace(0, self.Fs, self.FFT_LENGTH // 2 + 1)
+        psd_x = np.fft.rfftfreq(self.FFT_LENGTH, d=1/96000)
         # window = signal.chebwin(len(self.waveform), 80)
-        power_spectrum = np.abs(np.fft.rfft(self.waveform / Mipmap.SAMPLE_MAX, self.FFT_LENGTH) / self.FFT_LENGTH)**2
+        power_spectrum = np.abs(np.fft.rfft(
+            self.waveform / Mipmap.SAMPLE_MAX, self.FFT_LENGTH) / self.FFT_LENGTH)**2
 
         # print(self.waveform / Mipmap.SAMPLE_MAX)
         # print(psd)
@@ -89,11 +92,14 @@ class Oscillator:
         print('sum(samples)        =', np.sum(np.abs(self.waveform / Mipmap.SAMPLE_MAX)**2))
         print('sum(power_spectrum) =', np.sum(power_spectrum))
 
+
+
         fig, axes = plt.subplots(3)
         axes[0].plot(self.waveform)
         axes[1].plot(psd_x, 10 * np.log10(2 * power_spectrum / (2 * self.Fs)))
         # axes[1].set_ylim([-300, 25])
-        axes[2].psd(self.waveform / Mipmap.SAMPLE_MAX, NFFT=2048, Fs=96000)
+        axes[2].psd(self.waveform / Mipmap.SAMPLE_MAX, pad_to=self.FFT_LENGTH, Fs=96000,
+            window=mlab.window_none)
         plt.show()
 
 
@@ -109,9 +115,10 @@ def main():
 
 
     # mm = Mipmap('acid', acid)
-    mm = Mipmap('square', square)
+    mm = Mipmap('acid', acid)
+    # mm.plot()
 
-    osc = Oscillator(mm, 200, 48000)
+    osc = Oscillator(mm, 800, 48000)
     waveform = osc.generate_waveform(1)
     # print(waveform)
     osc.plot()

@@ -125,7 +125,7 @@ def main():
 
     acid = read("Acid.wav")[1][:2048]
 
-    mm = Mipmap('acid', acid)
+    mm = Mipmap('square', square)
     mm.plot()
     mm.write_table()
 
