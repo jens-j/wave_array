@@ -19,6 +19,10 @@ class Halfband:
         sinc_x = np.linspace(-bound, bound, self.N)
         self.coefficients = np.sinc(sinc_x) * self.window
 
+        for i, coefficient in enumerate(np.flip(self.coefficients[:N//2:2])):
+            end = '\r\n' if (i + 1) % 8 == 0 else ' '
+            print(f'x"{int(coefficient * 0x7FFF) & 0xFFFF:04X}",', end=end)
+
 
     def plot(self):
 

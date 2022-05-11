@@ -30,7 +30,7 @@ package wave_array_pkg is
     constant MIPMAP_TABLE_SIZE_LOG2 : integer := MIPMAP_L0_SIZE_LOG2 + 1;
     constant MIPMAP_TABLE_SIZE      : integer := 2**MIPMAP_TABLE_SIZE_LOG2;
 
-    -- Oscillator constants
+    -- Oscillator constants.
     constant OSC_SAMPLE_FRAC        : integer := 8; -- Fractional bits used for sample interpolation
     constant OSC_COEFF_FRAC         : integer := 8; -- Fractional bits used for coefficient interpolation.
 
@@ -41,6 +41,20 @@ package wave_array_pkg is
     constant POLY_N_LOG2            : integer := 4;
     constant POLY_N                 : integer := 2**POLY_N_LOG2;
 
+    -- Oscillator downsample halfband filter constants.
+    -- The odd phase (m = 1) is all zeroes except c(0) = 1.
+    -- The even phase is symmetric so only half of the coefficients for m = 0 are stored.
+    -- The coeffients are reversed in time to allow easy convolution.
+    constant HALFBAND_COEFF_SIZE    : integer := 16;
+    constant HALFBAND_N             : integer := 32; -- Length of one phase.
+    constant HALFBAND_COEFFICIENTS  : array (0 to HALFBAND_N - 1) -- Half the odd phase coefficients.
+        of std_logic_vector(HALFBAND_COEFF_SIZE - 2 downto 0) := (
+            x"5121", x"E5E3", x"0E9B", x"F69F", x"0652", x"FBB1", x"02EA", x"FE12",
+            x"013E", x"FF3C", x"0073", x"FFC1", x"0020", x"FFF2", x"0005", x"FFFF"
+        );
+
+
+    -- ADC constants.
     constant ADC_SAMPLE_SIZE        : integer := 12;
     constant ADC_FILTER_FRAC        : integer := 8;
 
