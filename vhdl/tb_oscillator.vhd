@@ -11,27 +11,44 @@ end entity;
 
 architecture arch of tb_oscillator is
 
-    constant MIDI_INIT : t_midi_voice := ('1', '1', 60, 4);
-
-    signal clk_s             : std_logic := '0';
-    signal reset_s           : std_logic := '1';
-    signal midi_voice_s      : t_midi_voice := MIDI_INIT;
-    signal next_sample_s     : std_logic := '1';
-    signal sample_s          : t_mono_sample;
+    signal s_clk             : std_logic := '0';
+    signal s_reset           : std_logic := '1';
+    signal s_osc_inputs      : t_osc_input_array(0 to 0);
+    signal s_next_sample     : std_logic := '0';
+    signal s_output_samples  : t_mono_sample_array(0 to 0);
 
 begin
 
     dut : entity wave.oscillator
+    generic map(
+        N_OSCILLATORS           => 1
+    )
     port map(
-        clk                     => clk_s,
-        reset                   => reset_s,
-        midi_voice              => midi_voice_s,
-        next_sample             => next_sample_s,
-        sample                  => sample_s
+        clk                     => s_clk,
+        reset                   => s_reset,
+        next_sample             => s_next_sample,
+        osc_inputs              => s_osc_inputs,
+        output_samples          => s_output_samples
     );
 
-    clk_s <= not clk_s after 5 ns;
-    reset_s <= '0' after 100 ns;
+    s_osc_inputs(0).velocity <= shift_right(BASE_OCT_VELOCITIES(0), 5); -- C4
+    s_osc_inputs(0).position <= (others => '0');
+
+    s_clk <= not s_clk after 5 ns;
+    s_reset <= '0' after 1 us;
+
+    -- Generate the next sample pulse @ 48 kHz
+    next_sample : process
+    begin
+
+        wait until s_clk'event and s_clk = '1';
+        s_next_sample <= '1';
+        wait until s_clk'event and s_clk = '1';
+        s_next_sample <= '0';
+
+        wait for 20833 ns; -- 48 kHz
+
+    end process;
 
 
 end architecture;

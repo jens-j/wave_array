@@ -21,12 +21,14 @@ end entity;
 
 architecture arch of oscillator is
 
-    signal s_mipmap_addresses   : t_mipmap_address_array(0 to N_OSCILLATORS - 1);
-    signal s_frame_0_index      : integer range 0 to 3;
-    signal s_frame_1_index      : integer range 0 to 3;
-    signal s_intermediate_samples : t_stereo_sample_array(0 to N_OSCILLATORS - 1);
-    signal s_overflow           : std_logic;
-    signal s_timeout            : std_logic;
+    signal s_mipmap_addresses       : t_mipmap_address_array(0 to N_OSCILLATORS - 1);
+    signal s_phases_frac            : t_osc_phase_frac_array(0 to N_OSCILLATORS - 1);
+    signal s_frame_0_index          : integer range 0 to 3;
+    signal s_frame_1_index          : integer range 0 to 3;
+    signal s_intermediate_samples   : t_stereo_sample_array(0 to N_OSCILLATORS - 1);
+    signal s_addrgen_to_tableinterp : t_addrgen_to_tableinterp_array(0 to N_OSCILLATORS - 1);
+    signal s_overflow               : std_logic;
+    signal s_timeout                : std_logic;
 
 begin
 
@@ -34,20 +36,20 @@ begin
     s_frame_1_index <= 1;
 
     table_addr_gen : entity wave.table_address_generator
-    generic (
-        N_OSCILLATORS           : N_OSCILLATORS
+    generic map (
+        N_OSCILLATORS           => N_OSCILLATORS
     )
     port map (
         clk                     => clk,
         reset                   => reset,
         next_sample             => next_sample,
         osc_inputs              => osc_inputs,
-        mipmap_addresses        => s_mipmap_addresses
+        addrgen_output          => s_addrgen_to_tableinterp
     );
 
     table_interpolator : entity wave.table_interpolator
-    generic (
-        N_OSCILLATORS           : N_OSCILLATORS
+    generic map (
+        N_OSCILLATORS           => N_OSCILLATORS
     )
     port map (
         clk                     => clk,
@@ -56,21 +58,21 @@ begin
         frame_0_index           => s_frame_0_index,
         frame_1_index           => s_frame_1_index,
         osc_inputs              => osc_inputs,
-        mipmap_addresses        => s_mipmap_addresses,
+        addrgen_input           => s_addrgen_to_tableinterp,
         output_samples          => s_intermediate_samples,
         overflow                => s_overflow,
         timeout                 => s_timeout
     );
 
     halfband : entity wave.halfband_filter
-    generic (
-        N_OSCILLATORS           : N_OSCILLATORS
+    generic map (
+        N_OSCILLATORS           => N_OSCILLATORS
     )
     port map (
         clk                     => clk,
         reset                   => reset,
         next_sample             => next_sample,
-        input_samples           => s_intermediate_samples
+        input_samples           => s_intermediate_samples,
         output_samples          => output_samples
     );
 

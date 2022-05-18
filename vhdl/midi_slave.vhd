@@ -35,8 +35,9 @@ architecture arch of midi_slave is
         voice_select            : integer range 0 to N_VOICES - 1;
         octave                  : t_midi_octave;
         midi_note               : integer range 0 to 127; -- conversion buffer from midi note to t_midi_key
-        velocity                : t_midi_word;
+        midi_velocity           : t_midi_word;
         midi_command            : std_logic_vector(3 downto 0);
+        table_velocity          : t_osc_phase;
     end record;
 
     constant REG_INIT : t_midi_slave_reg := (
@@ -47,8 +48,9 @@ architecture arch of midi_slave is
         voice_select            => 0,
         octave                  => 0,
         midi_note               => 0,
-        velocity                => (others => '0'),
-        midi_command            => (others => '0')
+        midi_velocity           => (others => '0'),
+        midi_command            => (others => '0'),
+        table_velocity          => (others => '0')
     );
 
     -- Register.
@@ -102,12 +104,11 @@ begin
                     --     voice_off_0 when MIDI_VOICE_MSG_OFF,
                     --     idle when others;
 
-                    r_in.octave <= 0;
+                    r_in.octave <= -1;
                     r_in.voice_select <= 0;
                     r_in.midi_command <= midi_message_s.status_byte(7 downto 4);
-                    r_in.velocity <= midi_message_s.data(1)(6 downto 0);
+                    r_in.midi_velocity <= midi_message_s.data(1)(6 downto 0);
                     r_in.midi_note <= to_integer(unsigned(midi_message_s.data(0)(6 downto 0)));
-
                 end if;
 
             -- First check if the note is already playing, otherwise find an free voice.
@@ -117,8 +118,8 @@ begin
 
             -- Find first unused voice.
             when voice_on_1 =>
-                v_enable := '0' when r.velocity = (0 to 6 => '0') else '1';
-                r_in.voices(r.voice_select) <= (v_enable, '1', (r.midi_note, r.octave), r.velocity);
+                v_enable := '0' when r.midi_velocity = (0 to 6 => '0') else '1';
+                r_in.voices(r.voice_select) <= (v_enable, '1', (r.midi_note, r.octave), r.midi_velocity);
                 r_in.state <= idle;
 
             when voice_off_0 =>
@@ -164,6 +165,12 @@ begin
                 else
                     r_in.state <= find_active_voice;
                 end if;
+
+            --
+            -- when calc_velocity =>
+            --     r_in.table_velocity <= shift_right(BASE_OCT_VELOCITIES(r.midi_note), 9 - r.octave);
+            --     r_in.state <= find_active_voice;
+
         end case;
 
     end process;

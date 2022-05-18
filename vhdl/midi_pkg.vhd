@@ -1,6 +1,9 @@
-library IEEE;
-use IEEE.std_logic_1164.all;
-use IEEE.numeric_std.all;
+library ieee;
+use ieee.std_logic_1164.all;
+use ieee.numeric_std.all;
+use ieee.math_real.all;
+
+
 
 package midi_pkg is
 
@@ -9,8 +12,8 @@ package midi_pkg is
     subtype t_midi_word is std_logic_vector(6 downto 0);
     subtype t_midi_dword is std_logic_vector(13 downto 0);
 
-    subtype t_midi_key is integer range 0 to 11; -- C, C#, D, D#, E, F, F#, G, G#, A, A#, B;
-    subtype t_midi_octave is integer range 0 to 10; -- Corresponds with octaves -1 to 9 (C-1 to G9)
+    subtype t_midi_key is integer range 0 to 11; -- C, C#, D, D#, E, F, F#, G, G#, A, A#, B
+    subtype t_midi_octave is integer range -1 to 9; -- (C-1 to G9)
 
     type t_midi_note is record
         key                     : t_midi_key;
@@ -21,7 +24,7 @@ package midi_pkg is
         enable                  : std_logic;
         change                  : std_logic; -- pulse high upon change
         note                    : t_midi_note;
-        velocity                : t_midi_word;
+        midi_velocity           : t_midi_word;
         -- bend                    : t_midi_dword;
     end record;
 
@@ -33,22 +36,6 @@ package midi_pkg is
     type t_voice_array is array (integer range <>) of t_midi_voice;
 
     constant MIDI_VOICE_INIT : t_midi_voice := ('0', '0', (0, 0), (others =>'0'));
-
-   --  -- Frequencies of the 9th octave (starting at C)
-   -- constant OCT9_VELOCITIES : t_table_phase_array(0 to 11) := (
-   --      2**WAVE_ADDR_SIZE / SYS_FREQ * 8372.16,  -- C
-   --      2**WAVE_ADDR_SIZE / SYS_FREQ * 8869.76,  -- C#
-   --      2**WAVE_ADDR_SIZE / SYS_FREQ * 9397.12,  -- D
-   --      2**WAVE_ADDR_SIZE / SYS_FREQ * 9956.16,  -- D#
-   --      2**WAVE_ADDR_SIZE / SYS_FREQ * 10548.16, -- E
-   --      2**WAVE_ADDR_SIZE / SYS_FREQ * 11175.36, -- F
-   --      2**WAVE_ADDR_SIZE / SYS_FREQ * 11839.68, -- F#
-   --      2**WAVE_ADDR_SIZE / SYS_FREQ * 12544.00, -- G
-   --      2**WAVE_ADDR_SIZE / SYS_FREQ * 13289.60, -- G#
-   --      2**WAVE_ADDR_SIZE / SYS_FREQ * 14080.00, -- A
-   --      2**WAVE_ADDR_SIZE / SYS_FREQ * 14917.12, -- A#
-   --      2**WAVE_ADDR_SIZE / SYS_FREQ * 15804.16  -- B
-   -- );
 
     constant MIDI_BAUD                      : integer := 31250;
 
