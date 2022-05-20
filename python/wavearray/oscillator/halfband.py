@@ -34,6 +34,7 @@ class Halfband:
         axes[1].plot(self.coefficients, '.-')
         axes[2].plot(psd_x, psd)
         plt.show()
+        
 
 
 def main():

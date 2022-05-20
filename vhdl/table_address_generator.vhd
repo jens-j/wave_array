@@ -34,6 +34,7 @@ architecture arch of table_address_generator is
         address_buffers         : t_mipmap_address_array(0 to N_OSCILLATORS - 1);
         phases_frac             : t_osc_phase_frac_array(0 to N_OSCILLATORS - 1);
         mipmap_levels           : t_mipmap_level_array(0 to N_OSCILLATORS - 1);
+        mipmap_level_buffers    : t_mipmap_level_array(0 to N_OSCILLATORS - 1);
     end record;
 
     constant REG_INIT : s_mag_reg := (
@@ -44,7 +45,8 @@ architecture arch of table_address_generator is
         mipmap_addresses        => (others => (others => '0')),
         address_buffers         => (others => (others => '0')),
         phases_frac             => (others => (others => '0')),
-        mipmap_levels           => (others => 0)
+        mipmap_levels           => (others => 0),
+        mipmap_level_buffers    => (others => 0)
     );
 
     signal r, r_in              : s_mag_reg;
@@ -71,7 +73,8 @@ begin
             r_in.osc_counter <= 0;
             r_in.level_counter <= MIPMAP_LEVELS - 1;
             r_in.address_buffers <= (others => (others => '0'));
-            r_in.mipmap_levels <= (others => 0);
+            r_in.mipmap_levels <= r.mipmap_level_buffers;
+            r_in.mipmap_level_buffers <= (others => 0);
 
             for i in 0 to N_OSCILLATORS - 1 loop
                 r_in.phases_frac(i) <=
@@ -82,7 +85,7 @@ begin
         elsif r.state = select_level then
 
             if osc_inputs(r.osc_counter).velocity < MIPMAP_THRESHOLDS(r.level_counter - 1) then
-                r_in.mipmap_levels(r.osc_counter) <= r.level_counter;
+                r_in.mipmap_level_buffers(r.osc_counter) <= r.level_counter;
             end if;
 
             if r.level_counter > 1 then

@@ -108,10 +108,21 @@ class Mipmap:
 
     def write_table(self):
 
+        print(self.mipmap_table)
+
+        counter = 0
         filename = f"{self.name}_mipmap.data"
         with open(filename, 'w') as f:
-            for value in self.mipmap_table:
-                f.write(f"{int(value) & 0xFFFF:04X}\n")
+            for subtable in self.subtables:
+                for value in subtable:
+                    # f.write(f"{int(value * 0xFFFF) & 0xFFFF:04X}")
+                    # f.write(f"{int(value * 0xFFFF) & 0xFFFF:04X}")
+                    # f.write(f"{int(value * 0xFFFF) & 0xFFFF:04X}")
+                    f.write(f"{int(value * 0xFFFF) & 0xFFFF:04X}\n")
+                    counter += 1
+
+            for i in range(4096 - counter):
+                f.write(f"0000000000000000\n")
 
 
 def main():
@@ -125,7 +136,7 @@ def main():
 
     acid = read("Acid.wav")[1][:2048]
 
-    mm = Mipmap('square', square)
+    mm = Mipmap('saw', saw)
     mm.plot()
     mm.write_table()
 

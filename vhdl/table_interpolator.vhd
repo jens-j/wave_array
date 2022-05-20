@@ -133,36 +133,40 @@ architecture arch of table_interpolator is
 
 begin
 
-    -- Wave table memory.
-    -- It has a 16 bit wide write port (A) and 64 bit wide read port (B).
-    -- four mipmap tables are stored interleaved. Two are actively used by the oscillator, while
-    -- the other two can be used as buffers for writing new tables. A sample is read from all buffers
-    -- at the same time while writing can be done to single samples of single buffers.
-    wave_mem : entity ip.osc_wave_memory_gen
+    wave_mem : entity wave.osc_wave_memory
+    generic map (
+        init_file               => "osc_wave_memory.coe"
+    )
     port map (
-        clka                    => clk,
-        wea                     => s_wave_mem_wea,
-        addra                   => s_wave_mem_addra,
-        dina                    => s_wave_mem_dina,
-        clkb                    => clk,
-        addrb                   => s_wave_mem_addrb,
-        doutb                   => s_wave_mem_doutb
+        write_clk               => clk,
+        write_enable            => s_wave_mem_wea,
+        write_adddress          => s_wave_mem_addra,
+        write_data              => s_wave_mem_dina,
+        read_clk                => clk,
+        read_adddress           => s_wave_mem_addrb,
+        read_data               => s_wave_mem_doutb
     );
 
     -- ROM that holds the filter coefficients for the even phases.
-    coeff_mem_even : entity ip.osc_coeff_memory_gen
+    coeff_mem_even : entity wave.osc_coeff_memory
+    generic map (
+        init_file               => "osc_coeff_memory_even.coe"
+    )
     port map (
-        clka                    => clk,
-        addra                   => s_coeff_even_addra,
-        douta                   => s_coeff_even_douta
+        clk                     => clk,
+        adddress                => s_coeff_even_addra,
+        data                    => s_coeff_even_douta
     );
 
     -- ROM that holds the filter coefficients for the odd phases.
-    coeff_mem_odd : entity ip.osc_coeff_memory_gen
+    coeff_mem_odd : entity wave.osc_coeff_memory
+    generic map (
+        init_file               => "osc_coeff_memory_odd.coe"
+    )
     port map (
-        clka                    => clk,
-        addra                   => s_coeff_odd_addra,
-        douta                   => s_coeff_odd_douta
+        clk                     => clk,
+        adddress                => s_coeff_odd_addra,
+        data                    => s_coeff_odd_douta
     );
 
     -- DSP slice confifgured to perform linear interpolation of two frames (samples).
@@ -210,18 +214,18 @@ begin
     overflow <= r.overflow;
     timeout <= r.timeout;
 
-    combinatorial : process (r, osc_inputs, addrgen_input, next_sample)
+    combinatorial : process (r, osc_inputs, addrgen_input, next_sample,
+                             s_frame_interp_p, s_coeff_interp_p, s_macc_p)
         variable v_level : t_mipmap_level;
         variable v_odd_phase : std_logic;
     begin
 
         r_in <= r;
 
-        r.writeback(0) <= '0';
+        r_in.writeback(0) <= '0';
         v_odd_phase := addrgen_input(r.osc_counter(0)).phase_frac(OSC_COEFF_FRAC);
 
         if r.state = idle then
-
 
             s_frame_interp_a <= (others => '0');
             s_frame_interp_b <= (others => '0');
@@ -291,6 +295,10 @@ begin
                  -- Pre increment the osc_counter because it is needed for indexing in the next cycle.
                 if r.coeff_counter = POLY_N - 2 then
                     r_in.osc_counter_next <= r.osc_counter(0) + 1;
+
+                    if r.sample_counter(0) < 2 then
+                        r_in.writeback(0) <= '1';
+                    end if;
                 end if;
             else
                 r_in.coeff_counter <= 0;
@@ -299,7 +307,6 @@ begin
                 if r.osc_counter(0) = N_OSCILLATORS - 1 then
                     r_in.osc_counter(0) <= 0;
                     r_in.sample_counter(0) <= r.sample_counter(0) + 1;
-                    r_in.writeback(0) <= '1';
                 else
                     r_in.osc_counter(0) <= r.osc_counter_next;
                 end if;
@@ -386,8 +393,8 @@ begin
 
             -- Pipeline stage 7: Store output sample.
             if r.writeback(PIPE_LEN_TOTAL) then
-                r.sample_buffers(r.osc_counter(PIPE_LEN_TOTAL))(r.sample_counter(PIPE_LEN_TOTAL)) <=
-                    t_mono_sample(
+                r_in.sample_buffers(r.osc_counter(PIPE_LEN_TOTAL))(r.sample_counter(PIPE_LEN_TOTAL))
+                    <= t_mono_sample(
                         s_macc_p(SAMPLE_SIZE + POLY_COEFF_SIZE - 1 downto POLY_COEFF_SIZE));
             end if;
         end if;

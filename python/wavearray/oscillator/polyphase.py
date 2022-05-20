@@ -108,16 +108,30 @@ class PolyphaseFilter:
         plt.show()
 
 
+    def write_tables(self):
+
+        with open("osc_coeff_memory_even.coe", 'w') as f:
+            for fb in self.filterbank[::2]:
+                for coeff in fb:
+                    f.write(f"{int(coeff * 0xFFFF) & 0xFFFF:04X}\n")
+
+        with open("osc_coeff_memory_odd.coe", 'w') as f:
+            for fb in self.filterbank[1::2]:
+                for coeff in fb:
+                    f.write(f"{int(coeff * 0xFFFF) & 0xFFFF:04X}\n")
+
+
 def main():
 
     l = 2048    # Number of samples in waveform.
     fc = 0.3    # normalized cutoff frequency.
-    N = 15      # Number of filter taps.
-    M = 16      # Number of phases.
+    N = 16      # Number of filter taps.
+    M = 128     # Number of phases.
     d = 16      # Number of interpolation points between phases.
 
     pfb = PolyphaseFilter(N, M, fc)
-    # pfb.plot()
+    pfb.plot()
+    pfb.write_tables()
 
     # Generate some waveforms.
     acid = wavfile.read("Acid.wav")[1][:2048] * 2
