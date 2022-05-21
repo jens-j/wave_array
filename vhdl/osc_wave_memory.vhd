@@ -15,11 +15,11 @@ entity osc_wave_memory is
     );
     port (
         read_clk                : in  std_logic;
-        read_adddress           : in  std_logic_vector(MIPMAP_TABLE_SIZE_LOG2 - 1 downto 0);
+        read_address            : in  std_logic_vector(MIPMAP_TABLE_SIZE_LOG2 - 1 downto 0);
         read_data               : out std_logic_vector(4 * SAMPLE_SIZE - 1 downto 0);
         write_clk               : in  std_logic;
         write_enable            : in  std_logic_vector(0 downto 0);
-        write_adddress          : in  std_logic_vector(MIPMAP_TABLE_SIZE_LOG2 + 1 downto 0);
+        write_address           : in  std_logic_vector(MIPMAP_TABLE_SIZE_LOG2 + 1 downto 0);
         write_data              : in  std_logic_vector(SAMPLE_SIZE - 1 downto 0)
     );
 end entity;
@@ -58,16 +58,16 @@ begin
     begin
 
         if rising_edge(read_clk) then
-            s_read_data_reg <= s_memory(to_integer(unsigned(read_adddress)));
+            s_read_data_reg <= s_memory(to_integer(unsigned(read_address)));
         end if;
 
         if rising_edge(write_clk) then
             if write_enable = "1" then
 
-                v_addr := to_integer(unsigned(write_adddress(MIPMAP_TABLE_SIZE_LOG2 - 1 downto 2)));
+                v_addr := to_integer(unsigned(write_address(MIPMAP_TABLE_SIZE_LOG2 - 1 downto 2)));
 
                 -- The lowest 2 bits of the write address select the word within the memory line.
-                case write_adddress(1 downto 0) is
+                case write_address(1 downto 0) is
                     when "00" =>
                         s_memory(v_addr)(SAMPLE_SIZE - 1 downto 0) <= write_data;
                     when "01" =>
@@ -79,9 +79,9 @@ begin
                 end case;
 
                 -- -- The lowest 2 bits select the word within the memory line.
-                -- v_sub := to_integer(unsigned(write_adddress(1 downto 0)));
+                -- v_sub := to_integer(unsigned(write_address(1 downto 0)));
                 -- s_memory(to_integer(unsigned(
-                --     write_adddress(MIPMAP_TABLE_SIZE_LOG2 - 1 downto 2))))
+                --     write_address(MIPMAP_TABLE_SIZE_LOG2 - 1 downto 2))))
                 --         <= write_data((v_sub + 1) * SAMPLE_SIZE - 1 downto v_sub * SAMPLE_SIZE);
             end if;
         end if;

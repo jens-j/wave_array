@@ -15,7 +15,7 @@ entity osc_coeff_memory is
     );
     port (
         clk                     : in  std_logic;
-        adddress                : in  std_logic_vector(POLY_M_LOG2 + POLY_N_LOG2 - 2 downto 0);
+        address                : in  std_logic_vector(POLY_M_LOG2 + POLY_N_LOG2 - 2 downto 0);
         data                    : out std_logic_vector(POLY_COEFF_SIZE - 1 downto 0)
     );
 end entity;
@@ -51,7 +51,7 @@ begin
     clk_proc : process (clk)
     begin
         if rising_edge(clk) then
-            s_output_reg <= s_memory(to_integer(unsigned(adddress)));
+            s_output_reg <= s_memory(to_integer(unsigned(address)));
         end if;
     end process;
 

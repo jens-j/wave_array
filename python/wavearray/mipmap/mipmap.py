@@ -44,7 +44,7 @@ class Mipmap:
         self.subtables.append(self.waveform)
         self.spectra.append(np.fft.rfft(self.waveform / self.SAMPLE_MAX, fft_size))
 
-        print(self.spectra)
+        # print(self.spectra)
 
         for level in range(0, self.L0_SIZE_LOG2 - 1):
 
@@ -73,7 +73,7 @@ class Mipmap:
 
         spectrum_x = np.array(range(self.L0_SIZE // 2 + 1))
 
-        print(self.spectra)
+        # print(self.spectra)
 
         for level in range(0, self.L0_SIZE_LOG2):
 
@@ -108,17 +108,17 @@ class Mipmap:
 
     def write_table(self):
 
-        print(self.mipmap_table)
+        print(self.subtables[0])
 
         counter = 0
         filename = f"{self.name}_mipmap.data"
         with open(filename, 'w') as f:
             for subtable in self.subtables:
                 for value in subtable:
-                    # f.write(f"{int(value * 0xFFFF) & 0xFFFF:04X}")
-                    # f.write(f"{int(value * 0xFFFF) & 0xFFFF:04X}")
-                    # f.write(f"{int(value * 0xFFFF) & 0xFFFF:04X}")
-                    f.write(f"{int(value * 0xFFFF) & 0xFFFF:04X}\n")
+                    f.write(f"{int(value * 0x7FFF) & 0xFFFF:04X}")
+                    f.write(f"{int(value * 0x7FFF) & 0xFFFF:04X}")
+                    f.write(f"{int(value * 0x7FFF) & 0xFFFF:04X}")
+                    f.write(f"{int(value * 0x7FFF) & 0xFFFF:04X}\n")
                     counter += 1
 
             for i in range(4096 - counter):
@@ -137,7 +137,7 @@ def main():
     acid = read("Acid.wav")[1][:2048]
 
     mm = Mipmap('saw', saw)
-    mm.plot()
+    # mm.plot()
     mm.write_table()
 
 

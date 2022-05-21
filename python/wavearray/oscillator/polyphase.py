@@ -113,12 +113,12 @@ class PolyphaseFilter:
         with open("osc_coeff_memory_even.coe", 'w') as f:
             for fb in self.filterbank[::2]:
                 for coeff in fb:
-                    f.write(f"{int(coeff * 0xFFFF) & 0xFFFF:04X}\n")
+                    f.write(f"{int(coeff * 0x7FFF) & 0xFFFF:04X}\n")
 
         with open("osc_coeff_memory_odd.coe", 'w') as f:
             for fb in self.filterbank[1::2]:
                 for coeff in fb:
-                    f.write(f"{int(coeff * 0xFFFF) & 0xFFFF:04X}\n")
+                    f.write(f"{int(coeff * 0x7FFF) & 0xFFFF:04X}\n")
 
 
 def main():
