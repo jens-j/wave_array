@@ -37,9 +37,9 @@ end entity;
 architecture arch of table_interpolator is
 
     -- Pipeline stage lengths.
-    constant PIPE_LEN_MEM       : integer := 2; -- Sample & coefficient memory access.
+    constant PIPE_LEN_MEM       : integer := 1; -- Sample & coefficient memory access.
     constant PIPE_LEN_INTP      : integer := 4; -- Sample & coefficient linear interpolation.
-    constant PIPE_LEN_MACC      : integer := 3; -- Polyphase filter multiply-accumulate.
+    constant PIPE_LEN_MACC      : integer := 4; -- Polyphase filter multiply-accumulate.
     constant PIPE_LEN_TOTAL     : integer := PIPE_LEN_MEM + PIPE_LEN_INTP + PIPE_LEN_MACC; -- Total pipeline length.
 
     -- Cumulative pipeline lengths.
@@ -71,6 +71,8 @@ architecture arch of table_interpolator is
         odd_phase               : std_logic_vector(PIPE_LEN_MEM downto 0); -- '1' when m is odd (changes coefficient memory access).
         phase_position          : t_osc_phase_position_array(0 to PIPE_LEN_MEM); -- Interpolation coefficient for phase interpolation.
 
+        zero_coeff              : std_logic_vector(PIPE_SUM_INTP downto 0);
+
         -- Sticky error bits.
         overflow                : std_logic;
         timeout                 : std_logic;
@@ -93,6 +95,8 @@ architecture arch of table_interpolator is
         frame_position          => (others => (others => '0')),
         odd_phase               => (others => '0'),
         phase_position          => (others => (others => '0')),
+
+        zero_coeff              => (others => '0'),
 
         overflow                => '0',
         timeout                 => '0'
@@ -140,10 +144,10 @@ begin
     port map (
         write_clk               => clk,
         write_enable            => s_wave_mem_wea,
-        write_adddress          => s_wave_mem_addra,
+        write_address           => s_wave_mem_addra,
         write_data              => s_wave_mem_dina,
         read_clk                => clk,
-        read_adddress           => s_wave_mem_addrb,
+        read_address            => s_wave_mem_addrb,
         read_data               => s_wave_mem_doutb
     );
 
@@ -154,7 +158,7 @@ begin
     )
     port map (
         clk                     => clk,
-        adddress                => s_coeff_even_addra,
+        address                 => s_coeff_even_addra,
         data                    => s_coeff_even_douta
     );
 
@@ -165,7 +169,7 @@ begin
     )
     port map (
         clk                     => clk,
-        adddress                => s_coeff_odd_addra,
+        address                 => s_coeff_odd_addra,
         data                    => s_coeff_odd_douta
     );
 
@@ -214,16 +218,22 @@ begin
     overflow <= r.overflow;
     timeout <= r.timeout;
 
-    combinatorial : process (r, osc_inputs, addrgen_input, next_sample,
-                             s_frame_interp_p, s_coeff_interp_p, s_macc_p)
+    combinatorial : process (r, osc_inputs, addrgen_input, next_sample, frame_0_index, frame_1_index,
+                             s_frame_interp_p, s_coeff_interp_p, s_macc_p,
+                             s_wave_mem_doutb, s_coeff_even_douta, s_coeff_odd_douta)
         variable v_level : t_mipmap_level;
-        variable v_odd_phase : std_logic;
+        variable v_odd_phase_0 : std_logic;
+        variable v_frame_interp_a : std_logic_vector(SAMPLE_SIZE - 1 downto 0);
+        variable v_frame_interp_c : std_logic_vector(SAMPLE_SIZE + OSC_SAMPLE_FRAC - 1 downto 0);
+        variable v_frame_interp_d : std_logic_vector(SAMPLE_SIZE - 1 downto 0);
+
     begin
 
         r_in <= r;
 
         r_in.writeback(0) <= '0';
-        v_odd_phase := addrgen_input(r.osc_counter(0)).phase_frac(OSC_COEFF_FRAC);
+        r_in.zero_coeff(0) <= '0';
+        v_odd_phase_0 := addrgen_input(r.osc_counter(0)).phase_frac(OSC_COEFF_FRAC);
 
         if r.state = idle then
 
@@ -267,7 +277,7 @@ begin
         elsif r.state = init then
             r_in.frame_0_index <= frame_0_index;
             r_in.frame_1_index <= frame_1_index;
-            r_in.odd_phase(0) <= v_odd_phase;
+            r_in.odd_phase(0) <= v_odd_phase_0;
             r_in.phase_position(0) <= addrgen_input(0).phase_frac(OSC_COEFF_FRAC - 1 downto 0);
             r_in.frame_position(0) <= osc_inputs(0).position;
             r_in.mipmap_address <= addrgen_input(0).mipmap_address;
@@ -279,7 +289,6 @@ begin
         elsif r.state = running then
 
             v_level := addrgen_input(r.osc_counter(0)).mipmap_level;
-
 
             -- Increment mipmap address (wrap around based on mipmap level).
             if r.mipmap_address = MIPMAP_LEVEL_LIMITS(v_level) then
@@ -327,7 +336,7 @@ begin
             -- Pipeline stage 0: Pipeline register inputs.
             if r.sample_counter(0) < 2 then
                 r_in.frame_position(0) <= osc_inputs(r.osc_counter(0)).position;
-                r_in.odd_phase(0) <= v_odd_phase;
+                r_in.odd_phase(0) <= v_odd_phase_0;
                 r_in.phase_position(0) <=
                     addrgen_input(r.osc_counter(0)).phase_frac(OSC_COEFF_FRAC - 1 downto 0);
             end if;
@@ -340,32 +349,60 @@ begin
             s_coeff_odd_addra <= std_logic_vector(r.coeff_base_address)
                 & std_logic_vector(to_unsigned(r.coeff_counter, POLY_N_LOG2));
 
-            with v_odd_phase select s_coeff_even_addra <=
-                std_logic_vector(r.coeff_base_address)
-                    & std_logic_vector(to_unsigned(r.coeff_counter, POLY_N_LOG2)) when '0',
-                std_logic_vector(r.coeff_base_address + 1)
-                    & std_logic_vector(to_unsigned(r.coeff_counter, POLY_N_LOG2)) when others;
+            if v_odd_phase_0 = '1' then
 
-            -- Pipeline stage 0+1 shift pipeline registers.
-            for i in PIPE_LEN_MEM - 1 downto 1 loop
+                -- Edge case where interpolation wraps around.
+                -- Solve by shifting the coefficient forward one position and append with a zero.
+                if r.coeff_base_address = POLY_M / 2 - 1 then
+                    if r.coeff_counter < POLY_N - 1 then
+                        s_coeff_even_addra <= std_logic_vector(r.coeff_base_address + 1)
+                            & std_logic_vector(to_unsigned(r.coeff_counter, POLY_N_LOG2) + 1);
+                    else
+                        r_in.zero_coeff(0) <= '1';
+                    end if;
+                else
+                    s_coeff_even_addra <= std_logic_vector(r.coeff_base_address + 1)
+                        & std_logic_vector(to_unsigned(r.coeff_counter, POLY_N_LOG2));
+                end if;
+            else
+                s_coeff_even_addra <= std_logic_vector(r.coeff_base_address)
+                    & std_logic_vector(to_unsigned(r.coeff_counter, POLY_N_LOG2));
+            end if;
+
+            -- with v_odd_phase_0 select s_coeff_even_addra <=
+            --     std_logic_vector(r.coeff_base_address)
+            --         & std_logic_vector(to_unsigned(r.coeff_counter, POLY_N_LOG2)) when '0',
+            --     std_logic_vector(r.coeff_base_address + 1)
+            --         & std_logic_vector(to_unsigned(r.coeff_counter, POLY_N_LOG2)) when others;
+
+            -- Pipeline stage 0 shift pipeline registers.
+            for i in PIPE_LEN_MEM downto 1 loop
                 r_in.frame_position(i) <= r.frame_position(i - 1);
                 r_in.phase_position(i) <= r.phase_position(i - 1);
                 r_in.odd_phase(i) <= r.odd_phase(i - 1);
             end loop;
 
-            -- Pipeline stage 2: Read wave memory (mux by active buffer indices) and send to frame
+            -- Pipeline stage 1: Read wave memory (mux by active buffer indices) and send to frame
             -- interpolator. Interpolation is performed in a single DSP slice (4 stage pipeline).
-            -- (A - D) * B + C = (sampleB - sampleA) * frac(position) + sampleA
-            s_frame_interp_b <= std_logic_vector(r.frame_position(PIPE_LEN_MEM - 1));
-            s_frame_interp_a <= s_wave_mem_doutb(
-                (r.frame_1_index + 1) * SAMPLE_SIZE - 1 downto r.frame_1_index * SAMPLE_SIZE);
-            s_frame_interp_c <= s_wave_mem_doutb(
-                (r.frame_0_index + 1) * SAMPLE_SIZE - 1 downto r.frame_0_index * SAMPLE_SIZE)
-                & (0 to OSC_SAMPLE_FRAC - 1 => '0');
-            s_frame_interp_d <= s_wave_mem_doutb(
-                (r.frame_0_index + 1) * SAMPLE_SIZE - 1 downto r.frame_0_index * SAMPLE_SIZE);
+            -- (A - D) * B + C = (sampleB - sampleA) * frac(position) + sampleA.
+            -- The input samples are also shifted right by one bit to leave some headroom to
+            -- aavoid overflow in the filter.
+            v_frame_interp_a := s_wave_mem_doutb((r.frame_1_index + 1) * SAMPLE_SIZE - 1
+                                    downto r.frame_1_index * SAMPLE_SIZE);
 
-            -- Pipeline stage 2: Read coefficient memory and send to interpolator. The values for the
+            v_frame_interp_c := s_wave_mem_doutb((r.frame_0_index + 1) * SAMPLE_SIZE - 1
+                                    downto r.frame_0_index * SAMPLE_SIZE)
+                                    & (0 to OSC_SAMPLE_FRAC - 1 => '0');
+
+            v_frame_interp_d := s_wave_mem_doutb((r.frame_0_index + 1) * SAMPLE_SIZE - 1
+                                    downto r.frame_0_index * SAMPLE_SIZE);
+
+            s_frame_interp_a <= std_logic_vector(shift_right(signed(v_frame_interp_a), 1));
+            s_frame_interp_b <= std_logic_vector(r.frame_position(PIPE_LEN_MEM - 1));
+            s_frame_interp_c <= std_logic_vector(shift_right(signed(v_frame_interp_c), 1));
+            s_frame_interp_d <= std_logic_vector(shift_right(signed(v_frame_interp_d), 1));
+
+            -- Pipeline stage 1: Read coefficient memory and send to interpolator. The values for the
             -- even and odd coefficient memories are swapped if the phase m is odd.
             if r.odd_phase(PIPE_LEN_MEM) then
                 s_coeff_interp_a <= s_coeff_odd_douta;
@@ -379,10 +416,17 @@ begin
 
             s_coeff_interp_b <= std_logic_vector(r.phase_position(PIPE_LEN_MEM - 1));
 
-            -- Pipeline stage 6: Connect linear interpolator outputs to the MACC.
+            -- Pipeline stage 5: Connect linear interpolator outputs to the MACC.
+            if r.zero_coeff(PIPE_SUM_INTP) = '0' then
+                s_macc_b <= s_coeff_interp_p(POLY_COEFF_SIZE - 1 downto 0);
+            end if;
             s_macc_a <= s_frame_interp_p(SAMPLE_SIZE - 1 downto 0);
-            s_macc_b <= s_coeff_interp_p(POLY_COEFF_SIZE - 1 downto 0);
             s_macc_sel <= "1" when r.coeff_counter = PIPE_SUM_INTP else "0";
+
+            -- Pipeline stage 0-5: zero coefficient pipeline registers.
+            for i in PIPE_SUM_INTP downto 1 loop
+                r_in.zero_coeff(i) <= r.zero_coeff(i - 1);
+            end loop;
 
             -- Pipeline stage 0-7: Register writeback parameters.
             for i in PIPE_LEN_TOTAL downto 1 loop
@@ -391,7 +435,7 @@ begin
                 r_in.writeback(i) <= r.writeback(i - 1);
             end loop;
 
-            -- Pipeline stage 7: Store output sample.
+            -- Pipeline stage 9: Store output sample.
             if r.writeback(PIPE_LEN_TOTAL) then
                 r_in.sample_buffers(r.osc_counter(PIPE_LEN_TOTAL))(r.sample_counter(PIPE_LEN_TOTAL))
                     <= t_mono_sample(
