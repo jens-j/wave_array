@@ -21,12 +21,11 @@ end entity;
 
 architecture arch of oscillator is
 
-    signal s_mipmap_addresses       : t_mipmap_address_array(0 to N_OSCILLATORS - 1);
-    signal s_phases_frac            : t_osc_phase_frac_array(0 to N_OSCILLATORS - 1);
+
     signal s_frame_0_index          : integer range 0 to 3;
     signal s_frame_1_index          : integer range 0 to 3;
     signal s_intermediate_samples   : t_stereo_sample_array(0 to N_OSCILLATORS - 1);
-    signal s_addrgen_to_tableinterp : t_addrgen_to_tableinterp_array(0 to N_OSCILLATORS - 1);
+    signal s_addrgen_to_tableinterp : t_addrgen_to_tableinterp_array(0 to 2 * N_OSCILLATORS - 1);
     signal s_overflow               : std_logic;
     signal s_timeout                : std_logic;
 

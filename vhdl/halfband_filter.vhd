@@ -67,6 +67,7 @@ begin
         P                       => s_macc_p
     );
 
+    output_samples <= r.output_samples;
 
     combinatorial : process (r, input_samples, next_sample)
         variable v_sample_index : integer range 0 to HALFBAND_N - 1;
@@ -83,6 +84,8 @@ begin
             if next_sample = '1' then
 
                 r_in.output_samples <= r.output_buffers;
+                r_in.pipeline_counter <= 0;
+                r_in.osc_counter <= 0;
 
                 -- Wait one cycle for the new samples to become available.
                 r_in.state <= load;

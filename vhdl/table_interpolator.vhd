@@ -27,7 +27,7 @@ entity table_interpolator is
         frame_0_index           : in  integer range 0 to 3; -- Frame x buffer index.
         frame_1_index           : in  integer range 0 to 3; -- Frame x+1 buffer index.
         osc_inputs              : in  t_osc_input_array(0 to N_OSCILLATORS - 1);
-        addrgen_input           : in  t_addrgen_to_tableinterp_array(0 to N_OSCILLATORS - 1);
+        addrgen_input           : in  t_addrgen_to_tableinterp_array(0 to 2 * N_OSCILLATORS - 1);
         output_samples          : out t_stereo_sample_array(0 to N_OSCILLATORS - 1); -- Two samples are needed for the downsampling.
         overflow                : out std_logic; -- Flag numeric overflow.
         timeout                 : out std_logic -- Flag that the oscillator could not keep up.
@@ -221,7 +221,10 @@ begin
     combinatorial : process (r, osc_inputs, addrgen_input, next_sample, frame_0_index, frame_1_index,
                              s_frame_interp_p, s_coeff_interp_p, s_macc_p,
                              s_wave_mem_doutb, s_coeff_even_douta, s_coeff_odd_douta)
+
         variable v_level : t_mipmap_level;
+        variable v_index_0 : integer range 0 to 2 * MIPMAP_LEVELS - 1;
+        variable v_index_next_0 : integer range 0 to 2 * MIPMAP_LEVELS - 1;
         variable v_odd_phase_0 : std_logic;
         variable v_frame_interp_a : std_logic_vector(SAMPLE_SIZE - 1 downto 0);
         variable v_frame_interp_c : std_logic_vector(SAMPLE_SIZE + OSC_SAMPLE_FRAC - 1 downto 0);
@@ -233,7 +236,9 @@ begin
 
         r_in.writeback(0) <= '0';
         r_in.zero_coeff(0) <= '0';
-        v_odd_phase_0 := addrgen_input(r.osc_counter(0)).phase_frac(OSC_COEFF_FRAC);
+
+        v_index_0 := 2 * r.osc_counter(0) + r.sample_counter(0);
+        v_odd_phase_0 := addrgen_input(v_index_0).phase_frac(OSC_COEFF_FRAC);
 
         if r.state = idle then
 
@@ -288,7 +293,8 @@ begin
 
         elsif r.state = running then
 
-            v_level := addrgen_input(r.osc_counter(0)).mipmap_level;
+            -- Should always be the same for both samples of each oscillator.
+            v_level := addrgen_input(v_index_0).mipmap_level;
 
             -- Increment mipmap address (wrap around based on mipmap level).
             if r.mipmap_address = MIPMAP_LEVEL_LIMITS(v_level) then
@@ -303,7 +309,12 @@ begin
 
                  -- Pre increment the osc_counter because it is needed for indexing in the next cycle.
                 if r.coeff_counter = POLY_N - 2 then
-                    r_in.osc_counter_next <= r.osc_counter(0) + 1;
+
+                    if r.osc_counter(0) < N_OSCILLATORS - 1 then
+                        r_in.osc_counter_next <= r.osc_counter(0) + 1;
+                    else
+                        r_in.osc_counter_next <= 0;
+                    end if;
 
                     if r.sample_counter(0) < 2 then
                         r_in.writeback(0) <= '1';
@@ -314,18 +325,17 @@ begin
 
                 -- Check for end of sample cycle.
                 if r.osc_counter(0) = N_OSCILLATORS - 1 then
-                    r_in.osc_counter(0) <= 0;
                     r_in.sample_counter(0) <= r.sample_counter(0) + 1;
-                else
-                    r_in.osc_counter(0) <= r.osc_counter_next;
                 end if;
 
+                r_in.osc_counter(0) <= r.osc_counter_next;
+
                 -- Load sample and coeffient base addresses for next oscillator.
-                if r.osc_counter_next < N_OSCILLATORS then
-                    r_in.mipmap_address <= addrgen_input(r.osc_counter_next).mipmap_address;
-                    r_in.coeff_base_address <= addrgen_input(r.osc_counter_next).phase_frac
-                        (t_osc_phase_frac'length - 1 downto OSC_COEFF_FRAC + 1);
-                end if;
+                v_index_next_0 := 2 * r.osc_counter_next + r.sample_counter(0);
+
+                r_in.mipmap_address <= addrgen_input(v_index_next_0).mipmap_address;
+                r_in.coeff_base_address <= addrgen_input(v_index_next_0).phase_frac
+                    (t_osc_phase_frac'length - 1 downto OSC_COEFF_FRAC + 1);
             end if;
 
             -- Check for end of pipeline
@@ -338,7 +348,7 @@ begin
                 r_in.frame_position(0) <= osc_inputs(r.osc_counter(0)).position;
                 r_in.odd_phase(0) <= v_odd_phase_0;
                 r_in.phase_position(0) <=
-                    addrgen_input(r.osc_counter(0)).phase_frac(OSC_COEFF_FRAC - 1 downto 0);
+                    addrgen_input(v_index_0).phase_frac(OSC_COEFF_FRAC - 1 downto 0);
             end if;
 
             -- Pipeline stage 0: Wave memory access.
@@ -435,11 +445,16 @@ begin
                 r_in.writeback(i) <= r.writeback(i - 1);
             end loop;
 
-            -- Pipeline stage 9: Store output sample.
+            -- Pipeline stage 9: Store output sample (store zero if oscillator is disabled).
             if r.writeback(PIPE_LEN_TOTAL) then
-                r_in.sample_buffers(r.osc_counter(PIPE_LEN_TOTAL))(r.sample_counter(PIPE_LEN_TOTAL))
-                    <= t_mono_sample(
-                        s_macc_p(SAMPLE_SIZE + POLY_COEFF_SIZE - 1 downto POLY_COEFF_SIZE));
+                if osc_inputs(r.osc_counter(PIPE_LEN_TOTAL)).enable = '1' then
+                    r_in.sample_buffers(r.osc_counter(PIPE_LEN_TOTAL))
+                        (r.sample_counter(PIPE_LEN_TOTAL)) <= t_mono_sample(
+                            s_macc_p(SAMPLE_SIZE + POLY_COEFF_SIZE - 1 downto POLY_COEFF_SIZE));
+                else
+                    r_in.sample_buffers(r.osc_counter(PIPE_LEN_TOTAL))
+                        (r.sample_counter(PIPE_LEN_TOTAL)) <= (others => '0');
+                end if;
             end if;
         end if;
 
