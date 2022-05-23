@@ -11,7 +11,7 @@ package wave_array_pkg is
     ;
 
     constant SYS_FREQ               : integer := 100_000_000;
-    constant NUMBER_OF_VOICES       : positive := 1;
+    constant N_VOICES               : positive := 4;
 
     -- Audio sample constants.
     constant SAMPLE_SIZE            : integer := 16;
@@ -85,6 +85,7 @@ package wave_array_pkg is
     type t_osc_position_array is array (natural range <>) of t_osc_position;
 
     type t_osc_input is record
+        enable                  : std_logic; -- Voice enable (outputs zero when not enabled).
         velocity                : t_osc_phase; -- Table velocity.
         position                : t_osc_position; -- Frame position.
     end record;

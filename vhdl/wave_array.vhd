@@ -5,9 +5,12 @@ use IEEE.numeric_std.all;
 library unisim;
 use unisim.vcomponents.all;
 
+library ip;
+
 library wave;
 use wave.wave_array_pkg.all;
 use wave.midi_pkg.all;
+
 
 entity wave_array is
     port (
@@ -30,104 +33,105 @@ end entity;
 
 architecture arch of wave_array is
 
-    signal system_clk_s         : std_logic;
-    signal i2s_clk_s            : std_logic;
-    signal reset_al_s           : std_logic;
-    signal reset_ah_s           : std_logic;
+    signal s_system_clk         : std_logic;
+    signal s_i2s_clk            : std_logic;
+    signal s_reset_al           : std_logic;
+    signal s_reset_ah           : std_logic;
 
-    signal next_sample_s        : std_logic;
-    signal sample_s             : t_stereo_sample;
-    signal voices_s             : t_voice_array(NUMBER_OF_VOICES - 1 downto 0);
-    signal midi_status_byte_s   : t_byte;
-    signal analog_value_s       : std_logic_vector(ADC_SAMPLE_SIZE - 1 downto 0);
-    signal mipmap_level_s       : integer range 0 to MIPMAP_LEVELS - 1;
+    signal s_next_sample        : std_logic;
+    signal s_voices             : t_voice_array(N_VOICES - 1 downto 0);
+    signal s_midi_status_byte   : t_byte;
+    signal s_analog_value       : std_logic_vector(ADC_SAMPLE_SIZE - 1 downto 0);
+    signal s_sample             : t_stereo_sample;
+
 
 begin
 
     -- Connect inputs.
-    reset_ah_s <= not BTN_RESET;
-    reset_al_s <= BTN_RESET;
+    s_reset_ah <= not BTN_RESET;
+    s_reset_al <= BTN_RESET;
 
     -- Connect outputs.
-    gen_voice_led: for i in 0 to NUMBER_OF_VOICES - 1 generate
-        LEDS(15 - i) <= voices_s(i).enable;
+    gen_voice_led: for i in 0 to N_VOICES - 1 generate
+        LEDS(15 - i) <= s_voices(i).enable;
     end generate;
 
-    LEDS(15 - NUMBER_OF_VOICES downto 8) <= (others => '0');
-    LEDS(7 downto 0)   <= midi_status_byte_s;
+    LEDS(15 - N_VOICES downto 8) <= (others => '0');
+    LEDS(7 downto 0)   <= s_midi_status_byte;
     UART_TX            <= MIDI_RX;
-    I2S_SCLK           <= i2s_clk_s;
+    I2S_SCLK           <= s_i2s_clk;
 
 
-    clk_gen : entity wave.clk_generator_wrapper
+    clk_gen : entity ip.clk_generator
     port map (
-        reset                   => reset_ah_s,
+        reset                   => s_reset_ah,
         ext_clk                 => EXT_CLK,         -- 100 MHz
-        system_clk              => system_clk_s,    -- 100 MHz
-        i2s_clk                 => i2s_clk_s        -- 1536017.5 Hz
+        system_clk              => s_system_clk,    -- 100 MHz
+        i2s_clk                 => s_i2s_clk        -- 1536017.5 Hz
     );
 
-    slave : entity wave.midi_slave
+    midi_slave : entity wave.midi_slave
     generic map (
-        n_voices                => NUMBER_OF_VOICES
+        n_voices                => N_VOICES
     )
     port map (
-        clk                     => system_clk_s,
-        reset                   => reset_ah_s,
+        clk                     => s_system_clk,
+        reset                   => s_reset_ah,
         uart_rx                 => MIDI_RX,
         midi_channel            => SWITCHES(3 downto 0),
-        voices                  => voices_s,
-        status_byte             => midi_status_byte_s
+        voices                  => s_voices,
+        status_byte             => s_midi_status_byte
     );
 
-    synth : entity wave.synth_subsystem
-    port map (
-        clk                     => system_clk_s,
-        reset                   => reset_ah_s,
-        mipmap_enable           => SWITCHES(10),
-        interpolate_enable      => SWITCHES(9),
-        value                   => analog_value_s,
-        next_sample             => next_sample_s,
-        mipmap_level            => mipmap_level_s,
-        sample                  => sample_s
+    synth_subsys : entity wave.synth_subsystem
+    generic map(
+        N_OSCILLATORS           => N_VOICES
+    )
+    port map(
+        clk                     => s_system_clk,
+        reset                   => s_reset_ah,
+        next_sample             => s_next_sample,
+        enable_midi             => SWITCHES(15),
+        analog_input            => s_analog_value,
+        voices                  => s_voices,
+        sample                  => s_sample
     );
 
     i2s_interface : entity wave.i2s_interface
     port map (
-        system_clk              => system_clk_s,
-        i2s_clk                 => i2s_clk_s,
-        reset                   => reset_ah_s,
-        sample_in               => sample_s,
-        next_sample             => next_sample_s,
+        system_clk              => s_system_clk,
+        i2s_clk                 => s_i2s_clk,
+        reset                   => s_reset_ah,
+        sample_in               => s_sample,
+        next_sample             => s_next_sample,
         sdata                   => I2S_SDATA,
         wsel                    => I2S_WSEL
     );
 
-    seven_segment : entity wave.seven_segment
-    port map (
-        clk                     => system_clk_s,
-        reset                   => reset_ah_s,
-        display_data            => std_logic_vector(to_unsigned(mipmap_level_s, 16))
-            & (16 - ADC_SAMPLE_SIZE - 1 downto 0 => '0') & analog_value_s,
-        segments                => DISPLAY_SEGMENTS,
-        anodes                  => DISPLAY_ANODES
-    );
-
     input : entity wave.input_subsystem
     port map (
-        clk                     => system_clk_s,
-        reset                   => reset_ah_s,
+        clk                     => s_system_clk,
+        reset                   => s_reset_ah,
         vauxp3                  => XADC_3P,
         vauxn3                  => XADC_3N,
-        average                 => SWITCHES(12 downto 11),
-        filter_length           => SWITCHES(15 downto 13),
-        value                   => analog_value_s
+        average                 => SWITCHES(11 downto 10),
+        filter_length           => SWITCHES(14 downto 12),
+        value                   => s_analog_value
     );
+    -- seven_segment : entity wave.seven_segment
+    -- port map (
+    --     clk                     => s_system_clk,
+    --     reset                   => s_reset_ah,
+    --     display_data            => std_logic_vector(to_unsigned(mipmap_level_s, 16))
+    --         & (16 - ADC_SAMPLE_SIZE - 1 downto 0 => '0') & s_analog_value,
+    --     segments                => DISPLAY_SEGMENTS,
+    --     anodes                  => DISPLAY_ANODES
+    -- );
 
     -- microblaze_sys : entity wave.microblaze_sys_wrapper
     -- port map(
-    --     clk_100MHz              => system_clk_s,
-    --     reset_rtl_0             => reset_al_s,
+    --     clk_100MHz              => s_system_clk,
+    --     reset_rtl_0             => s_reset_al,
     --     uart_rtl_0_rxd          => UART_RX,
     --     uart_rtl_0_txd          => UART_TX,
     --     leds                    => open,

@@ -1,6 +1,8 @@
 library ieee;
 use ieee.std_logic_1164.all;
 
+library ip;
+
 library wave;
 use wave.wave_array_pkg.all;
 use wave.midi_pkg.all;
@@ -62,7 +64,7 @@ begin
         o_TX_Done               => uart_done_s
     );
 
-    midi_fifo : entity wave.midi_fifo
+    midi_fifo : entity ip.midi_fifo
     port map (
         clk                     => clk,
         srst                    => reset,

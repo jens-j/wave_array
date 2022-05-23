@@ -58,7 +58,7 @@ begin
     );
 
     clk <= not clk after 5 ns;
-    reset <= '1' after 100 ns;
-    switches <= x"9003", x"8803" after 2 ms; -- change average setting 64 -> 16
+    reset <= '1' after 1 us;
+    switches <= x"9400";
 
 end architecture;

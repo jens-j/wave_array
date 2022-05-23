@@ -2,6 +2,8 @@ library ieee;
 use ieee.std_logic_1164.all;
 use IEEE.numeric_std.all;
 
+library ip;
+
 library wave;
 use wave.wave_array_pkg.all;
 
@@ -81,43 +83,10 @@ architecture arch of input_subsystem is
     signal mul_p                : t_filter_result;
     signal mul_carryout         : std_logic;
 
-    component adc_mul_gen is
-    port (
-        clk                     : in  std_logic;
-        a                       : in  t_filter_sample;
-        b                       : in  t_filter_coeff;
-        c                       : in  t_filter_acc;
-        p                       : out t_filter_result;
-        carryout                : out std_logic
-    );
-    end component;
-
-    component xadc_gen is
-    port (
-        daddr_in                : in   std_logic_vector (6 downto 0);
-        den_in                  : in   std_logic;
-        di_in                   : in   std_logic_vector (15 downto 0);
-        dwe_in                  : in   std_logic;
-        do_out                  : out  std_logic_vector (15 downto 0);
-        drdy_out                : out  std_logic;
-        dclk_in                 : in   std_logic;
-        reset_in                : in   std_logic;
-        vauxp3                  : in   std_logic;
-        vauxn3                  : in   std_logic;
-        busy_out                : out  std_logic;
-        channel_out             : out  std_logic_vector (4 downto 0);
-        eoc_out                 : out  std_logic;
-        eos_out                 : out  std_logic;
-        alarm_out               : out  std_logic;
-        vp_in                   : in   std_logic;
-        vn_in                   : in   std_logic
-    );
-    end component;
-
 begin
 
     -- p = a * b + c after 1 cycle, c is delayed must be issued in the same cycle as the result
-    mul : adc_mul_gen
+    mul : entity ip.adc_mul_gen
     port map (
         clk                     => clk,
         a                       => mul_a,
@@ -127,7 +96,7 @@ begin
         carryout                => mul_carryout
     );
 
-    XADC_inst : xadc_gen
+    XADC_inst : entity ip.xadc_gen
     port map (
         daddr_in                => drp_daddr_s,  -- Address bus for the dynamic reconfiguration port
         den_in                  => drp_den_s,    -- Enable Signal for the dynamic reconfiguration port

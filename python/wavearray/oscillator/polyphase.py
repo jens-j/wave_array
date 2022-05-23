@@ -29,8 +29,10 @@ class PolyphaseFilter:
         """
 
         # Generate an odd length symmetric window and prepend with a zero to make it length L.
-        self.window = signal.chebwin(self.L - 1, 80)
-        self.window = np.insert(self.window, 0, 0) #
+        self.window = signal.chebwin(self.L - 1, 85)
+        self.window = np.insert(self.window, 0, 0)
+
+        print(self.window)
 
         # Create the interleaved sync filter
         self.sinc_x = (np.array(range(self.L)) - self.L // 2) * 2 * self.fc / self.M
@@ -71,6 +73,8 @@ class PolyphaseFilter:
             c = (1.0 - d) * self.filterbank[m0] + d * np.append(self.filterbank[m1][1:], 0)
         else:
             c = (1.0 - d) * self.filterbank[m0] + d * self.filterbank[m1]
+
+        # print(m0, m1, d, c)
 
         # print('c =', c)
 
@@ -123,7 +127,7 @@ class PolyphaseFilter:
 
 def main():
 
-    l = 2048    # Number of samples in waveform.
+    l = 256     # Number of samples in waveform.
     fc = 0.3    # normalized cutoff frequency.
     N = 16      # Number of filter taps.
     M = 128     # Number of phases.
@@ -158,7 +162,13 @@ def main():
         # if i == 16:
         #     exit()
 
-        output_samples.append(pfb.interpolate(input_samples, index_frac))
+        # if i % (d * M) == 0:
+        #     print(i, index_frac)
+
+        sample = pfb.interpolate(input_samples, index_frac)
+        output_samples.append(sample)
+
+
 
 
     fig, axis = plt.subplots(1)
@@ -175,6 +185,8 @@ def main():
     sample_points = np.array([np.nan] * l * M * d)
     sample_points[::d * M] = output_samples[::d * M]
     axis.plot(sample_points, '.r')
+
+    axis.plot(np.array(list(range(l))) * d * M, saw, '.y')
 
     plt.show()
 
