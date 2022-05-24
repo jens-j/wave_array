@@ -158,8 +158,8 @@ package wave_array_pkg is
     );
 
     constant HALFBAND_COEFFICIENTS : t_halfband_coeff_array := (
-            x"5121", x"E5E3", x"0E9B", x"F69F", x"0652", x"FBB1", x"02EA", x"FE12",
-            x"013E", x"FF3C", x"0073", x"FFC1", x"0020", x"FFF2", x"0005", x"FFFF"
+        x"FFFF", x"0005", x"FFF2", x"0020", x"FFC1", x"0073", x"FF3C", x"013E",
+        x"FE12", x"02EA", x"FBB1", x"0652", x"F69F", x"0E9B", x"E5E3", x"5121"
     );
 
 
