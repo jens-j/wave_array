@@ -19,5 +19,7 @@ add wave -divider table_interpolator:
 add wave tb_wave_array/wave_array/synth_subsys/oscillator/table_interpolator/*
 add wave -divider halfband:
 add wave tb_wave_array/wave_array/synth_subsys/oscillator/halfband/*
+add wave -divider mixer:
+add wave tb_wave_array/wave_array/synth_subsys/mixer/*
 
 run 100 ms

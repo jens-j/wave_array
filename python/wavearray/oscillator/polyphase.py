@@ -32,12 +32,10 @@ class PolyphaseFilter:
         self.window = signal.chebwin(self.L - 1, 85)
         self.window = np.insert(self.window, 0, 0)
 
-        print(self.window)
-
         # Create the interleaved sync filter
         self.sinc_x = (np.array(range(self.L)) - self.L // 2) * 2 * self.fc / self.M
 
-        self.sinc = np.sinc(self.sinc_x)
+        self.sinc = 2 * self.fc * np.sinc(self.sinc_x)
         self.sinc[0] = 0 # set first index to zero even though the window will already make it zero.
         # self.remez = signal.remez(self.L, [0, 0.35, 0.45, 0.5], [1, 0])
 
@@ -113,6 +111,8 @@ class PolyphaseFilter:
 
 
     def write_tables(self):
+        """ Write the table M.N (phase major) with the coefficients in each bank reversed
+            for easy convolution """
 
         with open("osc_coeff_memory_even.coe", 'w') as f:
             for fb in self.filterbank[::2]:
