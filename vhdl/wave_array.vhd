@@ -43,6 +43,7 @@ architecture arch of wave_array is
     signal s_midi_status_byte   : t_byte;
     signal s_analog_value       : std_logic_vector(ADC_SAMPLE_SIZE - 1 downto 0);
     signal s_sample             : t_stereo_sample;
+    signal s_display_data       : std_logic_vector(31 downto 0);
 
 
 begin
@@ -60,6 +61,13 @@ begin
     LEDS(7 downto 0)   <= s_midi_status_byte;
     UART_TX            <= MIDI_RX;
     I2S_SCLK           <= s_i2s_clk;
+
+    -- 7 segment display.
+    s_display_data <=
+        std_logic_vector(to_unsigned(s_voices(0).note.octave, 4))      -- 1 char octave
+        & std_logic_vector(to_unsigned(s_voices(0).note.key, 4))       -- 1 char note
+        & "0" & s_voices(0).midi_velocity                              -- 2 char midi velocity
+        & (16 - ADC_SAMPLE_SIZE - 1 downto 0 => '0') & s_analog_value; -- 4 char potentiometer value
 
 
     clk_gen : entity ip.clk_generator
@@ -118,15 +126,15 @@ begin
         filter_length           => SWITCHES(14 downto 12),
         value                   => s_analog_value
     );
-    -- seven_segment : entity wave.seven_segment
-    -- port map (
-    --     clk                     => s_system_clk,
-    --     reset                   => s_reset_ah,
-    --     display_data            => std_logic_vector(to_unsigned(mipmap_level_s, 16))
-    --         & (16 - ADC_SAMPLE_SIZE - 1 downto 0 => '0') & s_analog_value,
-    --     segments                => DISPLAY_SEGMENTS,
-    --     anodes                  => DISPLAY_ANODES
-    -- );
+
+    seven_segment : entity wave.seven_segment
+    port map (
+        clk                     => s_system_clk,
+        reset                   => s_reset_ah,
+        display_data            => s_display_data,
+        segments                => DISPLAY_SEGMENTS,
+        anodes                  => DISPLAY_ANODES
+    );
 
     -- microblaze_sys : entity wave.microblaze_sys_wrapper
     -- port map(

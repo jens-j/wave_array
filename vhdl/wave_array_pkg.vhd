@@ -15,7 +15,8 @@ package wave_array_pkg is
 
     -- Audio sample constants.
     constant SAMPLE_SIZE            : integer := 16;
-    constant SAMPLE_MAX             : integer := 2**SAMPLE_SIZE - 1;
+    constant SAMPLE_MAX             : integer := 2**(SAMPLE_SIZE - 1) - 1;
+    constant SAMPLE_MIN             : integer := -2**(SAMPLE_SIZE - 1);
     constant SAMPLE_RATE            : integer := 96_000; -- Oversampling by 2x simplifies mip-mapping
 
     -- Constants related to wavetables.

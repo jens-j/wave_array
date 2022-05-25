@@ -128,8 +128,12 @@ begin
             r_in.phases_frac_buffers(v_index) <=
                     r.table_phases(r.osc_counter)(t_osc_phase_frac'length - 1 downto 0);
 
-            r_in.table_phases(r.osc_counter) <=
-                r.table_phases(r.osc_counter) + osc_inputs(r.osc_counter).velocity;
+            if osc_inputs(r.osc_counter).enable = '1' then
+                r_in.table_phases(r.osc_counter) <=
+                    r.table_phases(r.osc_counter) + osc_inputs(r.osc_counter).velocity;
+            else
+                r_in.table_phases(r.osc_counter) <= (others => '0');
+            end if; 
 
             if r.sample_counter = 0 then
                 r_in.sample_counter <= 1;
