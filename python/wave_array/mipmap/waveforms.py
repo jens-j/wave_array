@@ -1,6 +1,7 @@
 import numpy as np
-from wavearray.mipmap.mipmap import Mipmap
 from scipy.io import wavfile
+
+from wave_array.mipmap.mipmap import Mipmap
 
 
 def saw():
@@ -8,7 +9,7 @@ def saw():
         for i in range(Mipmap.L0_SIZE)]) * Mipmap.SAMPLE_MAX
 
 def square():
-    square = np.concatenate(
+    return np.concatenate(
         (np.ones(Mipmap.L0_SIZE // 2), -np.ones(Mipmap.L0_SIZE // 2))) * Mipmap.SAMPLE_MAX
 
 def acid():

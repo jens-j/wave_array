@@ -1,14 +1,14 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
-from wavearray.mipmap.mipmap import Mipmap
-from wavearray.mipmap import waveforms
+from wave_array.mipmap.mipmap import Mipmap
+from wave_array.mipmap import waveforms
 
 # Generate some waveforms.
 wave_a = waveforms.saw()
 wave_b = waveforms.acid()
 
-wave_a_table = Mipmap('wave_a', wave_a)
+wave_a_table = Mipmap('wave_a', wave_a, prefilter=True)
 wave_b_table = Mipmap('wave_b', wave_b)
 counter = 0
 
