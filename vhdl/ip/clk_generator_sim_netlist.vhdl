@@ -1,7 +1,7 @@
 -- Copyright 1986-2021 Xilinx, Inc. All Rights Reserved.
 -- --------------------------------------------------------------------------------
 -- Tool Version: Vivado v.2021.1 (win64) Build 3247384 Thu Jun 10 19:36:33 MDT 2021
--- Date        : Sun Dec 12 20:37:35 2021
+-- Date        : Wed May 25 18:22:35 2022
 -- Host        : DESKTOP-39V2INO running 64-bit major release  (build 9200)
 -- Command     : write_vhdl -force -mode funcsim
 --               c:/Users/jens_/wave_array/vivado/wave_array/wave_array.gen/sources_1/ip/clk_generator/clk_generator_sim_netlist.vhdl
@@ -17,7 +17,7 @@ use UNISIM.VCOMPONENTS.ALL;
 entity clk_generator_clk_wiz is
   port (
     system_clk : out STD_LOGIC;
-    i2s_clk : out STD_LOGIC;
+    i2s_intermediate_clk : out STD_LOGIC;
     reset : in STD_LOGIC;
     ext_clk : in STD_LOGIC
   );
@@ -27,7 +27,7 @@ architecture STRUCTURE of clk_generator_clk_wiz is
   signal clkfbout_buf_clk_generator : STD_LOGIC;
   signal clkfbout_clk_generator : STD_LOGIC;
   signal ext_clk_clk_generator : STD_LOGIC;
-  signal i2s_clk_clk_generator : STD_LOGIC;
+  signal i2s_intermediate_clk_clk_generator : STD_LOGIC;
   signal system_clk_clk_generator : STD_LOGIC;
   signal NLW_mmcm_adv_inst_CLKFBOUTB_UNCONNECTED : STD_LOGIC;
   signal NLW_mmcm_adv_inst_CLKFBSTOPPED_UNCONNECTED : STD_LOGIC;
@@ -78,8 +78,8 @@ clkout1_buf: unisim.vcomponents.BUFG
     );
 clkout2_buf: unisim.vcomponents.BUFG
      port map (
-      I => i2s_clk_clk_generator,
-      O => i2s_clk
+      I => i2s_intermediate_clk_clk_generator,
+      O => i2s_intermediate_clk
     );
 mmcm_adv_inst: unisim.vcomponents.MMCME2_ADV
     generic map(
@@ -143,7 +143,7 @@ mmcm_adv_inst: unisim.vcomponents.MMCME2_ADV
       CLKINSTOPPED => NLW_mmcm_adv_inst_CLKINSTOPPED_UNCONNECTED,
       CLKOUT0 => system_clk_clk_generator,
       CLKOUT0B => NLW_mmcm_adv_inst_CLKOUT0B_UNCONNECTED,
-      CLKOUT1 => i2s_clk_clk_generator,
+      CLKOUT1 => i2s_intermediate_clk_clk_generator,
       CLKOUT1B => NLW_mmcm_adv_inst_CLKOUT1B_UNCONNECTED,
       CLKOUT2 => NLW_mmcm_adv_inst_CLKOUT2_UNCONNECTED,
       CLKOUT2B => NLW_mmcm_adv_inst_CLKOUT2B_UNCONNECTED,
@@ -175,7 +175,7 @@ use UNISIM.VCOMPONENTS.ALL;
 entity clk_generator is
   port (
     system_clk : out STD_LOGIC;
-    i2s_clk : out STD_LOGIC;
+    i2s_intermediate_clk : out STD_LOGIC;
     reset : in STD_LOGIC;
     ext_clk : in STD_LOGIC
   );
@@ -188,7 +188,7 @@ begin
 inst: entity work.clk_generator_clk_wiz
      port map (
       ext_clk => ext_clk,
-      i2s_clk => i2s_clk,
+      i2s_intermediate_clk => i2s_intermediate_clk,
       reset => reset,
       system_clk => system_clk
     );

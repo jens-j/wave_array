@@ -57,7 +57,7 @@
 //   Clock     Freq (MHz)  (degrees)    (%)     Jitter (ps)  Error (ps)
 //----------------------------------------------------------------------------
 // system_clk__100.00000______0.000______50.0______146.380____119.384
-// _i2s_clk___6.14407______0.000______50.0______255.590____119.384
+// i2s_intermediate_clk___6.14407______0.000______50.0______255.590____119.384
 //
 //----------------------------------------------------------------------------
 // Input Clock   Freq (MHz)    Input Jitter (UI)
@@ -72,7 +72,7 @@ module clk_generator
  (
   // Clock out ports
   output        system_clk,
-  output        i2s_clk,
+  output        i2s_intermediate_clk,
   // Status and control signals
   input         reset,
  // Clock in ports
@@ -83,7 +83,7 @@ module clk_generator
   (
   // Clock out ports  
   .system_clk(system_clk),
-  .i2s_clk(i2s_clk),
+  .i2s_intermediate_clk(i2s_intermediate_clk),
   // Status and control signals               
   .reset(reset), 
  // Clock in ports

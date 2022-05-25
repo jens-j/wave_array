@@ -46,12 +46,6 @@ begin
 
     next_sample <= not fifo_full_s;
 
-    clk_enable : entity wave.i2s_clk_enable
-    port map (
-        clk                         => i2s_clk,
-        reset                       => reset,
-        enable                      => s_i2s_clk_enable
-    );
 
     fifo : entity ip.i2s_fifo
     port map (
@@ -61,7 +55,7 @@ begin
         din                         =>
             std_logic_vector(sample_in(1)) & std_logic_vector(sample_in(0)),
         wr_en                       => not fifo_full_s,
-        rd_en                       => serializer_next_sample_s and s_i2s_clk_enable,
+        rd_en                       => serializer_next_sample_s,
         dout                        => serializer_sample_in_s,
         full                        => fifo_full_s,
         empty                       => open
@@ -70,7 +64,6 @@ begin
     i2s_serializer : entity wave.i2s_serializer
     port map (
         clk                         => i2s_clk,
-        clk_enable                  => s_i2s_clk_enable,
         reset                       => reset,
         sample_in                   => serializer_sample_in_s,
         next_sample                 => serializer_next_sample_s,
