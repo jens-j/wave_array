@@ -44,6 +44,7 @@ architecture arch of wave_array is
     signal s_analog_value       : std_logic_vector(ADC_SAMPLE_SIZE - 1 downto 0);
     signal s_sample             : t_stereo_sample;
     signal s_display_data       : std_logic_vector(31 downto 0);
+    signal s_addgen_output      : t_addrgen_to_tableinterp_array(0 to 2 * N_VOICES - 1);
 
 
 begin
@@ -59,18 +60,20 @@ begin
 
     LEDS(15 - N_VOICES downto 8) <= (others => '0');
     LEDS(7 downto 0)   <= s_midi_status_byte;
+
     UART_TX            <= MIDI_RX;
     I2S_SCLK           <= s_i2s_clk;
 
     -- 7 segment display.
     s_display_data <=
-        std_logic_vector(to_unsigned(s_voices(0).note.octave, 4))      -- 1 char octave
-        & std_logic_vector(to_unsigned(s_voices(0).note.key, 4))       -- 1 char note
-        & "0" & s_voices(0).midi_velocity                              -- 2 char midi velocity
-        & (16 - ADC_SAMPLE_SIZE - 1 downto 0 => '0') & s_analog_value; -- 4 char potentiometer value
+        std_logic_vector(to_unsigned(s_voices(0).note.octave, 4))           -- 1 char octave
+        & std_logic_vector(to_unsigned(s_voices(0).note.key, 4))            -- 1 char note
+        -- & "0" & s_voices(0).midi_velocity                                   -- 2 char midi velocity
+        & std_logic_vector(to_unsigned(s_addgen_output(0).mipmap_level, 8)) -- 2 char mipmap level
+        & (0 to 16 - ADC_SAMPLE_SIZE - 1 => '0') & s_analog_value;          -- 4 char potentiometer value
 
 
-    clk_gen : entity ip.clk_generator
+    clk_subsys : entity wave.clk_subsystem
     port map (
         reset                   => s_reset_ah,
         ext_clk                 => EXT_CLK,         -- 100 MHz
@@ -102,6 +105,7 @@ begin
         enable_midi             => SWITCHES(15),
         analog_input            => s_analog_value,
         voices                  => s_voices,
+        addrgen_output          => s_addgen_output,
         sample                  => s_sample
     );
 

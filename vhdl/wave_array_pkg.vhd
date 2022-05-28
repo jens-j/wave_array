@@ -96,13 +96,13 @@ package wave_array_pkg is
     type t_addrgen_to_tableinterp is record
         mipmap_address          :  t_mipmap_address; -- Start mipmap address of input samples.
         mipmap_level            :  t_mipmap_level; -- Active mipmap level for each oscillator.
-        phase_frac              :  t_osc_phase_frac; -- Fractional part of phase.
+        phase                   :  t_osc_phase; -- Oscillator phase.
     end record;
 
     type t_addrgen_to_tableinterp_array is array (natural range <>) of t_addrgen_to_tableinterp;
-    -- Mipmap table upper velocity limi. The top table has no upper limit.
+    -- Mipmap table upper velocity limit. The top table has no upper limit.
     constant MIPMAP_THRESHOLDS : t_osc_phase_array(0 to MIPMAP_LEVELS - 2) := (
-        26x"0010000",
+        26x"0010000", -- Go to next level when resample rate > 1 (less than 1x supersampling).
         26x"0020000",
         26x"0040000",
         26x"0080000",
@@ -110,7 +110,7 @@ package wave_array_pkg is
         26x"0200000",
         26x"0400000",
         26x"0800000",
-        26x"1000000" -- Table velocity corresponding to 1/4 of the sample rate.
+        26x"1000000"
     );
 
     -- Mipmap table address offsets for each mipmap level.

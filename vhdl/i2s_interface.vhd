@@ -2,7 +2,7 @@ library IEEE;
 use IEEE.std_logic_1164.all;
 use IEEE.numeric_std.all;
 
-library ip;
+library xil_defaultlib;
 
 library wave;
 use wave.wave_array_pkg.all;
@@ -24,40 +24,26 @@ end entity;
 
 architecture arch of i2s_interface is
 
-    signal serializer_next_sample_s : std_logic;
-    signal serializer_sample_in_s   : std_logic_vector(2 * SAMPLE_SIZE - 1 downto 0);
-    signal fifo_full_s              : std_logic;
-    signal s_i2s_clk_enable         : std_logic;
-
-    -- component i2s_fifo
-    -- port (
-    --     rst                         : in std_logic;
-    --     wr_clk                      : in std_logic;
-    --     rd_clk                      : in std_logic;
-    --     din                         : in std_logic_vector(31 downto 0);
-    --     wr_en                       : in std_logic;
-    --     rd_en                       : in std_logic;
-    --     dout                        : out std_logic_vector(31 downto 0);
-    --     full                        : out std_logic;
-    --     empty                       : out std_logic);
-    -- end component;
+    signal s_serializer_next_sample : std_logic;
+    signal s_serializer_sample_in   : std_logic_vector(2 * SAMPLE_SIZE - 1 downto 0);
+    signal s_fifo_full              : std_logic;
+    signal s_fifo_din               : std_logic_vector(2 * SAMPLE_SIZE - 1 downto 0);
 
 begin
 
-    next_sample <= not fifo_full_s;
+    next_sample <= not s_fifo_full;
+    s_fifo_din <= std_logic_vector(sample_in(1)) & std_logic_vector(sample_in(0));
 
-
-    fifo : entity ip.i2s_fifo
+    fifo : entity xil_defaultlib.i2s_fifo
     port map (
         rst                         => reset,
         wr_clk                      => system_clk,
         rd_clk                      => i2s_clk,
-        din                         =>
-            std_logic_vector(sample_in(1)) & std_logic_vector(sample_in(0)),
-        wr_en                       => not fifo_full_s,
-        rd_en                       => serializer_next_sample_s,
-        dout                        => serializer_sample_in_s,
-        full                        => fifo_full_s,
+        din                         => s_fifo_din,
+        wr_en                       => not s_fifo_full,
+        rd_en                       => s_serializer_next_sample,
+        dout                        => s_serializer_sample_in,
+        full                        => s_fifo_full,
         empty                       => open
     );
 
@@ -65,8 +51,8 @@ begin
     port map (
         clk                         => i2s_clk,
         reset                       => reset,
-        sample_in                   => serializer_sample_in_s,
-        next_sample                 => serializer_next_sample_s,
+        sample_in                   => s_serializer_sample_in,
+        next_sample                 => s_serializer_next_sample,
         sdata                       => sdata,
         wsel                        => wsel
     );

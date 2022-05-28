@@ -2,7 +2,7 @@ library ieee;
 use ieee.std_logic_1164.all;
 use IEEE.numeric_std.all;
 
-library ip;
+library xil_defaultlib;
 
 library wave;
 use wave.wave_array_pkg.all;
@@ -86,7 +86,7 @@ architecture arch of input_subsystem is
 begin
 
     -- p = a * b + c after 1 cycle, c is delayed must be issued in the same cycle as the result
-    mul : entity ip.adc_mul_gen
+    mul : entity xil_defaultlib.adc_mul_gen
     port map (
         clk                     => clk,
         a                       => mul_a,
@@ -96,7 +96,7 @@ begin
         carryout                => mul_carryout
     );
 
-    XADC_inst : entity ip.xadc_gen
+    XADC_inst : entity xil_defaultlib.xadc_gen
     port map (
         daddr_in                => drp_daddr_s,  -- Address bus for the dynamic reconfiguration port
         den_in                  => drp_den_s,    -- Enable Signal for the dynamic reconfiguration port

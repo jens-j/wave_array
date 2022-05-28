@@ -18,6 +18,7 @@ entity synth_subsystem is
         enable_midi             : in  std_logic; -- 1: use midi, 0: use potentiometer.
         analog_input            : in  std_logic_vector(ADC_SAMPLE_SIZE - 1 downto 0);
         voices                  : in  t_voice_array(0 to N_OSCILLATORS - 1);
+        addrgen_output          : out t_addrgen_to_tableinterp_array(0 to 2 * N_OSCILLATORS - 1); -- Debug output.
         sample                  : out t_stereo_sample
     );
 end entity;
@@ -32,7 +33,6 @@ begin
 
     sample(0) <= s_mixer_sample_out;
     sample(1) <= s_mixer_sample_out;
-
 
     osc_controller : entity wave.osc_controller
     generic map (
@@ -58,7 +58,8 @@ begin
         reset                   => reset,
         next_sample             => next_sample,
         osc_inputs              => s_osc_inputs,
-        output_samples          => s_osc_samples
+        output_samples          => s_osc_samples,
+        addrgen_output          => addrgen_output
     );
 
 

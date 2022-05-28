@@ -15,7 +15,8 @@ entity oscillator is
         reset                   : in  std_logic;
         next_sample             : in  std_logic; -- Next sample trigger.
         osc_inputs              : in  t_osc_input_array(0 to N_OSCILLATORS - 1);
-        output_samples          : out t_mono_sample_array(0 to N_OSCILLATORS - 1)
+        output_samples          : out t_mono_sample_array(0 to N_OSCILLATORS - 1);
+        addrgen_output          : out t_addrgen_to_tableinterp_array(0 to 2 * N_OSCILLATORS - 1) -- Debug output
     );
 end entity;
 
@@ -30,6 +31,8 @@ architecture arch of oscillator is
     signal s_timeout                : std_logic;
 
 begin
+
+    addrgen_output <= s_addrgen_to_tableinterp;
 
     s_frame_0_index <= 0;
     s_frame_1_index <= 1;

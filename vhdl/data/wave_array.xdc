@@ -1,6 +1,7 @@
 
 create_clock -add -name system_clk -period 10.00 -waveform {0 5} [get_ports EXT_CLK]
-create_generated_clock -name i2s_clk -source [get_ports EXT_CLK] -divide_by 1888 -multiply_by 29 [get_pins clk_gen/clk_buffer/O]
+create_clock -add -name i2s_clk -period 651.00 -waveform {0 5} [get_pins clk_subsys/i2s_bufg/O]
+# create_generated_clock -name i2s_clk -source [get_ports EXT_CLK] -divide_by 118 -multiply_by 7.25 [get_pins clk_subsystem/i2s_bufg/O]
 
 ## Bank = 35, Pin name = IO_L12P_T1_MRCC_35, Sch name = CLK100MHZ
 set_property PACKAGE_PIN E3 [get_ports EXT_CLK]

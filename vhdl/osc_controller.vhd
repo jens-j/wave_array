@@ -50,15 +50,19 @@ begin
 
     osc_inputs <= r.osc_inputs;
 
-    combinatorial : process (r, next_sample, enable_midi, voices, analog_input, osc_inputs)
+    combinatorial : process (r, next_sample, enable_midi, voices, analog_input)
         variable v_enable : std_logic;
         variable v_velocity : t_osc_phase;
         variable v_position : t_osc_position;
     begin
 
+        r_in <= r;
+
+        v_position := (others => '0');
+
         if r.state = idle then
             if next_sample = '1' then
-                r_in.osc_inputs <= r_in.osc_inputs_buffer;
+                r_in.osc_inputs <= r.osc_inputs_buffer;
                 r_in.osc_inputs_buffer <= (others => ('0', (others => '0'), (others => '0')));
                 r_in.enable_midi <= enable_midi;
                 r_in.voices <= voices;
@@ -74,7 +78,7 @@ begin
             -- Convert midi note to table velocity.
             -- Use the potentiometer as frame position input.
             if r.enable_midi = '1' then
-                v_enable := '1';
+                v_enable := r.voices(r.osc_counter).enable;
                 v_position := unsigned(
                     analog_input(ADC_SAMPLE_SIZE - 1 downto ADC_SAMPLE_SIZE - OSC_SAMPLE_FRAC));
                 v_velocity := shift_right(BASE_OCT_VELOCITIES(r.voices(r.osc_counter).note.key),

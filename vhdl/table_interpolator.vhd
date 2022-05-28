@@ -5,7 +5,7 @@ use ieee.numeric_std.all;
 library wave;
 use wave.wave_array_pkg.all;
 
-library ip;
+library xil_defaultlib;
 
 
 -- This entity performs interpolation on samples from the mipmap table.
@@ -175,7 +175,7 @@ begin
 
     -- DSP slice confifgured to perform linear interpolation of two frames (samples).
     -- Implements (A - D) * B + C = P.
-    frame_interp: entity ip.osc_interpolation_gen
+    frame_interp: entity xil_defaultlib.osc_interpolation_gen
     port map (
         CLK                     => clk,
         A                       => s_frame_interp_a,
@@ -187,7 +187,7 @@ begin
 
     -- DSP slice confifgured to perform linear interpolation of filter phases (coefficients).
     -- Implements (A - D) * B + C = P.
-    coeff_interp: entity ip.osc_interpolation_gen
+    coeff_interp: entity xil_defaultlib.osc_interpolation_gen
     port map (
         CLK                     => clk,
         A                       => s_coeff_interp_a,
@@ -200,7 +200,7 @@ begin
     -- DSP slice configured as polyphase filter multiply-accumulate.
     -- sel: 0 -> A * B + P = P
     -- sel: 1 -> A * B = P
-    filter_macc: entity ip.osc_macc_gen
+    filter_macc: entity xil_defaultlib.osc_macc_gen
     port map (
         CLK                     => clk,
         SEL                     => s_macc_sel,
@@ -237,29 +237,28 @@ begin
         r_in.writeback(0) <= '0';
         r_in.zero_coeff(0) <= '0';
 
+        s_frame_interp_a <= (others => '0');
+        s_frame_interp_b <= (others => '0');
+        s_frame_interp_c <= (others => '0');
+        s_frame_interp_d <= (others => '0');
+
+        s_coeff_interp_a <= (others => '0');
+        s_coeff_interp_b <= (others => '0');
+        s_coeff_interp_c <= (others => '0');
+        s_coeff_interp_d <= (others => '0');
+
+        s_macc_sel <= (others => '0');
+        s_macc_a <= (others => '0');
+        s_macc_b <= (others => '0');
+
+        s_wave_mem_addrb <= (others => '0');
+        s_coeff_odd_addra <= (others => '0');
+        s_coeff_even_addra <= (others => '0');
+
         v_index_0 := 2 * r.osc_counter(0) + r.sample_counter(0);
-        v_odd_phase_0 := addrgen_input(v_index_0).phase_frac(OSC_COEFF_FRAC);
+        v_odd_phase_0 := addrgen_input(v_index_0).phase(OSC_COEFF_FRAC);
 
         if r.state = idle then
-
-            s_frame_interp_a <= (others => '0');
-            s_frame_interp_b <= (others => '0');
-            s_frame_interp_c <= (others => '0');
-            s_frame_interp_d <= (others => '0');
-
-            s_coeff_interp_a <= (others => '0');
-            s_coeff_interp_b <= (others => '0');
-            s_coeff_interp_c <= (others => '0');
-            s_coeff_interp_d <= (others => '0');
-
-            s_macc_sel <= (others => '0');
-            s_macc_a <= (others => '0');
-            s_macc_b <= (others => '0');
-
-            s_wave_mem_addrb <= (others => '0');
-            s_coeff_odd_addra <= (others => '0');
-            s_coeff_even_addra <= (others => '0');
-
 
             if next_sample = '1' then
 
@@ -283,11 +282,12 @@ begin
             r_in.frame_0_index <= frame_0_index;
             r_in.frame_1_index <= frame_1_index;
             r_in.odd_phase(0) <= v_odd_phase_0;
-            r_in.phase_position(0) <= addrgen_input(0).phase_frac(OSC_COEFF_FRAC - 1 downto 0);
+            r_in.phase_position(0) <= addrgen_input(0).phase(OSC_COEFF_FRAC - 1 downto 0);
             r_in.frame_position(0) <= osc_inputs(0).position;
             r_in.mipmap_address <= addrgen_input(0).mipmap_address;
             r_in.coeff_base_address <=
-                addrgen_input(0).phase_frac(t_osc_phase_frac'length - 1 downto OSC_COEFF_FRAC + 1);
+                shift_right(addrgen_input(0).phase, addrgen_input(0).mipmap_level)
+                    (t_osc_phase_frac'length - 1 downto OSC_COEFF_FRAC + 1);
 
             r_in.state <= running;
 
@@ -334,8 +334,9 @@ begin
                 v_index_next_0 := 2 * r.osc_counter_next + r.sample_counter(0);
 
                 r_in.mipmap_address <= addrgen_input(v_index_next_0).mipmap_address;
-                r_in.coeff_base_address <= addrgen_input(v_index_next_0).phase_frac
-                    (t_osc_phase_frac'length - 1 downto OSC_COEFF_FRAC + 1);
+                r_in.coeff_base_address <= shift_right(
+                    addrgen_input(v_index_next_0).phase, addrgen_input(v_index_next_0).mipmap_level)
+                        (t_osc_phase_frac'length - 1 downto OSC_COEFF_FRAC + 1);
             end if;
 
             -- Check for end of pipeline
@@ -348,7 +349,7 @@ begin
                 r_in.frame_position(0) <= osc_inputs(r.osc_counter(0)).position;
                 r_in.odd_phase(0) <= v_odd_phase_0;
                 r_in.phase_position(0) <=
-                    addrgen_input(v_index_0).phase_frac(OSC_COEFF_FRAC - 1 downto 0);
+                    addrgen_input(v_index_0).phase(OSC_COEFF_FRAC - 1 downto 0);
             end if;
 
             -- Pipeline stage 0: Wave memory access.
@@ -407,10 +408,10 @@ begin
             v_frame_interp_d := s_wave_mem_doutb((r.frame_0_index + 1) * SAMPLE_SIZE - 1
                                     downto r.frame_0_index * SAMPLE_SIZE);
 
-            s_frame_interp_a <= std_logic_vector(shift_right(signed(v_frame_interp_a), 1));
+            s_frame_interp_a <= v_frame_interp_a;
             s_frame_interp_b <= std_logic_vector(r.frame_position(PIPE_LEN_MEM - 1));
-            s_frame_interp_c <= std_logic_vector(shift_right(signed(v_frame_interp_c), 1));
-            s_frame_interp_d <= std_logic_vector(shift_right(signed(v_frame_interp_d), 1));
+            s_frame_interp_c <= v_frame_interp_c;
+            s_frame_interp_d <= v_frame_interp_d;
 
             -- Pipeline stage 1: Read coefficient memory and send to interpolator. The values for the
             -- even and odd coefficient memories are swapped if the phase m is odd.
@@ -450,7 +451,7 @@ begin
                 if osc_inputs(r.osc_counter(PIPE_LEN_TOTAL)).enable = '1' then
                     r_in.sample_buffers(r.osc_counter(PIPE_LEN_TOTAL))
                         (r.sample_counter(PIPE_LEN_TOTAL)) <= t_mono_sample(
-                            s_macc_p(SAMPLE_SIZE + POLY_COEFF_SIZE - 1 downto POLY_COEFF_SIZE));
+                            s_macc_p(SAMPLE_SIZE + POLY_COEFF_SIZE - 2 downto POLY_COEFF_SIZE - 1)); -- Shift by 15 because signed.
                 else
                     r_in.sample_buffers(r.osc_counter(PIPE_LEN_TOTAL))
                         (r.sample_counter(PIPE_LEN_TOTAL)) <= (others => '0');

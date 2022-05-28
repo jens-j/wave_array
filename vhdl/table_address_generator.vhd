@@ -37,8 +37,8 @@ architecture arch of table_address_generator is
         table_phases            : t_osc_phase_array(0 to N_OSCILLATORS - 1);
         mipmap_addresses        : t_mipmap_address_array(0 to 2 * N_OSCILLATORS - 1);
         address_buffers         : t_mipmap_address_array(0 to 2 * N_OSCILLATORS - 1);
-        phases_frac             : t_osc_phase_frac_array(0 to 2 * N_OSCILLATORS - 1);
-        phases_frac_buffers     : t_osc_phase_frac_array(0 to 2 * N_OSCILLATORS - 1);
+        phases                  : t_osc_phase_array(0 to 2 * N_OSCILLATORS - 1);
+        phases_buffer           : t_osc_phase_array(0 to 2 * N_OSCILLATORS - 1);
         mipmap_levels           : t_mipmap_level_array(0 to N_OSCILLATORS - 1); -- Both output samples always have the same mipmap level
         mipmap_level_buffers    : t_mipmap_level_array(0 to N_OSCILLATORS - 1);
     end record;
@@ -51,8 +51,8 @@ architecture arch of table_address_generator is
         table_phases            => (others => (others => '0')),
         mipmap_addresses        => (others => (others => '0')),
         address_buffers         => (others => (others => '0')),
-        phases_frac             => (others => (others => '0')),
-        phases_frac_buffers     => (others => (others => '0')),
+        phases                  => (others => (others => '0')),
+        phases_buffer           => (others => (others => '0')),
         mipmap_levels           => (others => 0),
         mipmap_level_buffers    => (others => 0)
     );
@@ -75,7 +75,7 @@ begin
 
         for i in 0 to 2 * N_OSCILLATORS - 1 loop
             addrgen_output(i).mipmap_address <= r.mipmap_addresses(i);
-            addrgen_output(i).phase_frac <= r.phases_frac(i);
+            addrgen_output(i).phase <= r.phases(i);
             addrgen_output(i).mipmap_level <= r.mipmap_levels(i / 2);
         end loop;
 
@@ -87,8 +87,8 @@ begin
             r_in.address_buffers <= (others => (others => '0'));
             r_in.mipmap_levels <= r.mipmap_level_buffers;
             r_in.mipmap_level_buffers <= (others => 0);
-            r_in.phases_frac <= r.phases_frac_buffers;
-            r_in.phases_frac_buffers <= (others => (others => '0'));
+            r_in.phases <= r.phases_buffer;
+            r_in.phases_buffer <= (others => (others => '0'));
             r_in.state <= select_level;
 
 
@@ -113,8 +113,8 @@ begin
             v_level := r.mipmap_levels(r.osc_counter);
 
             -- Create address in mipmap level table.
-            v_local_addr := (v_level downto 0 => '0') & r.table_phases(r.osc_counter)
-                (t_osc_phase'length - 1 downto v_level + t_osc_phase_frac'length);
+            v_local_addr := "0" & shift_right(r.table_phases(r.osc_counter)
+                (t_osc_phase'length - 1 downto t_osc_phase_frac'length), v_level);
 
             -- Add address to level table offset.
             r_in.address_buffers(v_index) <= MIPMAP_LEVEL_OFFSETS(v_level) + v_local_addr;
@@ -125,15 +125,14 @@ begin
         elsif r.state = increment_phase then
 
             -- Buffer old phase so it can be output to the table interpolator.
-            r_in.phases_frac_buffers(v_index) <=
-                    r.table_phases(r.osc_counter)(t_osc_phase_frac'length - 1 downto 0);
+            r_in.phases_buffer(v_index) <= r.table_phases(r.osc_counter);
 
             if osc_inputs(r.osc_counter).enable = '1' then
                 r_in.table_phases(r.osc_counter) <=
                     r.table_phases(r.osc_counter) + osc_inputs(r.osc_counter).velocity;
             else
                 r_in.table_phases(r.osc_counter) <= (others => '0');
-            end if; 
+            end if;
 
             if r.sample_counter = 0 then
                 r_in.sample_counter <= 1;
