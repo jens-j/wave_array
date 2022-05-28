@@ -53,7 +53,9 @@ class Mipmap:
         # should not have to be prefiltered.
         if self.prefilter:
             filtered_table = np.convolve(self.subtables[0], prefilter_coeffs)
-            self.subtables[0] = filtered_table[offset:-offset]
+            filtered_table = filtered_table * Mipmap.SAMPLE_MAX / np.max(np.abs(filtered_table)) # Normalize to avoid overflow
+            self.subtables[0] = filtered_table[offset:-offset].astype(int)
+
 
         self.spectra.append(np.fft.rfft(self.waveform / self.SAMPLE_MAX, fft_size))
 
@@ -61,7 +63,11 @@ class Mipmap:
 
             # filter and downsample to create next subtable
             filtered_table = np.convolve(self.subtables[-1], hb_filter_coeffs)
-            self.subtables.append(filtered_table[offset:-offset:2])
+
+            # Normalize to avoid overflow
+            filtered_table = filtered_table * Mipmap.SAMPLE_MAX / np.max(np.abs(filtered_table))
+
+            self.subtables.append(filtered_table[offset:-offset:2].astype(int))
             self.spectra.append(np.fft.rfft(
                 self.subtables[-1] / self.SAMPLE_MAX, 2**(self.L0_SIZE_LOG2 - level)))
 
@@ -123,11 +129,12 @@ class Mipmap:
         filename = f"{self.name}_mipmap.data"
         with open(filename, 'w') as f:
             for subtable in self.subtables:
+                print(subtable)
                 for value in subtable:
-                    f.write(f"{int(value * 0x7FFF) & 0xFFFF:04X}")
-                    f.write(f"{int(value * 0x7FFF) & 0xFFFF:04X}")
-                    f.write(f"{int(value * 0x7FFF) & 0xFFFF:04X}")
-                    f.write(f"{int(value * 0x7FFF) & 0xFFFF:04X}\n")
+                    f.write(f"{value & 0xFFFF:04X}")
+                    f.write(f"{value & 0xFFFF:04X}")
+                    f.write(f"{value & 0xFFFF:04X}")
+                    f.write(f"{value & 0xFFFF:04X}\n")
                     counter += 1
 
             for i in range(4096 - counter):
