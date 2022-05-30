@@ -111,7 +111,7 @@ architecture RTL of UART_TX is
                         r_Clk_Count <= r_Clk_Count + 1;
                         r_SM_Main   <= s_TX_Stop_Bit;
                     else
-                        r_TX_Done   <= '1';
+                        -- r_TX_Done   <= '1';
                         r_Clk_Count <= 0;
                         r_SM_Main   <= s_Cleanup;
                     end if;
