@@ -5,8 +5,6 @@ add wave -divider top:
 add wave tb_wave_array/wave_array/*
 add wave -divider i2s:
 add wave tb_wave_array/wave_array/i2s_interface/*
-add wave -divider i2s_clk_enable:
-add wave tb_wave_array/wave_array/i2s_interface/clk_enable/*
 add wave -divider midi:
 add wave tb_wave_array/wave_array/midi_slave/*
 add wave -divider osc_controller:
@@ -22,4 +20,4 @@ add wave tb_wave_array/wave_array/synth_subsys/oscillator/halfband/*
 add wave -divider mixer:
 add wave tb_wave_array/wave_array/synth_subsys/mixer/*
 
-run 100 ms
+run 10 ms

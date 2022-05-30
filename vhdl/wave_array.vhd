@@ -44,7 +44,7 @@ architecture arch of wave_array is
     signal s_analog_value       : std_logic_vector(ADC_SAMPLE_SIZE - 1 downto 0);
     signal s_sample             : t_stereo_sample;
     signal s_display_data       : std_logic_vector(31 downto 0);
-    signal s_addgen_output      : t_addrgen_to_tableinterp_array(0 to 2 * N_VOICES - 1);
+    signal s_addgen_output      : t_addrgen_to_tableinterp_array(0 to N_VOICES - 1);
 
 
 begin
@@ -61,7 +61,6 @@ begin
     LEDS(15 - N_VOICES downto 8) <= (others => '0');
     LEDS(7 downto 0)   <= s_midi_status_byte;
 
-    UART_TX            <= MIDI_RX;
     I2S_SCLK           <= s_i2s_clk;
 
     -- 7 segment display.
@@ -106,7 +105,8 @@ begin
         analog_input            => s_analog_value,
         voices                  => s_voices,
         addrgen_output          => s_addgen_output,
-        sample                  => s_sample
+        sample                  => s_sample,
+        UART_TX                 => UART_TX
     );
 
     i2s_interface : entity wave.i2s_interface
@@ -139,6 +139,7 @@ begin
         segments                => DISPLAY_SEGMENTS,
         anodes                  => DISPLAY_ANODES
     );
+
 
     -- microblaze_sys : entity wave.microblaze_sys_wrapper
     -- port map(

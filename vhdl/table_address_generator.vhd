@@ -21,13 +21,14 @@ entity table_address_generator is
         reset                   : in  std_logic;
         next_sample             : in  std_logic; -- Next sample(s) trigger.
         osc_inputs              : in  t_osc_input_array(0 to N_OSCILLATORS - 1);
-        addrgen_output          : out t_addrgen_to_tableinterp_array(0 to 2 * N_OSCILLATORS - 1)
+        addrgen_output          : out t_addrgen_to_tableinterp_array(0 to N_OSCILLATORS - 1)
     );
 end entity;
 
 architecture arch of table_address_generator is
 
-    type t_state is (idle, select_level, calculate_address, increment_phase);
+    type t_state is (idle, init, select_level, calculate_address_0, calculate_address_1,
+        increment_phase);
 
     type s_tag_reg is record
         state                   : t_state;
@@ -35,12 +36,15 @@ architecture arch of table_address_generator is
         sample_counter          : integer range 0 to 1; -- Twe samples are needed before downsampling.
         level_counter           : integer range 1 to MIPMAP_LEVELS - 1;
         table_phases            : t_osc_phase_array(0 to N_OSCILLATORS - 1);
+        local_address           : t_mipmap_address;
         mipmap_addresses        : t_mipmap_address_array(0 to 2 * N_OSCILLATORS - 1);
         address_buffers         : t_mipmap_address_array(0 to 2 * N_OSCILLATORS - 1);
         phases                  : t_osc_phase_array(0 to 2 * N_OSCILLATORS - 1);
         phases_buffer           : t_osc_phase_array(0 to 2 * N_OSCILLATORS - 1);
         mipmap_levels           : t_mipmap_level_array(0 to N_OSCILLATORS - 1); -- Both output samples always have the same mipmap level
         mipmap_level_buffers    : t_mipmap_level_array(0 to N_OSCILLATORS - 1);
+        enable                  : std_logic_vector(N_OSCILLATORS - 1 downto 0);
+        enable_buffer           : std_logic_vector(N_OSCILLATORS - 1 downto 0);
     end record;
 
     constant REG_INIT : s_tag_reg := (
@@ -49,12 +53,15 @@ architecture arch of table_address_generator is
         sample_counter          => 0,
         level_counter           => 1,
         table_phases            => (others => (others => '0')),
+        local_address           => (others => '0'),
         mipmap_addresses        => (others => (others => '0')),
         address_buffers         => (others => (others => '0')),
         phases                  => (others => (others => '0')),
         phases_buffer           => (others => (others => '0')),
         mipmap_levels           => (others => 0),
-        mipmap_level_buffers    => (others => 0)
+        mipmap_level_buffers    => (others => 0),
+        enable                  => (others => '0'),
+        enable_buffer           => (others => '0')
     );
 
     signal r, r_in              : s_tag_reg;
@@ -70,16 +77,22 @@ begin
     begin
 
         v_index := 2 * r.osc_counter + r.sample_counter;
+        v_level := r.mipmap_level_buffers(r.osc_counter);
 
         r_in <= r;
 
-        for i in 0 to 2 * N_OSCILLATORS - 1 loop
-            addrgen_output(i).mipmap_address <= r.mipmap_addresses(i);
-            addrgen_output(i).phase <= r.phases(i);
-            addrgen_output(i).mipmap_level <= r.mipmap_levels(i / 2);
+        for i in 0 to N_OSCILLATORS - 1 loop
+            addrgen_output(i).enable <= r.enable(i);
+            addrgen_output(i).mipmap_level <= r.mipmap_levels(i);
+            addrgen_output(i).mipmap_address(0) <= r.mipmap_addresses(2 * i);
+            addrgen_output(i).mipmap_address(1) <= r.mipmap_addresses(2 * i + 1);
+            addrgen_output(i).phase(0) <= r.phases(2 * i);
+            addrgen_output(i).phase(1) <= r.phases(2 * i + 1);
         end loop;
 
         if r.state = idle and next_sample = '1' then
+
+            r_in.enable <= r.enable_buffer;
             r_in.mipmap_addresses <= r.address_buffers;
             r_in.osc_counter <= 0;
             r_in.sample_counter <= 0;
@@ -89,8 +102,16 @@ begin
             r_in.mipmap_level_buffers <= (others => 0);
             r_in.phases <= r.phases_buffer;
             r_in.phases_buffer <= (others => (others => '0'));
-            r_in.state <= select_level;
+            r_in.state <= init;
 
+        -- Regiater signals from the osc_controller.
+        elsif r.state = init then
+
+            for i in 0 to N_OSCILLATORS - 1 loop
+                r_in.enable_buffer(i) <= osc_inputs(i).enable;
+            end loop;
+
+            r_in.state <= select_level;
 
         -- Compare the velocity with the threshold for each mipmap level.
         elsif r.state = select_level then
@@ -103,21 +124,32 @@ begin
             if r.level_counter > 1 then
                 r_in.level_counter <= r.level_counter - 1;
             else
-                r_in.state <= calculate_address;
+                r_in.state <= calculate_address_0;
             end if;
 
-        -- Generate the mipmap address by adding the integer part of the phase
-        -- (shifted right by the mipmap level) to the mipmap table offset
-        elsif r.state = calculate_address then
-
-            v_level := r.mipmap_levels(r.osc_counter);
+        elsif r.state = calculate_address_0 then
 
             -- Create address in mipmap level table.
             v_local_addr := "0" & shift_right(r.table_phases(r.osc_counter)
                 (t_osc_phase'length - 1 downto t_osc_phase_frac'length), v_level);
 
+            -- Subtract half of the filter length to comensate for the filter delay.
+            -- But underflow the address if it goes below zero.
+            if v_local_addr < POLY_N / 2 - 1 then
+                v_local_addr := v_local_addr + 2**(MIPMAP_L0_SIZE_LOG2 - v_level);
+            end if;
+
+            r_in.local_address <= v_local_addr - POLY_N / 2 - 1;
+
+            r_in.state <= calculate_address_1;
+
+        -- Generate the mipmap address by adding the integer part of the phase
+        -- (shifted right by the mipmap level) to the mipmap table offset
+        elsif r.state = calculate_address_1 then
+
             -- Add address to level table offset.
-            r_in.address_buffers(v_index) <= MIPMAP_LEVEL_OFFSETS(v_level) + v_local_addr;
+            r_in.address_buffers(v_index) <=
+                MIPMAP_LEVEL_OFFSETS(v_level) + r.local_address;
 
             r_in.state <= increment_phase;
 
@@ -136,7 +168,7 @@ begin
 
             if r.sample_counter = 0 then
                 r_in.sample_counter <= 1;
-                r_in.state <= calculate_address;
+                r_in.state <= calculate_address_0;
 
             elsif r.osc_counter < N_OSCILLATORS - 1 then
                 r_in.osc_counter <= r.osc_counter + 1;

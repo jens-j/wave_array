@@ -27,7 +27,7 @@ entity table_interpolator is
         frame_0_index           : in  integer range 0 to 3; -- Frame x buffer index.
         frame_1_index           : in  integer range 0 to 3; -- Frame x+1 buffer index.
         osc_inputs              : in  t_osc_input_array(0 to N_OSCILLATORS - 1);
-        addrgen_input           : in  t_addrgen_to_tableinterp_array(0 to 2 * N_OSCILLATORS - 1);
+        addrgen_input           : in  t_addrgen_to_tableinterp_array(0 to N_OSCILLATORS - 1);
         output_samples          : out t_stereo_sample_array(0 to N_OSCILLATORS - 1); -- Two samples are needed for the downsampling.
         overflow                : out std_logic; -- Flag numeric overflow.
         timeout                 : out std_logic -- Flag that the oscillator could not keep up.
@@ -56,6 +56,7 @@ architecture arch of table_interpolator is
         frame_1_index           : integer range 0 to 3; -- Frame x+1 buffer index.
         coeff_counter           : integer range 0 to POLY_N - 1; -- Count coeffients/input samples (inner loop).
         osc_counter_next        : integer range 0 to N_OSCILLATORS; -- The value of the next oscillator (osc_counter + 1).
+        sample_counter_next     : integer range 0 to 2;
         output_samples          : t_stereo_sample_array(0 to N_OSCILLATORS - 1);
         sample_buffers          : t_stereo_sample_array(0 to N_OSCILLATORS - 1);
         mipmap_address          : t_mipmap_address; -- Increment to get successive input samples.
@@ -84,6 +85,7 @@ architecture arch of table_interpolator is
         frame_1_index           => 1,
         coeff_counter           => 0,
         osc_counter_next        => 0,
+        sample_counter_next     => 0,
         output_samples          => (others => (others => (others => '0'))),
         sample_buffers  	    => (others => (others => (others => '0'))),
         mipmap_address          => (others => '0'),
@@ -223,8 +225,6 @@ begin
                              s_wave_mem_doutb, s_coeff_even_douta, s_coeff_odd_douta)
 
         variable v_level : t_mipmap_level;
-        variable v_index_0 : integer range 0 to 2 * MIPMAP_LEVELS - 1;
-        variable v_index_next_0 : integer range 0 to 2 * MIPMAP_LEVELS - 1;
         variable v_odd_phase_0 : std_logic;
         variable v_frame_interp_a : std_logic_vector(SAMPLE_SIZE - 1 downto 0);
         variable v_frame_interp_c : std_logic_vector(SAMPLE_SIZE + OSC_SAMPLE_FRAC - 1 downto 0);
@@ -255,8 +255,14 @@ begin
         s_coeff_odd_addra <= (others => '0');
         s_coeff_even_addra <= (others => '0');
 
-        v_index_0 := 2 * r.osc_counter(0) + r.sample_counter(0);
-        v_odd_phase_0 := addrgen_input(v_index_0).phase(OSC_COEFF_FRAC);
+        v_level := addrgen_input(r.osc_counter(0)).mipmap_level;
+
+        if r.sample_counter(0) < 2 then
+            v_odd_phase_0 := addrgen_input(
+                r.osc_counter(0)).phase(r.sample_counter(0))(OSC_COEFF_FRAC + v_level);
+        else
+            v_odd_phase_0 := '0';
+        end if;
 
         if r.state = idle then
 
@@ -270,6 +276,7 @@ begin
                 end if;
 
                 r_in.sample_counter(0) <= 0;
+                r_in.sample_counter_next <= 0;
                 r_in.osc_counter(0) <= 0;
                 r_in.coeff_counter <= 0;
 
@@ -282,19 +289,17 @@ begin
             r_in.frame_0_index <= frame_0_index;
             r_in.frame_1_index <= frame_1_index;
             r_in.odd_phase(0) <= v_odd_phase_0;
-            r_in.phase_position(0) <= addrgen_input(0).phase(OSC_COEFF_FRAC - 1 downto 0);
+            r_in.phase_position(0) <= addrgen_input(0).phase(0)
+                (OSC_COEFF_FRAC + v_level - 1 downto v_level);
             r_in.frame_position(0) <= osc_inputs(0).position;
-            r_in.mipmap_address <= addrgen_input(0).mipmap_address;
+            r_in.mipmap_address <= addrgen_input(0).mipmap_address(0);
             r_in.coeff_base_address <=
-                shift_right(addrgen_input(0).phase, addrgen_input(0).mipmap_level)
+                shift_right(addrgen_input(0).phase(0), addrgen_input(0).mipmap_level)
                     (t_osc_phase_frac'length - 1 downto OSC_COEFF_FRAC + 1);
 
             r_in.state <= running;
 
         elsif r.state = running then
-
-            -- Should always be the same for both samples of each oscillator.
-            v_level := addrgen_input(v_index_0).mipmap_level;
 
             -- Increment mipmap address (wrap around based on mipmap level).
             if r.mipmap_address = MIPMAP_LEVEL_LIMITS(v_level) then
@@ -307,13 +312,17 @@ begin
             if r.coeff_counter < POLY_N - 1 then
                 r_in.coeff_counter <= r.coeff_counter + 1;
 
-                 -- Pre increment the osc_counter because it is needed for indexing in the next cycle.
+                 -- Pre increment the osc_counter and sample_counter because they are needed for indexing in the next cycle.
                 if r.coeff_counter = POLY_N - 2 then
 
                     if r.osc_counter(0) < N_OSCILLATORS - 1 then
                         r_in.osc_counter_next <= r.osc_counter(0) + 1;
                     else
                         r_in.osc_counter_next <= 0;
+
+                       if r.coeff_counter = POLY_N - 2 and r.sample_counter(0) < 2 then
+                           r_in.sample_counter_next <= r.sample_counter(0) + 1;
+                       end if;
                     end if;
 
                     if r.sample_counter(0) < 2 then
@@ -325,18 +334,22 @@ begin
 
                 -- Check for end of sample cycle.
                 if r.osc_counter(0) = N_OSCILLATORS - 1 then
-                    r_in.sample_counter(0) <= r.sample_counter(0) + 1;
+                    r_in.sample_counter(0) <= r.sample_counter_next;
                 end if;
 
                 r_in.osc_counter(0) <= r.osc_counter_next;
 
                 -- Load sample and coeffient base addresses for next oscillator.
-                v_index_next_0 := 2 * r.osc_counter_next + r.sample_counter(0);
+                if r.sample_counter_next < 2 then
 
-                r_in.mipmap_address <= addrgen_input(v_index_next_0).mipmap_address;
-                r_in.coeff_base_address <= shift_right(
-                    addrgen_input(v_index_next_0).phase, addrgen_input(v_index_next_0).mipmap_level)
-                        (t_osc_phase_frac'length - 1 downto OSC_COEFF_FRAC + 1);
+                    r_in.mipmap_address <=
+                        addrgen_input(r.osc_counter_next).mipmap_address(r.sample_counter_next);
+
+                    r_in.coeff_base_address <= shift_right(
+                        addrgen_input(r.osc_counter_next).phase(r.sample_counter_next),
+                        addrgen_input(r.osc_counter_next).mipmap_level)
+                            (t_osc_phase_frac'length - 1 downto OSC_COEFF_FRAC + 1);
+                end if;
             end if;
 
             -- Check for end of pipeline
@@ -349,7 +362,8 @@ begin
                 r_in.frame_position(0) <= osc_inputs(r.osc_counter(0)).position;
                 r_in.odd_phase(0) <= v_odd_phase_0;
                 r_in.phase_position(0) <=
-                    addrgen_input(v_index_0).phase(OSC_COEFF_FRAC - 1 downto 0);
+                    addrgen_input(r.osc_counter(0)).phase(r.sample_counter(0))
+                        (OSC_COEFF_FRAC + v_level - 1 downto v_level);
             end if;
 
             -- Pipeline stage 0: Wave memory access.
@@ -416,13 +430,13 @@ begin
             -- Pipeline stage 1: Read coefficient memory and send to interpolator. The values for the
             -- even and odd coefficient memories are swapped if the phase m is odd.
             if r.odd_phase(PIPE_LEN_MEM) then
-                s_coeff_interp_a <= s_coeff_odd_douta;
-                s_coeff_interp_c <= s_coeff_even_douta & (0 to OSC_COEFF_FRAC - 1 => '0');
-                s_coeff_interp_d <= s_coeff_even_douta;
-            else
                 s_coeff_interp_a <= s_coeff_even_douta;
                 s_coeff_interp_c <= s_coeff_odd_douta & (0 to OSC_COEFF_FRAC - 1 => '0');
                 s_coeff_interp_d <= s_coeff_odd_douta;
+            else
+                s_coeff_interp_a <= s_coeff_odd_douta;
+                s_coeff_interp_c <= s_coeff_even_douta & (0 to OSC_COEFF_FRAC - 1 => '0');
+                s_coeff_interp_d <= s_coeff_even_douta;
             end if;
 
             s_coeff_interp_b <= std_logic_vector(r.phase_position(PIPE_LEN_MEM - 1));
@@ -448,7 +462,7 @@ begin
 
             -- Pipeline stage 9: Store output sample (store zero if oscillator is disabled).
             if r.writeback(PIPE_LEN_TOTAL) then
-                if osc_inputs(r.osc_counter(PIPE_LEN_TOTAL)).enable = '1' then
+                if addrgen_input(r.osc_counter(PIPE_LEN_TOTAL)).enable = '1' then
                     r_in.sample_buffers(r.osc_counter(PIPE_LEN_TOTAL))
                         (r.sample_counter(PIPE_LEN_TOTAL)) <= t_mono_sample(
                             s_macc_p(SAMPLE_SIZE + POLY_COEFF_SIZE - 2 downto POLY_COEFF_SIZE - 1)); -- Shift by 15 because signed.

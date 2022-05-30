@@ -11,6 +11,7 @@ package wave_array_pkg is
     ;
 
     constant SYS_FREQ               : integer := 100_000_000;
+    constant UART_BAUD              : integer := 2_000_000; -- 115_200;
     constant N_VOICES               : positive := 4;
 
     -- Audio sample constants.
@@ -94,9 +95,10 @@ package wave_array_pkg is
     type t_osc_input_array is array (natural range <>) of t_osc_input;
 
     type t_addrgen_to_tableinterp is record
-        mipmap_address          :  t_mipmap_address; -- Start mipmap address of input samples.
-        mipmap_level            :  t_mipmap_level; -- Active mipmap level for each oscillator.
-        phase                   :  t_osc_phase; -- Oscillator phase.
+        enable                  : std_logic; -- Oscillator enable (outputs zero when not enabled).
+        mipmap_level            : t_mipmap_level; -- Active mipmap level for each oscillator.
+        mipmap_address          : t_mipmap_address_array(0 to 1); -- Start mipmap address of input samples.
+        phase                   : t_osc_phase_array(0 to 1); -- Oscillator phase.
     end record;
 
     type t_addrgen_to_tableinterp_array is array (natural range <>) of t_addrgen_to_tableinterp;
