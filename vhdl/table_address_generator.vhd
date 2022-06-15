@@ -34,7 +34,7 @@ architecture arch of table_address_generator is
         state                   : t_state;
         osc_counter             : integer range 0 to N_OSCILLATORS - 1;
         sample_counter          : integer range 0 to 1; -- Twe samples are needed before downsampling.
-        level_counter           : integer range 1 to MIPMAP_LEVELS - 1;
+        level_counter           : integer range 0 to MIPMAP_LEVELS - 1;
         table_phases            : t_osc_phase_array(0 to N_OSCILLATORS - 1);
         local_address           : t_mipmap_address;
         mipmap_addresses        : t_mipmap_address_array(0 to 2 * N_OSCILLATORS - 1);
@@ -51,7 +51,7 @@ architecture arch of table_address_generator is
         state                   => idle,
         osc_counter             => 0,
         sample_counter          => 0,
-        level_counter           => 1,
+        level_counter           => 0,
         table_phases            => (others => (others => '0')),
         local_address           => (others => '0'),
         mipmap_addresses        => (others => (others => '0')),
@@ -96,7 +96,7 @@ begin
             r_in.mipmap_addresses <= r.address_buffers;
             r_in.osc_counter <= 0;
             r_in.sample_counter <= 0;
-            r_in.level_counter <= MIPMAP_LEVELS - 1;
+            r_in.level_counter <= 0;
             r_in.address_buffers <= (others => (others => '0'));
             r_in.mipmap_levels <= r.mipmap_level_buffers;
             r_in.mipmap_level_buffers <= (others => 0);
@@ -117,12 +117,12 @@ begin
         elsif r.state = select_level then
 
             -- Both samples have the same mipmap level.
-            if osc_inputs(r.osc_counter).velocity < MIPMAP_THRESHOLDS(r.level_counter - 1) then
-                r_in.mipmap_level_buffers(r.osc_counter) <= r.level_counter;
+            if osc_inputs(r.osc_counter).velocity > MIPMAP_THRESHOLDS(r.level_counter) then
+                r_in.mipmap_level_buffers(r.osc_counter) <= r.level_counter + 1;
             end if;
 
-            if r.level_counter > 1 then
-                r_in.level_counter <= r.level_counter - 1;
+            if r.level_counter < MIPMAP_LEVELS - 2 then
+                r_in.level_counter <= r.level_counter + 1;
             else
                 r_in.state <= calculate_address_0;
             end if;
@@ -173,7 +173,7 @@ begin
             elsif r.osc_counter < N_OSCILLATORS - 1 then
                 r_in.osc_counter <= r.osc_counter + 1;
                 r_in.sample_counter <= 0;
-                r_in.level_counter <= MIPMAP_LEVELS - 1;
+                r_in.level_counter <= 0;
                 r_in.state <= select_level;
             else
                 r_in.state <= idle;

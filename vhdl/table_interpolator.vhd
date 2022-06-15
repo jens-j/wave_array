@@ -433,10 +433,16 @@ begin
             v_frame_interp_d := s_wave_mem_doutb((r.frame_0_index + 1) * SAMPLE_SIZE - 1
                                     downto r.frame_0_index * SAMPLE_SIZE);
 
-            s_frame_interp_a <= v_frame_interp_a;
             s_frame_interp_b <= std_logic_vector(r.frame_position(PIPE_LEN_MEM - 1));
-            s_frame_interp_c <= v_frame_interp_c;
-            s_frame_interp_d <= v_frame_interp_d;
+
+            s_frame_interp_a <= v_frame_interp_a(SAMPLE_SIZE - 1)
+                & v_frame_interp_a(SAMPLE_SIZE - 1 downto 1);
+
+            s_frame_interp_c <= v_frame_interp_c(SAMPLE_SIZE + OSC_SAMPLE_FRAC - 1)
+                & v_frame_interp_c(SAMPLE_SIZE + OSC_SAMPLE_FRAC - 1 downto 1);
+
+            s_frame_interp_d <= v_frame_interp_d(SAMPLE_SIZE - 1)
+                & v_frame_interp_d(SAMPLE_SIZE - 1 downto 1);
 
             -- Pipeline stage 1: Read coefficient memory and send to interpolator. The values for the
             -- even and odd coefficient memories are swapped if the phase m is odd.

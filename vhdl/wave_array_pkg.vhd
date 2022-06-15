@@ -102,17 +102,30 @@ package wave_array_pkg is
     end record;
 
     type t_addrgen_to_tableinterp_array is array (natural range <>) of t_addrgen_to_tableinterp;
+
     -- Mipmap table upper velocity limit. The top table has no upper limit.
+    -- constant MIPMAP_THRESHOLDS : t_osc_phase_array(0 to MIPMAP_LEVELS - 2) := (
+    --     26x"0010000", -- Go to next level when resample rate > 1 (less than 1x supersampling).
+    --     26x"0020000",
+    --     26x"0040000",
+    --     26x"0080000",
+    --     26x"0100000",
+    --     26x"0200000",
+    --     26x"0400000",
+    --     26x"0800000",
+    --     26x"1000000"
+    -- );
+
     constant MIPMAP_THRESHOLDS : t_osc_phase_array(0 to MIPMAP_LEVELS - 2) := (
-        26x"0010000", -- Go to next level when resample rate > 1 (less than 1x supersampling).
-        26x"0020000",
-        26x"0040000",
-        26x"0080000",
-        26x"0100000",
-        26x"0200000",
-        26x"0400000",
-        26x"0800000",
-        26x"1000000"
+        to_unsigned(2**(t_osc_phase_frac'length), t_osc_phase'length), -- Go to next level when resample rate r < 1 (less than 1x supersampling).
+        to_unsigned(2**(t_osc_phase_frac'length + 1), t_osc_phase'length),
+        to_unsigned(2**(t_osc_phase_frac'length + 2), t_osc_phase'length),
+        to_unsigned(2**(t_osc_phase_frac'length + 3), t_osc_phase'length),
+        to_unsigned(2**(t_osc_phase_frac'length + 4), t_osc_phase'length),
+        to_unsigned(2**(t_osc_phase_frac'length + 5), t_osc_phase'length),
+        to_unsigned(2**(t_osc_phase_frac'length + 6), t_osc_phase'length),
+        to_unsigned(2**(t_osc_phase_frac'length + 7), t_osc_phase'length),
+        to_unsigned(2**(t_osc_phase_frac'length + 8), t_osc_phase'length)
     );
 
     -- Mipmap table address offsets for each mipmap level.
