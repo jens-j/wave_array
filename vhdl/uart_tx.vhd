@@ -61,6 +61,7 @@ architecture RTL of UART_TX is
                     if i_TX_DV = '1' then
                         r_TX_Data <= i_TX_Byte;
                         r_SM_Main <= s_TX_Start_Bit;
+                        o_TX_Active <= '1';
                     else
                         r_SM_Main <= s_Idle;
                     end if;

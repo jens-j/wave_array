@@ -27,7 +27,8 @@ entity wave_array is
         XADC_3P                 : in  std_logic;
         XADC_3N                 : in  std_logic;
         DISPLAY_SEGMENTS        : out std_logic_vector(6 downto 0);
-        DISPLAY_ANODES          : out std_logic_vector(7 downto 0)
+        DISPLAY_ANODES          : out std_logic_vector(7 downto 0);
+        DEBUG_UART_TX           : out std_logic
     );
 end entity;
 
@@ -46,7 +47,7 @@ architecture arch of wave_array is
     signal s_display_data       : std_logic_vector(31 downto 0);
     signal s_addgen_output      : t_addrgen_to_tableinterp_array(0 to N_VOICES - 1);
 
-
+    signal s_uart_tx            : std_logic;
 begin
 
     -- Connect inputs.
@@ -59,9 +60,11 @@ begin
     end generate;
 
     LEDS(15 - N_VOICES downto 8) <= (others => '0');
-    LEDS(7 downto 0)   <= s_midi_status_byte;
+    LEDS(7 downto 0) <= s_midi_status_byte;
 
-    I2S_SCLK           <= s_i2s_clk;
+    I2S_SCLK <= s_i2s_clk;
+    UART_TX <= s_uart_tx;
+    DEBUG_UART_TX <= s_uart_tx;
 
     -- 7 segment display.
     s_display_data <=
@@ -106,7 +109,7 @@ begin
         voices                  => s_voices,
         addrgen_output          => s_addgen_output,
         sample                  => s_sample,
-        UART_TX                 => UART_TX
+        UART_TX                 => s_uart_tx
     );
 
     i2s_interface : entity wave.i2s_interface

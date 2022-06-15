@@ -378,13 +378,24 @@ begin
 
                 -- Edge case where interpolation wraps around.
                 -- Solve by shifting the coefficient forward one position and append with a zero.
+                -- but since the coefficients are stored in reversed order. zero the first coeff
+                -- and shift the rest back one position.
                 if r.coeff_base_address = POLY_M / 2 - 1 then
-                    if r.coeff_counter < POLY_N - 1 then
-                        s_coeff_even_addra <= std_logic_vector(r.coeff_base_address + 1)
-                            & std_logic_vector(to_unsigned(r.coeff_counter, POLY_N_LOG2) + 1);
-                    else
+
+                    -- if r.coeff_counter < POLY_N - 1 then
+                    --     s_coeff_even_addra <= std_logic_vector(r.coeff_base_address + 1)
+                    --         & std_logic_vector(to_unsigned(r.coeff_counter, POLY_N_LOG2) + 1);
+                    -- else
+                    --     r_in.zero_coeff(0) <= '1';
+                    -- end if;
+
+                    if r.coeff_counter = 0 then
                         r_in.zero_coeff(0) <= '1';
+                    else
+                        s_coeff_even_addra <= std_logic_vector(r.coeff_base_address + 1)
+                            & std_logic_vector(to_unsigned(r.coeff_counter, POLY_N_LOG2) - 1);
                     end if;
+
                 else
                     s_coeff_even_addra <= std_logic_vector(r.coeff_base_address + 1)
                         & std_logic_vector(to_unsigned(r.coeff_counter, POLY_N_LOG2));

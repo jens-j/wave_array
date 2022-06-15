@@ -25,7 +25,7 @@ architecture arch of sample_uart is
     type s_uart_reg is record
         state                   : t_state;
         sample                  : t_mono_sample;
-        byte_counter            : integer range 0 to 3;
+        byte_counter            : integer range 0 to 2;
     end record;
 
     constant REG_INIT : s_uart_reg := (
@@ -75,8 +75,8 @@ begin
                 case r.byte_counter is
                     when 0 => s_data_in <= std_logic_vector(r.sample(15 downto 8));
                     when 1 => s_data_in <= std_logic_vector(r.sample(7 downto 0));
-                    when 2 => s_data_in <= x"0D"; -- \r
-                    when 3 => s_data_in <= x"0A"; -- \n
+                    when 2 => s_data_in <= x"00"; -- \r
+                    -- when 3 => s_data_in <= x"0A"; -- \n
                 end case;
 
                 -- if r.byte_counter = SAMPLE_SIZE / 8 then
@@ -86,7 +86,7 @@ begin
                 --         r.sample((r.byte_counter + 1) * 8 - 1 downto r.byte_counter * 8));
                 -- end if;
 
-                if r.byte_counter < 3 then
+                if r.byte_counter < 2 then
                     r_in.byte_counter <= r.byte_counter + 1;
                 else
                     r_in.state <= idle;

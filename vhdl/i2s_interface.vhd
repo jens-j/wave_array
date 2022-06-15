@@ -21,18 +21,19 @@ entity i2s_interface is
     );
 end entity;
 
-
 architecture arch of i2s_interface is
 
+    type t_state is (init_0, init_1, init_2, init_3, running);
+
+    signal r_state                  : t_state;
+    signal s_state                  : t_state;
     signal s_serializer_next_sample : std_logic;
     signal s_serializer_sample_in   : std_logic_vector(2 * SAMPLE_SIZE - 1 downto 0);
     signal s_fifo_full              : std_logic;
     signal s_fifo_din               : std_logic_vector(2 * SAMPLE_SIZE - 1 downto 0);
+    signal s_fifo_wr_data_count     : std_logic_vector(3 downto 0);
 
 begin
-
-    next_sample <= not s_fifo_full;
-    s_fifo_din <= std_logic_vector(sample_in(1)) & std_logic_vector(sample_in(0));
 
     fifo : entity xil_defaultlib.i2s_fifo
     port map (
@@ -44,7 +45,8 @@ begin
         rd_en                       => s_serializer_next_sample,
         dout                        => s_serializer_sample_in,
         full                        => s_fifo_full,
-        empty                       => open
+        empty                       => open,
+        wr_data_count               => s_fifo_wr_data_count
     );
 
     i2s_serializer : entity wave.i2s_serializer
@@ -56,5 +58,43 @@ begin
         sdata                       => sdata,
         wsel                        => wsel
     );
+
+    -- Fill the fifo with zero's at startup to avoid sending too many fast next_sample pulses;
+    zero_proc : process (r_state, sample_in, s_fifo_full)
+    begin
+        s_state <= r_state;
+
+        s_fifo_din <= (others => '0');
+        next_sample <= '0';
+
+        -- The fifo says it's full before it actually is three times.
+        if r_state = init_0 then
+            if s_fifo_full = '1' then s_state <= init_1; end if;
+
+        elsif r_state = init_1 then
+            if s_fifo_full = '0' then s_state <= init_2; end if;
+
+        elsif r_state = init_2 then
+            if s_fifo_full = '0' then s_state <= init_3; end if;
+
+        elsif r_state = init_3 then
+            if s_fifo_full = '0' then s_state <= running; end if;
+
+        else
+            s_fifo_din <= std_logic_vector(sample_in(1)) & std_logic_vector(sample_in(0));
+            next_sample <= not s_fifo_full; -- Generate a next_sample pulse when the fifo not full.
+        end if;
+    end process;
+
+    reg_proc : process (system_clk)
+    begin
+        if rising_edge(system_clk) then
+            if reset = '1' then
+                r_state <= init_0;
+            else
+                r_state <= s_state;
+            end if;
+        end if;
+    end process;
 
 end architecture;

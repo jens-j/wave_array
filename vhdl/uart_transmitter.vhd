@@ -24,7 +24,10 @@ architecture arch of uart_transmitter is
     signal s_fifo_dout          : std_logic_vector(7 downto 0);
     signal s_fifo_empty         : std_logic;
     signal s_uart_done          : std_logic;
-    -- signal r_uart_done          : std_logic;
+    signal s_data_count         : std_logic_vector(6 downto 0);
+    signal s_fifo_read_enable   : std_logic;
+    signal s_tx_dv              : std_logic;
+    signal s_tx_active          : std_logic;
 
 
 begin
@@ -36,6 +39,9 @@ begin
     --     end if;
     -- end process;
 
+    s_fifo_read_enable <= not s_fifo_empty and not s_tx_active;
+    s_tx_dv <= not s_fifo_empty;
+
 
     tx_fifo : entity xil_defaultlib.uart_tx_fifo_gen
     port map (
@@ -43,10 +49,11 @@ begin
         srst                    => reset,
         din                     => data_in,
         wr_en                   => data_valid,
-        rd_en                   => s_uart_done and not s_fifo_empty,
+        rd_en                   => s_fifo_read_enable,
         dout                    => s_fifo_dout,
         full                    => full,
-        empty                   => s_fifo_empty
+        empty                   => s_fifo_empty,
+        data_count              => s_data_count
     );
 
     uart : entity wave.uart_tx
@@ -56,9 +63,9 @@ begin
     )
     port map(
         i_Clk                   => clk,
-        i_TX_DV                 => not s_fifo_empty,
+        i_TX_DV                 => s_tx_dv,
         i_TX_Byte               => s_fifo_dout,
-        o_TX_Active             => open,
+        o_TX_Active             => s_tx_active,
         o_TX_Serial             => UART_TX,
         o_TX_Done               => s_uart_done
     );

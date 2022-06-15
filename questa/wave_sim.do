@@ -19,5 +19,7 @@ add wave -divider halfband:
 add wave tb_wave_array/wave_array/synth_subsys/oscillator/halfband/*
 add wave -divider mixer:
 add wave tb_wave_array/wave_array/synth_subsys/mixer/*
+add wave -divider sample_uart:
+add wave tb_wave_array/wave_array/synth_subsys/sample_uart/*
 
 run 10 ms

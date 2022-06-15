@@ -87,8 +87,13 @@ begin
             -- Map the value of the potentiometer to oscillator 0.
             elsif r.osc_counter = 0 then
                 v_enable := '1';
-                v_velocity := "00" & unsigned(analog_input)
-                    & (0 to t_osc_phase'length - ADC_SAMPLE_SIZE - 3 => '0');
+
+                -- v_velocity := "00" & unsigned(analog_input)
+                --     & (0 to t_osc_phase'length - ADC_SAMPLE_SIZE - 3 => '0');
+
+                -- C4 + pot value.
+                v_velocity := shift_right(BASE_OCT_VELOCITIES(0), 9 - 4)
+                    + resize(unsigned(analog_input), t_osc_phase'length);
 
             end if;
 
