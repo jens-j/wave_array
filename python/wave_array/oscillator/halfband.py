@@ -14,7 +14,7 @@ class Halfband:
         self.N = N # Filter length (must be odd).
 
         # Generate an odd length symmetric window and prepend with a zero to make it length N.
-        self.window = signal.chebwin(self.N, 80)
+        self.window = signal.chebwin(self.N, 70)
         bound = (self.N-1) / 4
         sinc_x = np.linspace(-bound, bound, self.N)
         self.coefficients = np.sinc(sinc_x) * self.window
@@ -38,7 +38,7 @@ class Halfband:
 
 
 def main():
-    hb = Halfband(63)
+    hb = Halfband(119)
     hb.plot()
 
 

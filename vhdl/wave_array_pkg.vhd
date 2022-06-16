@@ -48,7 +48,7 @@ package wave_array_pkg is
     -- The even phase is symmetric so only half of the coefficients for m = 0 are stored.
     -- The coeffients are reversed in time to allow easy convolution.
     constant HALFBAND_COEFF_SIZE    : integer := 16;
-    constant HALFBAND_N             : integer := 32; -- Length of one phase.
+    constant HALFBAND_N             : integer := 60; -- Length of one phase (half of the total length).
     -- ADC constants.
     constant ADC_SAMPLE_SIZE        : integer := 12;
     constant ADC_FILTER_FRAC        : integer := 8;
@@ -80,7 +80,7 @@ package wave_array_pkg is
     type t_osc_phase_position_array is array (natural range <>) of t_osc_phase_position;
 
     -- Downsample filter types.
-    type t_halfband_coeff_array is array (0 to HALFBAND_N / 2 - 1) -- Half the odd phase coefficients.
+    type t_halfband_coeff_array is array (0 to HALFBAND_N / 2 - 1) -- Half the odd phase coefficients (they are symmetric).
         of std_logic_vector(HALFBAND_COEFF_SIZE - 1 downto 0);
 
     subtype t_osc_position is unsigned(OSC_SAMPLE_FRAC - 1 downto 0); -- Oscillator frame position (only fractional).
@@ -159,23 +159,25 @@ package wave_array_pkg is
     -- Table of oscillator phase for each not of the highest octave supported (9).
     -- Shifting these to the right gives the velocity for lower octaves.
     constant BASE_OCT_VELOCITIES : t_osc_phase_array(0 to 11) := (
-         to_unsigned(Integer(2**t_osc_phase'length * 8372.16 / Real(SAMPLE_RATE)), t_osc_phase'length),  -- C
-         to_unsigned(Integer(2**t_osc_phase'length * 8869.76 / Real(SAMPLE_RATE)), t_osc_phase'length),  -- C#
-         to_unsigned(Integer(2**t_osc_phase'length * 9397.12 / Real(SAMPLE_RATE)), t_osc_phase'length),  -- D
-         to_unsigned(Integer(2**t_osc_phase'length * 9956.16 / Real(SAMPLE_RATE)), t_osc_phase'length),  -- D#
-         to_unsigned(Integer(2**t_osc_phase'length * 10548.16 / Real(SAMPLE_RATE)), t_osc_phase'length), -- E
-         to_unsigned(Integer(2**t_osc_phase'length * 11175.36 / Real(SAMPLE_RATE)), t_osc_phase'length), -- F
-         to_unsigned(Integer(2**t_osc_phase'length * 11839.68 / Real(SAMPLE_RATE)), t_osc_phase'length), -- F#
-         to_unsigned(Integer(2**t_osc_phase'length * 12544.00 / Real(SAMPLE_RATE)), t_osc_phase'length), -- G
-         to_unsigned(Integer(2**t_osc_phase'length * 13289.60 / Real(SAMPLE_RATE)), t_osc_phase'length), -- G#
-         to_unsigned(Integer(2**t_osc_phase'length * 14080.00 / Real(SAMPLE_RATE)), t_osc_phase'length), -- A
-         to_unsigned(Integer(2**t_osc_phase'length * 14917.12 / Real(SAMPLE_RATE)), t_osc_phase'length), -- A#
-         to_unsigned(Integer(2**t_osc_phase'length * 15804.16 / Real(SAMPLE_RATE)), t_osc_phase'length)  -- B
+         to_unsigned(Integer(2**t_osc_phase'length * 8372.16 / Real(2 * SAMPLE_RATE)), t_osc_phase'length),  -- C
+         to_unsigned(Integer(2**t_osc_phase'length * 8869.76 / Real(2 * SAMPLE_RATE)), t_osc_phase'length),  -- C#
+         to_unsigned(Integer(2**t_osc_phase'length * 9397.12 / Real(2 * SAMPLE_RATE)), t_osc_phase'length),  -- D
+         to_unsigned(Integer(2**t_osc_phase'length * 9956.16 / Real(2 * SAMPLE_RATE)), t_osc_phase'length),  -- D#
+         to_unsigned(Integer(2**t_osc_phase'length * 10548.16 / Real(2 * SAMPLE_RATE)), t_osc_phase'length), -- E
+         to_unsigned(Integer(2**t_osc_phase'length * 11175.36 / Real(2 * SAMPLE_RATE)), t_osc_phase'length), -- F
+         to_unsigned(Integer(2**t_osc_phase'length * 11839.68 / Real(2 * SAMPLE_RATE)), t_osc_phase'length), -- F#
+         to_unsigned(Integer(2**t_osc_phase'length * 12544.00 / Real(2 * SAMPLE_RATE)), t_osc_phase'length), -- G
+         to_unsigned(Integer(2**t_osc_phase'length * 13289.60 / Real(2 * SAMPLE_RATE)), t_osc_phase'length), -- G#
+         to_unsigned(Integer(2**t_osc_phase'length * 14080.00 / Real(2 * SAMPLE_RATE)), t_osc_phase'length), -- A
+         to_unsigned(Integer(2**t_osc_phase'length * 14917.12 / Real(2 * SAMPLE_RATE)), t_osc_phase'length), -- A#
+         to_unsigned(Integer(2**t_osc_phase'length * 15804.16 / Real(2 * SAMPLE_RATE)), t_osc_phase'length)  -- B
     );
 
     constant HALFBAND_COEFFICIENTS : t_halfband_coeff_array := (
-        x"FFFF", x"0005", x"FFF2", x"0020", x"FFC1", x"0073", x"FF3C", x"013E",
-        x"FE12", x"02EA", x"FBB1", x"0652", x"F69F", x"0E9B", x"E5E3", x"5121"
+        x"FFFC", x"0003", x"FFFB", x"0009", x"FFF2", x"0014", x"FFE4", x"0027",
+        x"FFCB", x"0046", x"FFA5", x"0075", x"FF6C", x"00B9", x"FF1A", x"011C",
+        x"FEA5", x"01A6", x"FE01", x"026A", x"FD16", x"0385", x"FBB9", x"053E",
+        x"F97B", x"0850", x"F4F2", x"0FE0", x"E518", x"5166"
     );
 
 
