@@ -1,6 +1,6 @@
-library IEEE;
-use IEEE.std_logic_1164.all;
-use IEEE.numeric_std.all;
+library ieee;
+use ieee.std_logic_1164.all;
+use ieee.numeric_std.all;
 
 library wave;
 use wave.wave_array_pkg.all;
@@ -30,7 +30,7 @@ architecture arch of table_address_generator is
     type t_state is (idle, init, select_level, calculate_address_0, calculate_address_1,
         increment_phase);
 
-    type s_tag_reg is record
+    type t_tag_reg is record
         state                   : t_state;
         osc_counter             : integer range 0 to N_OSCILLATORS - 1;
         sample_counter          : integer range 0 to 1; -- Twe samples are needed before downsampling.
@@ -47,7 +47,7 @@ architecture arch of table_address_generator is
         enable_buffer           : std_logic_vector(N_OSCILLATORS - 1 downto 0);
     end record;
 
-    constant REG_INIT : s_tag_reg := (
+    constant REG_INIT : t_tag_reg := (
         state                   => idle,
         osc_counter             => 0,
         sample_counter          => 0,
@@ -64,7 +64,7 @@ architecture arch of table_address_generator is
         enable_buffer           => (others => '0')
     );
 
-    signal r, r_in              : s_tag_reg;
+    signal r, r_in              : t_tag_reg;
 
 begin
 

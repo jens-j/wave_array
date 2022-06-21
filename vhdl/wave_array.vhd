@@ -1,6 +1,6 @@
-library IEEE;
-use IEEE.std_logic_1164.all;
-use IEEE.numeric_std.all;
+library ieee;
+use ieee.std_logic_1164.all;
+use ieee.numeric_std.all;
 
 library unisim;
 use unisim.vcomponents.all;
@@ -36,6 +36,7 @@ architecture arch of wave_array is
 
     signal s_system_clk         : std_logic;
     signal s_i2s_clk            : std_logic;
+    signal s_sdram_clk          : std_logic;
     signal s_reset_al           : std_logic;
     signal s_reset_ah           : std_logic;
 
@@ -47,7 +48,10 @@ architecture arch of wave_array is
     signal s_display_data       : std_logic_vector(31 downto 0);
     signal s_addgen_output      : t_addrgen_to_tableinterp_array(0 to N_VOICES - 1);
 
-    signal s_uart_tx            : std_logic;
+    signal s_register_input     : t_register_input;
+    signal s_register_output    : t_register_output;
+    signal s_status             : t_status;
+    signal s_config             : t_config;
 begin
 
     -- Connect inputs.
@@ -60,11 +64,11 @@ begin
     end generate;
 
     LEDS(15 - N_VOICES downto 8) <= (others => '0');
-    LEDS(7 downto 0) <= s_midi_status_byte;
+    -- LEDS(7 downto 0) <= s_midi_status_byte;
+    LEDS(7 downto 1) <= (others => '0');
+    LEDS(0) <= s_config.led;
 
     I2S_SCLK <= s_i2s_clk;
-    UART_TX <= s_uart_tx;
-    DEBUG_UART_TX <= s_uart_tx;
 
     -- 7 segment display.
     s_display_data <=
@@ -78,9 +82,10 @@ begin
     clk_subsys : entity wave.clk_subsystem
     port map (
         reset                   => s_reset_ah,
-        ext_clk                 => EXT_CLK,         -- 100 MHz
-        system_clk              => s_system_clk,    -- 100 MHz
-        i2s_clk                 => s_i2s_clk        -- 1536017.5 Hz
+        ext_clk                 => EXT_CLK,         -- 100 MHz.
+        system_clk              => s_system_clk,    -- 100 MHz.
+        i2s_clk                 => s_i2s_clk,       -- 1.5360175 MHz.
+        sdram_clk               => s_sdram_clk      -- 100 MHz 270 degrees shifted.
     );
 
     midi_slave : entity wave.midi_slave
@@ -96,6 +101,27 @@ begin
         status_byte             => s_midi_status_byte
     );
 
+    uart_subsys : entity wave.uart_subsystem
+    port map (
+        clk                     => s_system_clk,
+        reset                   => s_reset_ah,
+        register_output         => s_register_output,
+        register_input          => s_register_input,
+        UART_RX                 => UART_RX,
+        UART_TX                 => UART_TX,
+        timeout                 => s_status.uart_timeout
+    );
+
+    reg_file : entity wave.register_file
+    port map (
+        clk                     => s_system_clk,
+        reset                   => s_reset_ah,
+        register_output         => s_register_output,
+        register_input          => s_register_input,
+        status                  => s_status,
+        config                  => s_config
+    );
+
     synth_subsys : entity wave.synth_subsystem
     generic map(
         N_OSCILLATORS           => N_VOICES
@@ -108,8 +134,7 @@ begin
         analog_input            => s_analog_value,
         voices                  => s_voices,
         addrgen_output          => s_addgen_output,
-        sample                  => s_sample,
-        UART_TX                 => s_uart_tx
+        sample                  => s_sample
     );
 
     i2s_interface : entity wave.i2s_interface

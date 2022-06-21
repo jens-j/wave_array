@@ -3,13 +3,15 @@ set SIM_LIB_DIR ../vivado/wave_array/wave_array.cache/compile_simlib/questa
 
 vcom -2008 -work wave $SOURCE_DIR/wave_array_pkg.vhd
 vcom -2008 -work wave $SOURCE_DIR/midi_pkg.vhd
+vcom -2008 -work wave $SOURCE_DIR/uart_pkg.vhd
 vcom -2008 -work wave $SOURCE_DIR/clk_subsystem.vhd
 vcom -2008 -work wave $SOURCE_DIR/input_subsystem.vhd
 vcom -2008 -work wave $SOURCE_DIR/seven_segment.vhd
 vcom -2008 -work wave $SOURCE_DIR/uart_rx.vhd
 vcom -2008 -work wave $SOURCE_DIR/uart_tx.vhd
-vcom -2008 -work wave $SOURCE_DIR/uart_transmitter.vhd
-vcom -2008 -work wave $SOURCE_DIR/sample_uart.vhd
+vcom -2008 -work wave $SOURCE_DIR/uart_packet_engine.vhd
+vcom -2008 -work wave $SOURCE_DIR/uart_subsystem.vhd
+vcom -2008 -work wave $SOURCE_DIR/uart_tester.vhd
 vcom -2008 -work wave $SOURCE_DIR/midi_reader.vhd
 vcom -2008 -work wave $SOURCE_DIR/midi_receiver.vhd
 vcom -2008 -work wave $SOURCE_DIR/midi_slave.vhd
@@ -26,5 +28,9 @@ vcom -2008 -work wave $SOURCE_DIR/tb_oscillator.vhd
 vcom -2008 -work wave $SOURCE_DIR/osc_controller.vhd
 vcom -2008 -work wave $SOURCE_DIR/mixer.vhd
 vcom -2008 -work wave $SOURCE_DIR/synth_subsystem.vhd
+vcom -2008 -work wave $SOURCE_DIR/sdram_controller.vhd
+vcom -2008 -work wave $SOURCE_DIR/sdram_arbiter.vhd
+vcom -2008 -work wave $SOURCE_DIR/tb_sdram.vhd
+vcom -2008 -work wave $SOURCE_DIR/register_file.vhd
 vcom -2008 -work wave $SOURCE_DIR/wave_array.vhd
 vcom -2008 -work wave $SOURCE_DIR/tb_wave_array.vhd

@@ -29,7 +29,7 @@ architecture arch of tb_wave_array is
 
 begin
 
-    tester : entity wave.midi_tester
+    midi_tester : entity wave.midi_tester
     generic map (
         FILENAME                => "four_notes.txt"
     )
@@ -37,6 +37,13 @@ begin
         clk                     => clk,
         reset                   => not reset,
         uart_tx                 => midi_uart
+    );
+
+    uart_tester : entity wave.uart_tester
+    port map (
+        clk                     => clk,
+        reset                   => not reset,
+        uart_tx                 => uart_rx
     );
 
     wave_array : entity wave.wave_array

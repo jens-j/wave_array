@@ -19,8 +19,7 @@ entity synth_subsystem is
         analog_input            : in  std_logic_vector(ADC_SAMPLE_SIZE - 1 downto 0);
         voices                  : in  t_voice_array(0 to N_OSCILLATORS - 1);
         addrgen_output          : out t_addrgen_to_tableinterp_array(0 to N_OSCILLATORS - 1); -- Debug output.
-        sample                  : out t_stereo_sample;
-        UART_TX                 : out std_logic
+        sample                  : out t_stereo_sample
     );
 end entity;
 
@@ -74,16 +73,6 @@ begin
         sample_in               => s_osc_samples,
         next_sample             => next_sample,
         sample_out              => s_mixer_sample_out
-    );
-
-
-    sample_uart : entity wave.sample_uart
-    port map (
-        clk                     => clk,
-        reset                   => reset,
-        next_sample             => next_sample,
-        sample                  => s_mixer_sample_out,
-        UART_TX                 => UART_TX
     );
 
 end architecture;

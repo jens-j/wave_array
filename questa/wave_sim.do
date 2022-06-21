@@ -1,8 +1,10 @@
 quit -sim
-vsim -novopt -t ps tb_wave_array
+vsim -voptargs="+acc" -t ps tb_wave_array
 
 add wave -divider top:
 add wave tb_wave_array/wave_array/*
+add wave -divider clk_subsys:
+add wave tb_wave_array/wave_array/clk_subsys/*
 add wave -divider i2s:
 add wave tb_wave_array/wave_array/i2s_interface/*
 add wave -divider midi:
@@ -19,7 +21,13 @@ add wave -divider halfband:
 add wave tb_wave_array/wave_array/synth_subsys/oscillator/halfband/*
 add wave -divider mixer:
 add wave tb_wave_array/wave_array/synth_subsys/mixer/*
-add wave -divider sample_uart:
-add wave tb_wave_array/wave_array/synth_subsys/sample_uart/*
+add wave -divider uart_subsys:
+add wave tb_wave_array/wave_array/uart_subsys/*
+add wave -divider packet_engine:
+add wave tb_wave_array/wave_array/uart_subsys/packet_engine/*
+add wave -divider regfile:
+add wave tb_wave_array/wave_array/reg_file/*
+add wave -divider uart_tester:
+add wave tb_wave_array/uart_tester/*
 
 run 10 ms

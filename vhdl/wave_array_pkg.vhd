@@ -1,6 +1,6 @@
-library IEEE;
-use IEEE.std_logic_1164.all;
-use IEEE.numeric_std.all;
+library ieee;
+use ieee.std_logic_1164.all;
+use ieee.numeric_std.all;
 
 package wave_array_pkg is
 
@@ -11,6 +11,7 @@ package wave_array_pkg is
     ;
 
     constant SYS_FREQ               : integer := 100_000_000;
+    constant SDRAM_FREQ             : integer := 100_000_000;
     constant UART_BAUD              : integer := 2_000_000; -- 115_200;
     constant N_VOICES               : positive := 4;
 
@@ -52,6 +53,28 @@ package wave_array_pkg is
     -- ADC constants.
     constant ADC_SAMPLE_SIZE        : integer := 12;
     constant ADC_FILTER_FRAC        : integer := 8;
+
+    -- Address constants.
+    constant ADDR_DEPTH_LOG2        : integer := 32;
+    constant ADDR_DEPTH             : integer := 2**ADDR_DEPTH_LOG2;
+    constant ADDR_OFFSET_REG        : unsigned := x"0000000";
+    constant ADDR_OFFSET_SDRAM      : unsigned := x"8000000";
+
+    -- SDRAM constants.
+    constant SDRAM_WIDTH            : integer := 16;
+    constant SDRAM_DEPTH_LOG2       : integer := 23;
+    constant SDRAM_DEPTH            : integer := 2**SDRAM_DEPTH_LOG2;
+
+    -- Register file constants.
+    constant REG_WIDTH              : integer := 16;
+    constant REG_ADDR_RESET         : unsigned := x"0000001"; -- wo 1 bit  | soft reset.
+    constant REG_ADDR_FAULT         : unsigned := x"0000000"; -- rw 16 bit | fault flags.
+    constant REG_ADDR_LED           : unsigned := x"0000002"; -- rw 1 bit  | on-board led register.
+
+    -- fault register bit indices.
+    constant FAULT_UART_TIMEOUT     : integer := 0;
+    constant FAULT_ADDRESS          : integer := 1;
+
 
     -- Audio sample types.
     subtype t_mono_sample is signed(SAMPLE_SIZE - 1 downto 0);
@@ -103,18 +126,54 @@ package wave_array_pkg is
 
     type t_addrgen_to_tableinterp_array is array (natural range <>) of t_addrgen_to_tableinterp;
 
-    -- Mipmap table upper velocity limit. The top table has no upper limit.
-    -- constant MIPMAP_THRESHOLDS : t_osc_phase_array(0 to MIPMAP_LEVELS - 2) := (
-    --     26x"0010000", -- Go to next level when resample rate > 1 (less than 1x supersampling).
-    --     26x"0020000",
-    --     26x"0040000",
-    --     26x"0080000",
-    --     26x"0100000",
-    --     26x"0200000",
-    --     26x"0400000",
-    --     26x"0800000",
-    --     26x"1000000"
-    -- );
+    type t_sdram_input is record
+        read_enable             : std_logic;
+        write_enable            : std_logic;
+        burst_length            : integer range 0 to SDRAM_DEPTH;
+        address                 : std_logic_vector(SDRAM_DEPTH_LOG2 - 1 downto 0);
+        write_data              : std_logic_vector(SDRAM_WIDTH - 1 downto 0);
+    end record;
+
+    type t_sdram_input_array is array (natural range <>) of t_sdram_input;
+
+    type t_sdram_output is record
+        ack                     : std_logic; -- Signal the read- or write-enable has been seen.
+        valid                   : std_logic; -- Signal valid read or write word.
+        done                    : std_logic; -- Signal end of read or write in last valid cycle.
+        read_data               : std_logic_vector(SDRAM_WIDTH - 1 downto 0);
+    end record;
+
+    type t_sdram_output_array is array (natural range <>) of t_sdram_output;
+
+    -- Register file interface.
+    -- Does not support block reads and writes.
+    type t_register_input is record
+        read_enable             : std_logic;
+        write_enable            : std_logic;
+        address                 : unsigned(ADDR_DEPTH_LOG2 - 1 downto 0);
+        write_data              : std_logic_vector(REG_WIDTH - 1 downto 0);
+    end record;
+
+    type t_register_input_array is array (natural range <>) of t_register_input;
+
+    type t_register_output is record
+        valid                   : std_logic; -- Indicates read data is valid
+        fault                   : std_logic;
+        read_data               : std_logic_vector(REG_WIDTH - 1 downto 0);
+    end record;
+
+    type t_register_output_array is array (natural range <>) of t_register_output;
+
+    -- Register file inputs.
+    type t_status is record
+        uart_timeout            : std_logic;
+    end record;
+
+    -- Register file outputs.
+    type t_config is record
+        led                     : std_logic;
+    end record;
+
 
     constant MIPMAP_THRESHOLDS : t_osc_phase_array(0 to MIPMAP_LEVELS - 2) := (
         to_unsigned(2**(t_osc_phase_frac'length), t_osc_phase'length), -- Go to next level when resample rate r < 1 (less than 1x supersampling).
