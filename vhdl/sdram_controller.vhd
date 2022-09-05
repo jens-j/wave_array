@@ -11,23 +11,23 @@ entity sdram_controller is
     port (
         clk                     : in    std_logic; -- Max 104 MHz.
         reset                   : in    std_logic;
-        pll_lock                : in    std_logic; -- SDRAM clock needs to be running before becoming active.
+        pll_locked              : in    std_logic; -- SDRAM clock needs to be running before becoming active.
 
         -- Read and write interface.
         sdram_input             : in    t_sdram_input;
         sdram_output            : out   t_sdram_output;
 
         -- SDRAM interface.
-        CRAM_ADVN               : out   std_logic;
-        CRAM_CEN                : out   std_logic;
-        CRAM_CRE                : out   std_logic;
-        CRAM_OEN                : out   std_logic;
-        CRAM_WEN                : out   std_logic;
-        CRAM_LBN                : out   std_logic;
-        CRAM_UBN                : out   std_logic;
-        CRAM_WAIT               : in    std_logic;
-        CRAM_A                  : out   std_logic_vector(SDRAM_DEPTH_LOG2 - 1 downto 0);
-        CRAM_DQ                 : inout std_logic_vector(SDRAM_WIDTH - 1 downto 0)
+        SDRAM_ADVN              : out   std_logic;
+        SDRAM_CEN               : out   std_logic;
+        SDRAM_CRE               : out   std_logic;
+        SDRAM_OEN               : out   std_logic;
+        SDRAM_WEN               : out   std_logic;
+        SDRAM_LBN               : out   std_logic;
+        SDRAM_UBN               : out   std_logic;
+        SDRAM_WAIT              : in    std_logic;
+        SDRAM_ADDRESS           : out   std_logic_vector(SDRAM_DEPTH_LOG2 - 1 downto 0);
+        SDRAM_DQ                : inout std_logic_vector(SDRAM_WIDTH - 1 downto 0)
     );
 end entity;
 
@@ -36,99 +36,122 @@ architecture arch of sdram_controller is
     constant ASYNC_CYCLES : integer :=
         integer(ceil(real(70) / (real(1_000_000_000) / real(SDRAM_FREQ)))) + 1;
 
-    type t_state is (init_0, init_1, idle, delay, burst_read, burst_write, end_burst);
+    type t_state is (wait_for_pll, set_burstmode, idle, burst_read, burst_write);
 
     type t_sdram_reg is record
         state                   : t_state;
-        next_state              : t_state;
         sdram_output            : t_sdram_output;
-        cram_advn               : std_logic;
-        cram_cen                : std_logic;
-        cram_cre                : std_logic;
-        cram_oen                : std_logic;
-        cram_wen                : std_logic;
-        cram_a                  : std_logic_vector(SDRAM_DEPTH_LOG2 - 1 downto 0);
-        cram_dq                 : std_logic_vector(SDRAM_WIDTH - 1 downto 0);
+        sdram_advn              : std_logic;
+        sdram_cen               : std_logic;
+        sdram_cre               : std_logic;
+        sdram_oen               : std_logic;
+        sdram_wen               : std_logic;
+        sdram_a                 : std_logic_vector(SDRAM_DEPTH_LOG2 - 1 downto 0);
+        sdram_dq                : std_logic_vector(SDRAM_WIDTH - 1 downto 0);
         counter                 : integer range 0 to SDRAM_DEPTH;
+        valid_data              : std_logic; -- Signal valid read data in the input register.
     end record;
 
     constant REG_INIT : t_sdram_reg := (
-        state                   => init_0,
-        next_state              => idle,
-        sdram_output            => ('0', '0', '0', (others => '0')),
-        cram_advn               => '1',
-        cram_cen                => '1',
-        cram_cre                => '0',
-        cram_oen                => '1',
-        cram_wen                => '1',
-        cram_a                  => (others => '0'),
-        cram_dq                 => (others => '0'),
-        counter                 => 0
+        state                   => wait_for_pll,
+        sdram_output            => ('0', '0', '0', '0', (others => '0')),
+        sdram_advn              => '1',
+        sdram_cen               => '1',
+        sdram_cre               => '0',
+        sdram_oen               => '1',
+        sdram_wen               => '1',
+        sdram_a                 => (others => '0'),
+        sdram_dq                => (others => '0'),
+        counter                 => 0,
+        valid_data              => '0'
     );
 
     signal r, r_in              : t_sdram_reg;
 
+    -- signal s_fifo_rd_en         : std_logic;
+    -- signal s_fifo_dout          : std_logic_vector(SDRAM_WIDTH - 1 downto 0);
+    -- signal s_fifo_full          : std_logic;
+    -- signal s_fifo_empty         : std_logic;
+    -- signal s_fifo_data_count    : std_logic_vector(SDRAM_MAX_BURST downto 0);
 
 begin
 
-    -- Connect read/write interface output registers.
-    sdram_output <= r.sdram_output;
+    -- fifo : entity xil_defaultlib.sdram_controller_fifo
+    -- port map (
+    --     clk                     => clk,
+    --     srst                    => reset,
+    --     din                     => sdram_input.write_data,
+    --     wr_en                   => r.sdram_output.valid,
+    --     rd_en                   => s_fifo_rd_en,
+    --     dout                    => s_fifo_dout,
+    --     full                    => s_fifo_full,
+    --     empty                   => s_fifo_empty,
+    --     data_count              => s_fifo_data_count
+    -- );
+
 
     -- Connect SDRAM interface output registers.
-    CRAM_LBN <= '0';
-    CRAM_UBN <= '0';
-    CRAM_ADVN <= r.cram_advn;
-    CRAM_CEN <= r.cram_cen;
-    CRAM_CRE <= r.cram_cre;
-    CRAM_OEN <= r.cram_oen;
-    CRAM_WEN <= r.cram_wen;
-    CRAM_A <= r.cram_a;
-    CRAM_DQ <= r.cram_dq;
+    SDRAM_LBN <= '0';
+    SDRAM_UBN <= '0';
+    SDRAM_ADVN <= r.sdram_advn;
+    SDRAM_CEN <= r.sdram_cen;
+    SDRAM_CRE <= r.sdram_cre;
+    SDRAM_OEN <= r.sdram_oen;
+    SDRAM_WEN <= r.sdram_wen;
+    SDRAM_ADDRESS <= r.sdram_a;
+    SDRAM_DQ <= r.sdram_dq;
 
 
-    combinatorial : process (r, pll_lock, sdram_input, CRAM_WAIT, CRAM_DQ)
+    combinatorial : process (r, pll_locked, sdram_input, SDRAM_WAIT, SDRAM_DQ)
     begin
 
         r_in <= r;
 
+        r_in.valid_data <= '0';
+
         r_in.sdram_output.ack <= '0';
-        r_in.sdram_output.valid <= '0';
+        r_in.sdram_output.read_valid <= '0';
+        r_in.sdram_output.write_req <= '0';
         r_in.sdram_output.done <= '0';
         r_in.sdram_output.read_data <= (others => '0');
 
-        r_in.cram_advn <= '1';
-        r_in.cram_cen <= '1';
-        r_in.cram_cen <= '1';
-        r_in.cram_cre <= '0';
-        r_in.cram_oen <= '1';
-        r_in.cram_wen <= '1';
-        r_in.cram_cen <= '1';
-        r_in.cram_a <= (others => '0');
-        r_in.cram_dq <= (others => 'Z');
+        r_in.sdram_advn <= '1';
+        r_in.sdram_cen <= '1';
+        r_in.sdram_cen <= '1';
+        r_in.sdram_cre <= '0';
+        r_in.sdram_oen <= '1';
+        r_in.sdram_wen <= '1';
+        r_in.sdram_cen <= '1';
+        r_in.sdram_a <= (others => '0');
+        r_in.sdram_dq <= (others => 'Z');
+
+        -- Connect read/write interface output registers.
+        sdram_output <= r.sdram_output;
+        sdram_output.write_req <= '0';
 
         case r.state is
 
-            when init_0 =>
-                if pll_lock = '1' then
+            when wait_for_pll =>
+                if pll_locked = '1' then
                     r_in.counter <= ASYNC_CYCLES - 1;
-                    r_in.state <= init_1;
+                    r_in.state <= set_burstmode;
                 end if;
 
             -- Set to continuous burst mode with 4 cycle latency.
-            when init_1 =>
-                r_in.cram_cre <= '1';
-                r_in.cram_cen <= '0';
-                r_in.cram_advn <= '0';
-                r_in.cram_wen <= '0';
-                r_in.cram_a <= 23x"081D1F";
+            when set_burstmode =>
+                r_in.sdram_cre <= '1';
+                r_in.sdram_cen <= '0';
+                r_in.sdram_advn <= '0';
+                r_in.sdram_wen <= '0';
+                r_in.sdram_a <= 23x"081C1F";
 
                 -- Wait until the asynchronuous configuration register write completes.
                 if r.counter > 0 then
                     r_in.counter <= r.counter - 1;
                 else
-                    r_in.cram_cen <= '1';
-                    r_in.cram_wen <= '1';
-                    r_in.cram_advn <= '1';
+                    r_in.sdram_cen <= '1';
+                    r_in.sdram_wen <= '1';
+                    r_in.sdram_advn <= '1';
                     r_in.state <= idle;
                 end if;
 
@@ -136,59 +159,51 @@ begin
             when idle =>
                 if sdram_input.read_enable = '1' or sdram_input.write_enable = '1' then
 
-                    r_in.cram_cen <= '0';
-                    r_in.cram_advn <= '0';
-                    r_in.cram_a <= sdram_input.address;
-                    r_in.counter <= 3;
-                    r_in.state <= delay;
-                    r_in.next_state <= burst_read;
+                    r_in.sdram_output.ack <= '1';
+                    r_in.sdram_cen <= '0';
+                    r_in.sdram_advn <= '0';
+                    r_in.sdram_a <= sdram_input.address;
+                    r_in.counter <= sdram_input.burst_length - 1;
+                    r_in.state <= burst_read;
 
                     if sdram_input.write_enable = '1' then
-                        r_in.cram_wen <= '0';
-                        r_in.next_state <= burst_write;
+                        r_in.sdram_wen <= '0';
+                        r_in.state <= burst_write;
                     end if;
                 end if;
 
-            -- Wait 3 cycles.
-            when delay =>
-                r_in.cram_cen <= '0';
-                if r.counter > 0 then
-                    r_in.counter <= r.counter - 1;
-                else
-                    r_in.counter <= sdram_input.burst_length;
-                    r_in.state <= r.next_state;
-                end if;
-
             when burst_read =>
-                r_in.cram_cen <= '0';
-                r_in.cram_oen <= '0';
-                if cram_wait = '0' then
-                    r_in.sdram_output.valid <= '1';
-                    r_in.sdram_output.read_data <= CRAM_DQ;
+                r_in.sdram_cen <= '0';
+                r_in.sdram_oen <= '0';
+                if SDRAM_WAIT = '1' then
+                    r_in.sdram_output.read_valid <= '1';
+                    r_in.sdram_output.read_data <= SDRAM_DQ;
                     if r.counter > 0 then
                         r_in.counter <= r.counter - 1;
                     else
                         r_in.sdram_output.done <= '1';
-                        r_in.state <= end_burst;
+                        r_in.sdram_cen <= '1';
+                        r_in.sdram_oen <= '1';
+                        r_in.state <= idle;
                     end if;
                 end if;
 
             when burst_write =>
-                r_in.cram_cen <= '0';
-                if cram_wait = '0' then
-                    r_in.sdram_output.valid <= '1';
-                    r_in.cram_dq <= sdram_input.write_data;
+
+                -- This path is unregistered to allow easy handshaking.
+                sdram_output.write_req <= SDRAM_WAIT;
+
+                r_in.sdram_cen <= '0';
+                if SDRAM_WAIT = '1' then
+                    r_in.sdram_dq <= sdram_input.write_data;
                     if r.counter > 0 then
                         r_in.counter <= r.counter - 1;
                     else
                         r_in.sdram_output.done <= '1';
-                        r_in.state <= end_burst;
+                        r_in.sdram_output.write_req <= '0';
+                        r_in.state <= idle;
                     end if;
                 end if;
-
-            -- De-assert CRAM_CEN.
-            when end_burst =>
-                r_in.state <= idle;
 
             end case;
     end process;

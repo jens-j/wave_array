@@ -21,17 +21,17 @@ architecture arch of tb_sdram is
     signal s_sdram_inputs       : t_sdram_input_array(0 to 1);
     signal s_sdram_outputs      : t_sdram_output_array(0 to 1);
 
-    signal s_cram_clk           : std_logic;
-    signal s_cram_advn          : std_logic;
-    signal s_cram_cen           : std_logic;
-    signal s_cram_cre           : std_logic;
-    signal s_cram_oen           : std_logic;
-    signal s_cram_wen           : std_logic;
-    signal s_cram_lbn           : std_logic;
-    signal s_cram_ubn           : std_logic;
-    signal s_cram_wait          : std_logic;
-    signal s_cram_a             : std_logic_vector(SDRAM_DEPTH_LOG2 - 1 downto 0);
-    signal s_cram_dq            : std_logic_vector(SDRAM_WIDTH - 1 downto 0);
+    signal s_sdram_clk           : std_logic;
+    signal s_sdram_advn          : std_logic;
+    signal s_sdram_cen           : std_logic;
+    signal s_sdram_cre           : std_logic;
+    signal s_sdram_oen           : std_logic;
+    signal s_sdram_wen           : std_logic;
+    signal s_sdram_lbn           : std_logic;
+    signal s_sdram_ubn           : std_logic;
+    signal s_sdram_wait          : std_logic;
+    signal s_sdram_address             : std_logic_vector(SDRAM_DEPTH_LOG2 - 1 downto 0);
+    signal s_sdram_dq            : std_logic_vector(SDRAM_WIDTH - 1 downto 0);
 
 begin
 
@@ -54,7 +54,7 @@ begin
     port map (
         ext_clk                 => s_clk,
         system_clk              => s_sys_clk,
-        sdram_clk               => s_cram_clk,
+        sdram_clk               => s_sdram_clk,
         reset                   => s_reset,
         locked                  => s_locked
     );
@@ -66,34 +66,34 @@ begin
     port map (
         clk                     => s_clk,
         reset                   => s_reset,
-        pll_lock                => s_locked,
+        pll_locked              => s_locked,
         sdram_inputs            => s_sdram_inputs,
         sdram_outputs           => s_sdram_outputs,
-        CRAM_ADVN               => s_cram_advn,
-        CRAM_CEN                => s_cram_cen,
-        CRAM_CRE                => s_cram_cre,
-        CRAM_OEN                => s_cram_oen,
-        CRAM_WEN                => s_cram_wen,
-        CRAM_LBN                => s_cram_lbn,
-        CRAM_UBN                => s_cram_ubn,
-        CRAM_WAIT               => s_cram_wait,
-        CRAM_A                  => s_cram_a,
-        CRAM_DQ                 => s_cram_dq
+        SDRAM_ADVN              => s_sdram_advn,
+        SDRAM_CEN               => s_sdram_cen,
+        SDRAM_CRE               => s_sdram_cre,
+        SDRAM_OEN               => s_sdram_oen,
+        SDRAM_WEN               => s_sdram_wen,
+        SDRAM_LBN               => s_sdram_lbn,
+        SDRAM_UBN               => s_sdram_ubn,
+        SDRAM_WAIT              => s_sdram_wait,
+        SDRAM_ADDRESS           => s_sdram_address,
+        SDRAM_DQ                => s_sdram_dq
     );
 
     memory : entity cellram.cellram
     port map (
         clk                     => s_clk,
-        adv_n                   => s_cram_advn,
-        cre                     => s_cram_cre,
-        o_wait                  => s_cram_wait,
-        ce_n                    => s_cram_cen,
-        oe_n                    => s_cram_oen,
-        we_n                    => s_cram_wen,
-        lb_n                    => s_cram_lbn,
-        ub_n                    => s_cram_ubn,
-        addr                    => s_cram_a,
-        dq                      => s_cram_dq
+        adv_n                   => s_sdram_advn,
+        cre                     => s_sdram_cre,
+        o_wait                  => s_sdram_wait,
+        ce_n                    => s_sdram_cen,
+        oe_n                    => s_sdram_oen,
+        we_n                    => s_sdram_wen,
+        lb_n                    => s_sdram_lbn,
+        ub_n                    => s_sdram_ubn,
+        addr                    => s_sdram_address,
+        dq                      => s_sdram_dq
     );
 
 end architecture;

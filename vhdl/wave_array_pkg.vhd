@@ -56,7 +56,7 @@ package wave_array_pkg is
 
     -- Address constants.
     constant ADDR_DEPTH_LOG2        : integer := 32;
-    constant ADDR_DEPTH             : integer := 2**ADDR_DEPTH_LOG2;
+    -- constant ADDR_DEPTH             : integer := 2**ADDR_DEPTH_LOG2;
     constant ADDR_OFFSET_REG        : unsigned := x"0000000";
     constant ADDR_OFFSET_SDRAM      : unsigned := x"8000000";
 
@@ -64,11 +64,13 @@ package wave_array_pkg is
     constant SDRAM_WIDTH            : integer := 16;
     constant SDRAM_DEPTH_LOG2       : integer := 23;
     constant SDRAM_DEPTH            : integer := 2**SDRAM_DEPTH_LOG2;
+    constant SDRAM_MAX_BURST_LOG2   : integer := 7;
+    constant SDRAM_MAX_BURST        : integer := 2**SDRAM_MAX_BURST_LOG2;
 
     -- Register file constants.
     constant REG_WIDTH              : integer := 16;
-    constant REG_ADDR_RESET         : unsigned := x"0000001"; -- wo 1 bit  | soft reset.
-    constant REG_ADDR_FAULT         : unsigned := x"0000000"; -- rw 16 bit | fault flags.
+    constant REG_ADDR_RESET         : unsigned := x"0000000"; -- wo 1 bit  | soft reset.
+    constant REG_ADDR_FAULT         : unsigned := x"0000001"; -- rw 16 bit | fault flags.
     constant REG_ADDR_LED           : unsigned := x"0000002"; -- rw 1 bit  | on-board led register.
 
     -- fault register bit indices.
@@ -129,7 +131,7 @@ package wave_array_pkg is
     type t_sdram_input is record
         read_enable             : std_logic;
         write_enable            : std_logic;
-        burst_length            : integer range 0 to SDRAM_DEPTH;
+        burst_length            : integer range 1 to SDRAM_MAX_BURST;
         address                 : std_logic_vector(SDRAM_DEPTH_LOG2 - 1 downto 0);
         write_data              : std_logic_vector(SDRAM_WIDTH - 1 downto 0);
     end record;
@@ -138,7 +140,8 @@ package wave_array_pkg is
 
     type t_sdram_output is record
         ack                     : std_logic; -- Signal the read- or write-enable has been seen.
-        valid                   : std_logic; -- Signal valid read or write word.
+        read_valid              : std_logic; -- Signal valid read word.
+        write_req               : std_logic; -- Request next write word.
         done                    : std_logic; -- Signal end of read or write in last valid cycle.
         read_data               : std_logic_vector(SDRAM_WIDTH - 1 downto 0);
     end record;
