@@ -16,7 +16,8 @@ entity clk_subsystem is
         ext_clk                 : in  std_logic; -- 100 MHz.
         system_clk              : out std_logic; -- 100 MHz.
         i2s_clk                 : out std_logic; -- 1.5360175 MHz.
-        sdram_clk               : out std_logic  -- 100 MHz 270 degrees shifted.
+        sdram_clk               : out std_logic; -- 100 MHz 270 degrees shifted.
+        pll_locked              : out std_logic  -- SDRAM clock PLL locked.
     );
 end entity;
 
@@ -54,7 +55,8 @@ begin
          system_clk             => s_system_clk,
          sdram_clk              => sdram_clk,
          reset                  => reset,
-         ext_clk                => ext_clk
+         ext_clk                => ext_clk,
+         locked                 => pll_locked
     );
 
     i2s_clk_gen : entity xil_defaultlib.i2s_clk_generator
