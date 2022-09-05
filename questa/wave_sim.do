@@ -27,7 +27,15 @@ add wave -divider packet_engine:
 add wave tb_wave_array/wave_array/uart_subsys/packet_engine/*
 add wave -divider regfile:
 add wave tb_wave_array/wave_array/reg_file/*
+add wave -divider sdram_arbiter:
+add wave tb_wave_array/wave_array/arbiter/*
+add wave -divider sdram_controller:
+add wave tb_wave_array/wave_array/arbiter/sdram_controller/*
+add wave -divider sdram:
+add wave tb_wave_array/sdram/*
 add wave -divider uart_tester:
 add wave tb_wave_array/uart_tester/*
+add wave -divider uart_reader:
+add wave tb_wave_array/uart_tester/reader/*
 
 run 10 ms

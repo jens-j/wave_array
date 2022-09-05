@@ -36,7 +36,7 @@ begin
         file input_file             : text;
         variable v_line_in          : line;
         variable v_command          : string(1 to 4); -- Strings cannot start at 0.
-        variable v_string_length    : integer :=-1;
+        variable v_string_length    : integer := -1;
         variable v_wait_time        : integer;
         variable v_midi_byte        : std_logic_vector(7 downto 0);
         variable v_hread_success    : boolean;
@@ -62,9 +62,7 @@ begin
             string_read(v_line_in, v_command, v_string_length);
 
             -- Skip comment lines (strings start at 1).
-            if v_command(1) = '#' then
-                next;
-            end if;
+            if v_command(1) = '#' then next; end if;
 
             if v_command = "wait" then
 

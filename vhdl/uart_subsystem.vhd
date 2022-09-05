@@ -19,6 +19,10 @@ entity uart_subsystem is
         register_output         : in  t_register_output;
         register_input          : out t_register_input;
 
+        -- SDRAM interface.
+        sdram_input             : out t_sdram_input;
+        sdram_output            : in  t_sdram_output;
+
         -- UART ports.
         UART_RX                 : in  std_logic;
         UART_TX                 : out std_logic;
@@ -64,6 +68,8 @@ begin
         tx_data                 => s_tx_fifo_din,
         register_output         => register_output,
         register_input          => register_input,
+        sdram_input             => sdram_input,
+        sdram_output            => sdram_output,
         timeout                 => timeout
     );
 

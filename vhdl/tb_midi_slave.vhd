@@ -73,8 +73,6 @@ begin
     );
 
     clk_s <= not clk_s after 5 ns;
-
-    reset_ah_s <= '1',
-                  '0' after 100 ns;
+    reset_ah_s <= '1', '0' after 100 ns;
 
 end architecture;
