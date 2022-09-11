@@ -164,6 +164,7 @@ begin
         s_s2u_fifo_rd_en <= '0';
         s_u2s_fifo_wr_en <= '0';
         s_s2u_fifo_din <= sdram_output.read_data;
+        s_u2s_fifo_din <= rx_data;
 
         -- This output is not registered to avoid a delay cycle when reading bytes from the fifo.
         rx_read_enable <= '0';
@@ -343,7 +344,6 @@ begin
             if rx_empty = '0' then
                 rx_read_enable <= '1';
                 s_u2s_fifo_wr_en <= '1';
-                s_u2s_fifo_din <= rx_data;
 
                 -- burst_counter counts bytes while the burst length is given in 16 bit words.
                 if r.burst_counter = 2 * to_integer(unsigned(r.word_buffer)) then

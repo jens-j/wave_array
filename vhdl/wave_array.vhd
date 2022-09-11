@@ -113,7 +113,7 @@ begin
         ext_clk                 => EXT_CLK,         -- 100 MHz.
         system_clk              => s_system_clk,    -- 100 MHz.
         i2s_clk                 => s_i2s_clk,       -- 1.5360175 MHz.
-        sdram_clk               => s_sdram_clk,     -- 100 MHz 270 degrees shifted.
+        sdram_clk               => s_sdram_clk,     -- 100 MHz 180 degrees shifted.
         pll_locked              => s_pll_locked
     );
 

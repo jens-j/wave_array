@@ -57,8 +57,6 @@ package wave_array_pkg is
     -- Address constants.
     constant ADDR_DEPTH_LOG2        : integer := 32;
     -- constant ADDR_DEPTH             : integer := 2**ADDR_DEPTH_LOG2;
-    constant ADDR_OFFSET_REG        : unsigned := x"0000000";
-    constant ADDR_OFFSET_SDRAM      : unsigned := x"8000000";
 
     -- SDRAM constants.
     constant SDRAM_WIDTH            : integer := 16;

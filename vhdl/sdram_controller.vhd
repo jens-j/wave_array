@@ -34,7 +34,7 @@ end entity;
 architecture arch of sdram_controller is
 
     constant ASYNC_CYCLES : integer :=
-        integer(ceil(real(70) / (real(1_000_000_000) / real(SDRAM_FREQ)))) + 1;
+        integer(ceil(real(85) / (real(1_000_000_000) / real(SDRAM_FREQ)))) + 1;
 
     type t_state is (wait_for_pll, set_burstmode, idle, burst_read, burst_write);
 
@@ -50,6 +50,7 @@ architecture arch of sdram_controller is
         sdram_dq                : std_logic_vector(SDRAM_WIDTH - 1 downto 0);
         counter                 : integer range 0 to SDRAM_DEPTH;
         valid_data              : std_logic; -- Signal valid read data in the input register.
+        output_enable           : std_logic; -- Used for IOB muxing.
     end record;
 
     constant REG_INIT : t_sdram_reg := (
@@ -63,44 +64,13 @@ architecture arch of sdram_controller is
         sdram_a                 => (others => '0'),
         sdram_dq                => (others => '0'),
         counter                 => 0,
-        valid_data              => '0'
+        valid_data              => '0',
+        output_enable           => '0'
     );
 
     signal r, r_in              : t_sdram_reg;
 
-    -- signal s_fifo_rd_en         : std_logic;
-    -- signal s_fifo_dout          : std_logic_vector(SDRAM_WIDTH - 1 downto 0);
-    -- signal s_fifo_full          : std_logic;
-    -- signal s_fifo_empty         : std_logic;
-    -- signal s_fifo_data_count    : std_logic_vector(SDRAM_MAX_BURST downto 0);
-
 begin
-
-    -- fifo : entity xil_defaultlib.sdram_controller_fifo
-    -- port map (
-    --     clk                     => clk,
-    --     srst                    => reset,
-    --     din                     => sdram_input.write_data,
-    --     wr_en                   => r.sdram_output.valid,
-    --     rd_en                   => s_fifo_rd_en,
-    --     dout                    => s_fifo_dout,
-    --     full                    => s_fifo_full,
-    --     empty                   => s_fifo_empty,
-    --     data_count              => s_fifo_data_count
-    -- );
-
-
-    -- Connect SDRAM interface output registers.
-    SDRAM_LBN <= '0';
-    SDRAM_UBN <= '0';
-    SDRAM_ADVN <= r.sdram_advn;
-    SDRAM_CEN <= r.sdram_cen;
-    SDRAM_CRE <= r.sdram_cre;
-    SDRAM_OEN <= r.sdram_oen;
-    SDRAM_WEN <= r.sdram_wen;
-    SDRAM_ADDRESS <= r.sdram_a;
-    SDRAM_DQ <= r.sdram_dq;
-
 
     combinatorial : process (r, pll_locked, sdram_input, SDRAM_WAIT, SDRAM_DQ)
     begin
@@ -108,6 +78,7 @@ begin
         r_in <= r;
 
         r_in.valid_data <= '0';
+        r_in.output_enable <= '0';
 
         r_in.sdram_output.ack <= '0';
         r_in.sdram_output.read_valid <= '0';
@@ -123,7 +94,19 @@ begin
         r_in.sdram_wen <= '1';
         r_in.sdram_cen <= '1';
         r_in.sdram_a <= (others => '0');
-        r_in.sdram_dq <= (others => 'Z');
+
+        -- Connect SDRAM interface output registers.
+        SDRAM_LBN <= '0';
+        SDRAM_UBN <= '0';
+        SDRAM_ADVN <= r.sdram_advn;
+        SDRAM_CEN <= r.sdram_cen;
+        SDRAM_CRE <= r.sdram_cre;
+        SDRAM_OEN <= r.sdram_oen;
+        SDRAM_WEN <= r.sdram_wen;
+        SDRAM_ADDRESS <= r.sdram_a;
+
+        -- infer IOB.
+        SDRAM_DQ <= r.sdram_dq when r.output_enable = '1' else (others => 'Z');
 
         -- Connect read/write interface output registers.
         sdram_output <= r.sdram_output;
@@ -143,7 +126,7 @@ begin
                 r_in.sdram_cen <= '0';
                 r_in.sdram_advn <= '0';
                 r_in.sdram_wen <= '0';
-                r_in.sdram_a <= 23x"081C1F";
+                r_in.sdram_a <= 23x"08181F";
 
                 -- Wait until the asynchronuous configuration register write completes.
                 if r.counter > 0 then
@@ -152,6 +135,7 @@ begin
                     r_in.sdram_cen <= '1';
                     r_in.sdram_wen <= '1';
                     r_in.sdram_advn <= '1';
+                    r_in.sdram_cre <= '0';
                     r_in.state <= idle;
                 end if;
 
@@ -195,6 +179,7 @@ begin
 
                 r_in.sdram_cen <= '0';
                 if SDRAM_WAIT = '1' then
+                    r_in.output_enable <= '1';
                     r_in.sdram_dq <= sdram_input.write_data;
                     if r.counter > 0 then
                         r_in.counter <= r.counter - 1;
