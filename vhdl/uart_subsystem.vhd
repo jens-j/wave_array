@@ -28,7 +28,10 @@ entity uart_subsystem is
         UART_TX                 : out std_logic;
 
         -- Fault flags.
-        timeout                 : out std_logic
+        timeout                 : out std_logic;
+        uart_state              : out integer;
+        uart_count              : out integer;
+        fifo_count              : out integer
     );
 end entity;
 
@@ -70,7 +73,10 @@ begin
         register_input          => register_input,
         sdram_input             => sdram_input,
         sdram_output            => sdram_output,
-        timeout                 => timeout
+        timeout                 => timeout,
+        uart_state              => uart_state,
+        uart_count              => uart_count,
+        fifo_count              => fifo_count
     );
 
 

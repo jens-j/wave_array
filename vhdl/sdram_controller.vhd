@@ -27,7 +27,11 @@ entity sdram_controller is
         SDRAM_UBN               : out   std_logic;
         SDRAM_WAIT              : in    std_logic;
         SDRAM_ADDRESS           : out   std_logic_vector(SDRAM_DEPTH_LOG2 - 1 downto 0);
-        SDRAM_DQ                : inout std_logic_vector(SDRAM_WIDTH - 1 downto 0)
+        SDRAM_DQ                : inout std_logic_vector(SDRAM_WIDTH - 1 downto 0);
+
+        -- Debug outputs.
+        sdram_state             : out   integer;
+        sdram_count             : out   integer
     );
 end entity;
 
@@ -36,7 +40,7 @@ architecture arch of sdram_controller is
     constant ASYNC_CYCLES : integer :=
         integer(ceil(real(85) / (real(1_000_000_000) / real(SDRAM_FREQ)))) + 1;
 
-    type t_state is (wait_for_pll, set_burstmode, idle, burst_read, burst_write);
+    type t_state is (wait_for_pll, set_burstmode, idle, burst_read, burst_write, end_burst);
 
     type t_sdram_reg is record
         state                   : t_state;
@@ -51,6 +55,7 @@ architecture arch of sdram_controller is
         counter                 : integer range 0 to SDRAM_DEPTH;
         valid_data              : std_logic; -- Signal valid read data in the input register.
         output_enable           : std_logic; -- Used for IOB muxing.
+        read_count              : integer;   -- Count words returned in a burts read.
     end record;
 
     constant REG_INIT : t_sdram_reg := (
@@ -65,7 +70,8 @@ architecture arch of sdram_controller is
         sdram_dq                => (others => '0'),
         counter                 => 0,
         valid_data              => '0',
-        output_enable           => '0'
+        output_enable           => '0',
+        read_count              => 0
     );
 
     signal r, r_in              : t_sdram_reg;
@@ -112,6 +118,10 @@ begin
         sdram_output <= r.sdram_output;
         sdram_output.write_req <= '0';
 
+        -- Connect degug ports.
+        sdram_state <= t_state'pos(r.state);
+        sdram_count <= r.read_count;
+
         case r.state is
 
             when wait_for_pll =>
@@ -148,6 +158,7 @@ begin
                     r_in.sdram_advn <= '0';
                     r_in.sdram_a <= sdram_input.address;
                     r_in.counter <= sdram_input.burst_length - 1;
+                    r_in.read_count <= 0;
                     r_in.state <= burst_read;
 
                     if sdram_input.write_enable = '1' then
@@ -160,17 +171,22 @@ begin
                 r_in.sdram_cen <= '0';
                 r_in.sdram_oen <= '0';
                 if SDRAM_WAIT = '1' then
+                    r_in.read_count <= r.read_count + 1;
                     r_in.sdram_output.read_valid <= '1';
                     r_in.sdram_output.read_data <= SDRAM_DQ;
                     if r.counter > 0 then
                         r_in.counter <= r.counter - 1;
                     else
                         r_in.sdram_output.done <= '1';
-                        r_in.sdram_cen <= '1';
-                        r_in.sdram_oen <= '1';
-                        r_in.state <= idle;
+                        r_in.state <= end_burst;
                     end if;
                 end if;
+
+            -- Keep the OEN low one more cycle to allow enough hold time for the last word.
+            when end_burst =>
+                r_in.sdram_cen <= '1';
+                r_in.sdram_oen <= '1';
+                r_in.state <= idle;
 
             when burst_write =>
 

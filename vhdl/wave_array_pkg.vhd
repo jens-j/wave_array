@@ -12,7 +12,7 @@ package wave_array_pkg is
 
     constant SYS_FREQ               : integer := 100_000_000;
     constant SDRAM_FREQ             : integer := 100_000_000;
-    constant UART_BAUD              : integer := 2_000_000; -- 115_200;
+    constant UART_BAUD              : integer := 1_000_000; -- 115_200;
     constant N_VOICES               : positive := 4;
 
     -- Audio sample constants.
@@ -66,10 +66,16 @@ package wave_array_pkg is
     constant SDRAM_MAX_BURST        : integer := 2**SDRAM_MAX_BURST_LOG2;
 
     -- Register file constants.
-    constant REG_WIDTH              : integer := 16;
-    constant REG_ADDR_RESET         : unsigned := x"0000000"; -- wo 1 bit  | soft reset.
-    constant REG_ADDR_FAULT         : unsigned := x"0000001"; -- rw 16 bit | fault flags.
-    constant REG_ADDR_LED           : unsigned := x"0000002"; -- rw 1 bit  | on-board led register.
+    constant REGISTER_WIDTH         : integer := 16;
+    constant REG_RESET              : unsigned := x"0000000"; -- wo 1 bit  | soft reset.
+    constant REG_FAULT              : unsigned := x"0000001"; -- rw 16 bit | fault flags.
+    constant REG_LED                : unsigned := x"0000002"; -- rw 1 bit  | on-board led register.
+    constant REG_DEBUG_UART_COUNT   : unsigned := x"0000100"; -- ro 16 bit | UART burst read byte count.
+    constant REG_DEBUG_UART_FIFO_COUNT : unsigned := x"0000101"; -- ro 16 bit | SDRAM to UART fifo count.
+    constant REG_DEBUG_UART_STATE   : unsigned := x"0000102"; -- ro 16 bit | SDRAM to UART fifo count.
+    constant REG_DEBUG_SDRAM_COUNT  : unsigned := x"0000110"; -- ro 16 bit | SDRAM burst read word count.
+    constant REG_DEBUG_SDRAM_STATE  : unsigned := x"0000111"; -- ro 16 bit | SDRAM FSM state.
+
 
     -- fault register bit indices.
     constant FAULT_UART_TIMEOUT     : integer := 0;
@@ -152,7 +158,7 @@ package wave_array_pkg is
         read_enable             : std_logic;
         write_enable            : std_logic;
         address                 : unsigned(ADDR_DEPTH_LOG2 - 1 downto 0);
-        write_data              : std_logic_vector(REG_WIDTH - 1 downto 0);
+        write_data              : std_logic_vector(REGISTER_WIDTH - 1 downto 0);
     end record;
 
     type t_register_input_array is array (natural range <>) of t_register_input;
@@ -160,7 +166,7 @@ package wave_array_pkg is
     type t_register_output is record
         valid                   : std_logic; -- Indicates read data is valid
         fault                   : std_logic;
-        read_data               : std_logic_vector(REG_WIDTH - 1 downto 0);
+        read_data               : std_logic_vector(REGISTER_WIDTH - 1 downto 0);
     end record;
 
     type t_register_output_array is array (natural range <>) of t_register_output;
@@ -168,6 +174,11 @@ package wave_array_pkg is
     -- Register file inputs.
     type t_status is record
         uart_timeout            : std_logic;
+        uart_state              : integer;
+        uart_count              : integer;
+        uart_fifo_count         : integer;
+        sdram_state             : integer;
+        sdram_count             : integer;
     end record;
 
     -- Register file outputs.

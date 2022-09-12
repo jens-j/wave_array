@@ -58,7 +58,6 @@ architecture arch of wave_array is
 
     signal s_system_clk         : std_logic;
     signal s_i2s_clk            : std_logic;
-    signal s_sdram_clk          : std_logic;
     signal s_reset_al           : std_logic;
     signal s_reset_ah           : std_logic;
     signal s_pll_locked         : std_logic;
@@ -96,7 +95,6 @@ begin
     LEDS(0) <= s_config.led;
 
     I2S_SCLK <= s_i2s_clk;
-    SDRAM_CLK <= s_sdram_clk;
 
     -- 7 segment display.
     s_display_data <=
@@ -113,7 +111,7 @@ begin
         ext_clk                 => EXT_CLK,         -- 100 MHz.
         system_clk              => s_system_clk,    -- 100 MHz.
         i2s_clk                 => s_i2s_clk,       -- 1.5360175 MHz.
-        sdram_clk               => s_sdram_clk,     -- 100 MHz 180 degrees shifted.
+        sdram_clk               => SDRAM_CLK,       -- 100 MHz 180 degrees shifted.
         pll_locked              => s_pll_locked
     );
 
@@ -140,7 +138,10 @@ begin
         sdram_output            => s_sdram_outputs(0),
         UART_RX                 => UART_RX,
         UART_TX                 => UART_TX,
-        timeout                 => s_status.uart_timeout
+        timeout                 => s_status.uart_timeout,
+        uart_state              => s_status.uart_state,
+        uart_count              => s_status.uart_count,
+        fifo_count              => s_status.uart_fifo_count
     );
 
     reg_file : entity wave.register_file
@@ -218,7 +219,9 @@ begin
         SDRAM_UBN               => SDRAM_UBN,
         SDRAM_WAIT              => SDRAM_WAIT,
         SDRAM_ADDRESS           => SDRAM_ADDRESS,
-        SDRAM_DQ                => SDRAM_DQ
+        SDRAM_DQ                => SDRAM_DQ,
+        sdram_state             => s_status.sdram_state,
+        sdram_count             => s_status.sdram_count
     );
 
 

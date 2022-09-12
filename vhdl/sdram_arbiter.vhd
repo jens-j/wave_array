@@ -29,7 +29,11 @@ entity sdram_arbiter is
         SDRAM_UBN               : out   std_logic;
         SDRAM_WAIT              : in    std_logic;
         SDRAM_ADDRESS           : out   std_logic_vector(SDRAM_DEPTH_LOG2 - 1 downto 0);
-        SDRAM_DQ                : inout std_logic_vector(SDRAM_WIDTH - 1 downto 0)
+        SDRAM_DQ                : inout std_logic_vector(SDRAM_WIDTH - 1 downto 0);
+
+        -- Debug outputs.
+        sdram_state             : out   integer;
+        sdram_count             : out   integer
     );
 end entity;
 
@@ -71,7 +75,9 @@ begin
         SDRAM_UBN               => SDRAM_UBN,
         SDRAM_WAIT              => SDRAM_WAIT,
         SDRAM_ADDRESS           => SDRAM_ADDRESS,
-        SDRAM_DQ                => SDRAM_DQ
+        SDRAM_DQ                => SDRAM_DQ,
+        sdram_state             => sdram_state,
+        sdram_count             => sdram_count
     );
 
 

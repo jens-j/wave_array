@@ -33,8 +33,11 @@ entity uart_packet_engine is
         sdram_input             : out t_sdram_input;
         sdram_output            : in  t_sdram_output;
 
-        -- Error flags.
-        timeout                 : out std_logic
+        -- Debug ports.
+        timeout                 : out std_logic;
+        uart_state              : out integer;
+        uart_count              : out integer;
+        fifo_count              : out integer
     );
 end entity;
 
@@ -63,6 +66,7 @@ architecture arch of uart_packet_engine is
         word_buffer             : std_logic_vector(31 downto 0); -- Buffer used to receive words byte for byte.
         address                 : unsigned(31 downto 0); -- Address field buffer.
         watchdog                : unsigned(WDT_WIDTH downto 0);
+        uart_count              : integer range 0 to 2**16 - 1;
     end record;
 
     constant REG_INIT : t_packet_engine_reg := (
@@ -80,7 +84,8 @@ architecture arch of uart_packet_engine is
         burst_counter           => 0,
         word_buffer             => (others => '0'),
         address                 => (others => '0'),
-        watchdog                => (others => '0')
+        watchdog                => (others => '0'),
+        uart_count              => 0
     );
 
     signal r, r_in              : t_packet_engine_reg;
@@ -90,6 +95,7 @@ architecture arch of uart_packet_engine is
     signal s_s2u_fifo_rd_en     : std_logic;
     signal s_s2u_fifo_dout      : std_logic_vector(7 downto 0);
     signal s_s2u_fifo_empty     : std_logic;
+    signal s_s2u_fifo_rd_data_count : std_logic_vector(10 downto 0);
 
     signal s_u2s_fifo_din       : std_logic_vector(7 downto 0);
     signal s_u2s_fifo_wr_en     : std_logic;
@@ -97,6 +103,8 @@ architecture arch of uart_packet_engine is
     signal s_u2s_fifo_dout      : std_logic_vector(15 downto 0);
     signal s_u2s_fifo_empty     : std_logic;
     signal s_u2s_fifo_rd_data_count : std_logic_vector(9 downto 0);
+
+
 
 begin
 
@@ -111,7 +119,8 @@ begin
         rd_en                   => s_s2u_fifo_rd_en,
         dout                    => s_s2u_fifo_dout,
         full                    => open,
-        empty                   => s_s2u_fifo_empty
+        empty                   => s_s2u_fifo_empty,
+        rd_data_count           => s_s2u_fifo_rd_data_count
     );
 
     -- 8 to 16 bit fifo to buffer UART write data.
@@ -145,7 +154,7 @@ begin
     s_u2s_fifo_rd_en <= sdram_output.write_req;
 
     comb_process : process (r, rx_empty, rx_data, register_output, sdram_output, s_s2u_fifo_dout,
-        s_s2u_fifo_empty, s_u2s_fifo_rd_data_count)
+        s_s2u_fifo_empty, s_u2s_fifo_rd_data_count, s_s2u_fifo_rd_data_count)
 
     begin
 
@@ -168,6 +177,10 @@ begin
 
         -- This output is not registered to avoid a delay cycle when reading bytes from the fifo.
         rx_read_enable <= '0';
+
+        uart_state <= t_state'pos(r.state);
+        uart_count <= r.uart_count;
+        fifo_count <= to_integer(unsigned(s_s2u_fifo_rd_data_count));
 
         -- Wait for a new opcode to appear at the rx fifo output.
         if r.state = idle then
@@ -274,6 +287,7 @@ begin
         elsif r.state = read_block_0 then
             r_in.address <= unsigned(r.word_buffer);
             r_in.byte_counter <= 3;
+            r_in.uart_count <= 0;
             r_in.next_state <= read_block_1;
             r_in.state <= read_word;
 
@@ -287,47 +301,32 @@ begin
             if sdram_output.ack = '1' then
                 r_in.tx_write_enable <= '1';
                 r_in.tx_data <= UART_READ_BLOCK_REP;
-                r_in.byte_counter <= to_integer(unsigned(
-                    r.word_buffer(SDRAM_MAX_BURST_LOG2 - 1 downto 0)));
+                r_in.byte_counter <= 2 * r.sdram_burst_length - 1;
                 r_in.state <= read_block_2;
             else
                 r_in.sdram_read_enable <= '1';
             end if;
 
-        -- Write SDRAM read data into fifo and wait for the fifo to empty.
+        -- Write SDRAM read data into the s2u fifo.
+        -- Write bytes from the s2u fifo to the UART tx fifo.
         elsif r.state = read_block_2 then
-
-            -- Propagate bytes from the async fifo to the UART tx fifo.
-            if s_s2u_fifo_empty = '0' then
-                r_in.tx_write_enable <= '1';
-                r_in.tx_data <= s_s2u_fifo_dout;
-                s_s2u_fifo_rd_en <= '1';
-            end if;
 
             -- Write SDRAM words in the async fifo.
             if sdram_output.read_valid = '1' then
                 s_s2u_fifo_wr_en <= '1';
-
-                -- When entire burst is written,
-                if r.byte_counter > 0 then
-                    r_in.byte_counter <= r.byte_counter - 1;
-                else
-                    r_in.state <= read_block_3;
-                end if;
             end if;
 
-        -- Wait for fifo to empty.
-        elsif r.state = read_block_3 then
-
-            -- Propagate bytes from the async fifo to the UART tx fifo.
             if s_s2u_fifo_empty = '0' then
                 r_in.tx_write_enable <= '1';
                 r_in.tx_data <= s_s2u_fifo_dout;
+                r_in.uart_count <= r.uart_count + 1;
                 s_s2u_fifo_rd_en <= '1';
-            end if;
 
-            if s_s2u_fifo_empty = '1' then
-                r_in.state <= idle;
+                if r.byte_counter > 0 then
+                    r_in.byte_counter <= r.byte_counter - 1;
+                else
+                    r_in.state <= idle;
+                end if;
             end if;
 
         -- Read the 4 byte length field from the rx fifo.

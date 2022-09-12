@@ -176,11 +176,11 @@ begin
 
                 v_serial_length := 1;
                 read_word(clk, empty, read_enable, read_data, v_serial_length, v_reply_opcode);
-                if v_reply_opcode /= x"000000" & UART_READ_REP then
+                if v_reply_opcode /= x"000000" & UART_READ_BLOCK_REP then
                     report "received "
                         & integer'image(to_integer(unsigned(v_reply_opcode(7 downto 0))));
                 else
-                    v_serial_length := 2 * to_integer(unsigned(v_burst_length));
+                    v_serial_length := 2;
 
                     report "read block = ";
                     for i in 0 to to_integer(unsigned(v_burst_length)) - 1 loop

@@ -60,10 +60,32 @@ begin
 
             r_in.register_output.valid <= '1';
 
-            if register_input.address = REG_ADDR_LED then
+            if register_input.address = REG_LED then
                 r_in.register_output.read_data <= (1 to 15 => '0') & r.led;
-            elsif register_input.address = REG_ADDR_FAULT then
+
+            elsif register_input.address = REG_FAULT then
                 r_in.register_output.read_data <= r.faults;
+
+            elsif register_input.address = REG_DEBUG_UART_COUNT then
+                r_in.register_output.read_data <=
+                    std_logic_vector(to_unsigned(status.uart_count, REGISTER_WIDTH));
+
+            elsif register_input.address = REG_DEBUG_UART_FIFO_COUNT then
+                r_in.register_output.read_data <=
+                    std_logic_vector(to_unsigned(status.uart_fifo_count, REGISTER_WIDTH));
+
+            elsif register_input.address = REG_DEBUG_UART_STATE then
+                r_in.register_output.read_data <=
+                    std_logic_vector(to_unsigned(status.uart_state, REGISTER_WIDTH));
+
+            elsif register_input.address = REG_DEBUG_SDRAM_COUNT then
+                r_in.register_output.read_data <=
+                    std_logic_vector(to_unsigned(status.sdram_count, REGISTER_WIDTH));
+
+            elsif register_input.address = REG_DEBUG_SDRAM_STATE then
+                r_in.register_output.read_data <=
+                    std_logic_vector(to_unsigned(status.sdram_state, REGISTER_WIDTH));
+
             else
                 r_in.register_output.fault <= '1';
                 r_in.faults(FAULT_ADDRESS) <= '1';
@@ -74,9 +96,9 @@ begin
 
             r_in.register_output.valid <= '1';
 
-            if register_input.address = REG_ADDR_LED then
+            if register_input.address = REG_LED then
                 r_in.led <= register_input.write_data(0);
-            elsif register_input.address = REG_ADDR_FAULT then
+            elsif register_input.address = REG_FAULT then
                 r_in.faults <= (others => '0');
             else
                 r_in.register_output.fault <= '1';
