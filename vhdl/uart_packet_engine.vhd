@@ -61,7 +61,7 @@ architecture arch of uart_packet_engine is
         sdram_burst_length      : integer range 1 to SDRAM_MAX_BURST;
         sdram_address           : std_logic_vector(SDRAM_DEPTH_LOG2 - 1 downto 0);
         timeout                 : std_logic;
-        byte_counter            : integer range 0 to SDRAM_MAX_BURST - 1;
+        byte_counter            : integer range 0 to 2 * SDRAM_MAX_BURST - 1;
         burst_counter           : integer;
         word_buffer             : std_logic_vector(31 downto 0); -- Buffer used to receive words byte for byte.
         address                 : unsigned(31 downto 0); -- Address field buffer.

@@ -143,7 +143,7 @@ begin
                 r_in.sdram_cen <= '0';
                 r_in.sdram_advn <= '0';
                 r_in.sdram_wen <= '0';
-                r_in.sdram_a <= 23x"08181F";
+                r_in.sdram_a <= 23x"08191F";
 
                 -- Wait until the asynchronuous configuration register write completes.
                 if r.counter > 0 then
