@@ -40,10 +40,11 @@ architecture arch of sdram_controller is
     constant ASYNC_CYCLES : integer :=
         integer(ceil(real(85) / (real(1_000_000_000) / real(SDRAM_FREQ)))) + 1;
 
-    type t_state is (wait_for_pll, set_burstmode, idle, burst_read, burst_write, end_burst);
+    type t_state is (idle, wait_for_pll, set_burstmode, latency, burst_read, burst_write, end_burst);
 
     type t_sdram_reg is record
         state                   : t_state;
+        next_state              : t_state;
         sdram_output            : t_sdram_output;
         sdram_advn              : std_logic;
         sdram_cen               : std_logic;
@@ -52,14 +53,17 @@ architecture arch of sdram_controller is
         sdram_wen               : std_logic;
         sdram_a                 : std_logic_vector(SDRAM_DEPTH_LOG2 - 1 downto 0);
         sdram_dq                : std_logic_vector(SDRAM_WIDTH - 1 downto 0);
+        sdram_wait              : std_logic;
         counter                 : integer range 0 to SDRAM_DEPTH;
         valid_data              : std_logic; -- Signal valid read data in the input register.
         output_enable           : std_logic; -- Used for IOB muxing.
         read_count              : integer;   -- Count words returned in a burts read.
+        latency_counter         : integer range 0 to 2;
     end record;
 
     constant REG_INIT : t_sdram_reg := (
         state                   => wait_for_pll,
+        next_state              => idle,
         sdram_output            => ('0', '0', '0', '0', (others => '0')),
         sdram_advn              => '1',
         sdram_cen               => '1',
@@ -68,10 +72,12 @@ architecture arch of sdram_controller is
         sdram_wen               => '1',
         sdram_a                 => (others => '0'),
         sdram_dq                => (others => '0'),
+        sdram_wait              => '0',
         counter                 => 0,
         valid_data              => '0',
         output_enable           => '0',
-        read_count              => 0
+        read_count              => 0,
+        latency_counter         => 0
     );
 
     signal r, r_in              : t_sdram_reg;
@@ -100,6 +106,7 @@ begin
         r_in.sdram_wen <= '1';
         r_in.sdram_cen <= '1';
         r_in.sdram_a <= (others => '0');
+        r_in.sdram_wait <= SDRAM_WAIT;
 
         -- Connect SDRAM interface output registers.
         SDRAM_LBN <= '0';
@@ -159,18 +166,34 @@ begin
                     r_in.sdram_a <= sdram_input.address;
                     r_in.counter <= sdram_input.burst_length - 1;
                     r_in.read_count <= 0;
-                    r_in.state <= burst_read;
+                    r_in.latency_counter <= 2;
+                    r_in.state <= latency;
+                    r_in.next_state <= burst_read;
 
                     if sdram_input.write_enable = '1' then
                         r_in.sdram_wen <= '0';
-                        r_in.state <= burst_write;
+                        r_in.next_state <= burst_write;
+                    else
+                        r_in.sdram_oen <= '0';
                     end if;
+                end if;
+
+            -- Do not poll the WAIT signal during latency. In contrast with the datasheet, the
+            -- WAIT signal can be de-asserted during the latency leading to an incorrect 1st word
+            -- Suring a burst read.
+            when latency =>
+                r_in.sdram_cen <= '0';
+                r_in.sdram_oen <= r.sdram_oen;
+                if r.latency_counter > 0 then
+                    r_in.latency_counter <= r.latency_counter - 1;
+                else
+                    r_in.state <= r.next_state;
                 end if;
 
             when burst_read =>
                 r_in.sdram_cen <= '0';
                 r_in.sdram_oen <= '0';
-                if SDRAM_WAIT = '1' then
+                if r.sdram_wait = '1' then
                     r_in.read_count <= r.read_count + 1;
                     r_in.sdram_output.read_valid <= '1';
                     r_in.sdram_output.read_data <= SDRAM_DQ;
