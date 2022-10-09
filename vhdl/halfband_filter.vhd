@@ -10,14 +10,14 @@ library xil_defaultlib;
 
 entity halfband_filter is
     generic (
-        N_OSCILLATORS           : positive
+        N_VOICES                : positive
     );
     port (
         clk                     : in  std_logic;
         reset                   : in  std_logic;
         next_sample             : in  std_logic; -- Next sample trigger.
-        input_samples           : in  t_stereo_sample_array(0 to N_OSCILLATORS - 1);
-        output_samples          : out t_mono_sample_array(0 to N_OSCILLATORS - 1)
+        input_samples           : in  t_stereo_sample_array(0 to N_VOICES - 1);
+        output_samples          : out t_mono_sample_array(0 to N_VOICES - 1)
     );
 end entity;
 
@@ -26,19 +26,17 @@ architecture arch of halfband_filter is
     constant PIPELINE_LENGTH    : integer := 4;
 
     type t_state is (idle, load, running);
-    type t_input_samples_odd is array (0 to N_OSCILLATORS - 1)
-        of t_mono_sample_array(0 to HALFBAND_N - 1);
-    type t_input_samples_even is array (0 to N_OSCILLATORS - 1)
-        of t_mono_sample_array(0 to HALFBAND_N / 2);
+    type t_input_samples_odd is array (0 to N_VOICES - 1) of t_mono_sample_array(0 to HALFBAND_N - 1);
+    type t_input_samples_even is array (0 to N_VOICES - 1) of t_mono_sample_array(0 to HALFBAND_N / 2);
 
     type t_halfband_reg is record
         state                   : t_state;
         pipeline_counter        : integer range 0 to HALFBAND_N / 2;
-        osc_counter             : integer range 0 to N_OSCILLATORS;
+        osc_counter             : integer range 0 to N_VOICES;
         input_samples_odd       : t_input_samples_odd;
         input_samples_even      : t_input_samples_even;
-        output_samples          : t_mono_sample_array(0 to N_OSCILLATORS - 1);
-        output_buffers          : t_mono_sample_array(0 to N_OSCILLATORS - 1);
+        output_samples          : t_mono_sample_array(0 to N_VOICES - 1);
+        output_buffers          : t_mono_sample_array(0 to N_VOICES - 1);
     end record;
 
     constant REG_INIT : t_halfband_reg := (
@@ -99,7 +97,7 @@ begin
 
             -- Shift samples in the input buffer.
 
-            for i in N_OSCILLATORS - 1 downto 0 loop
+            for i in N_VOICES - 1 downto 0 loop
 
                 -- Store the new (odd) samples.
                 r_in.input_samples_even(i)(0) <= input_samples(i)(0);
@@ -115,7 +113,7 @@ begin
             end loop;
 
 
-            for i in N_OSCILLATORS - 1 downto 0 loop
+            for i in N_VOICES - 1 downto 0 loop
 
             end loop;
 
@@ -127,7 +125,7 @@ begin
                 r_in.pipeline_counter <= r.pipeline_counter + 1;
             end if;
 
-            if r.osc_counter < N_OSCILLATORS then
+            if r.osc_counter < N_VOICES then
 
                 -- First cycle of new oscillator is mull while the rest is macc.
                 if r.pipeline_counter = 0 then
@@ -168,7 +166,7 @@ begin
                     s_macc_p(SAMPLE_SIZE + HALFBAND_COEFF_SIZE - 1 downto HALFBAND_COEFF_SIZE));
 
                 -- End of pipeline.
-                if r.osc_counter = N_OSCILLATORS then
+                if r.osc_counter = N_VOICES then
                     r_in.state <= idle;
                 end if;
             end if;

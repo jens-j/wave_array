@@ -18,17 +18,23 @@ library xil_defaultlib;
 -- is run twice for every oscillator to generate two samples for the downsampling stage.
 entity table_interpolator is
     generic (
-        N_OSCILLATORS           : positive
+        N_VOICES                : positive
     );
     port (
         clk                     : in  std_logic;
         reset                   : in  std_logic;
-        next_sample             : in  std_logic; -- Next sample trigger.
-        frame_0_index           : in  integer range 0 to 3; -- Frame x buffer index.
-        frame_1_index           : in  integer range 0 to 3; -- Frame x+1 buffer index.
-        osc_inputs              : in  t_osc_input_array(0 to N_OSCILLATORS - 1);
-        addrgen_input           : in  t_addrgen_to_tableinterp_array(0 to N_OSCILLATORS - 1);
-        output_samples          : out t_stereo_sample_array(0 to N_OSCILLATORS - 1); -- Two samples are needed for the downsampling.
+
+        -- Next sample trigger.
+        next_sample             : in  std_logic;
+
+        -- Frame DMA interface.
+        frame_dma_output        : in  t_frame_dma_output;
+
+        osc_inputs              : in  t_osc_input_array(0 to N_VOICES - 1);
+        addrgen_input           : in  t_addrgen2table_array(0 to N_VOICES - 1);
+        output_samples          : out t_stereo_sample_array(0 to N_VOICES - 1); -- Two samples are needed for the downsampling.
+
+        -- Debug ports.
         overflow                : out std_logic; -- Flag numeric overflow.
         timeout                 : out std_logic -- Flag that the oscillator could not keep up.
     );
@@ -47,7 +53,7 @@ architecture arch of table_interpolator is
 
 
     type t_state is (idle, init, running);
-    type t_counter_array is array (0 to PIPE_LEN_TOTAL) of integer range 0 to N_OSCILLATORS - 1; -- One extra register to use in the writeback stage which is not really part of the pipeline.
+    type t_counter_array is array (0 to PIPE_LEN_TOTAL) of integer range 0 to N_VOICES - 1; -- One extra register to use in the writeback stage which is not really part of the pipeline.
     type t_sample_counter_array is array (0 to PIPE_LEN_TOTAL) of integer range 0 to 2;
 
     type t_oscillator_reg is record
@@ -55,10 +61,10 @@ architecture arch of table_interpolator is
         frame_0_index           : integer range 0 to 3; -- Frame x buffer index.
         frame_1_index           : integer range 0 to 3; -- Frame x+1 buffer index.
         coeff_counter           : integer range 0 to POLY_N - 1; -- Count coeffients/input samples (inner loop).
-        osc_counter_next        : integer range 0 to N_OSCILLATORS; -- The value of the next oscillator (osc_counter + 1).
+        osc_counter_next        : integer range 0 to N_VOICES; -- The value of the next oscillator (osc_counter + 1).
         sample_counter_next     : integer range 0 to 2;
-        output_samples          : t_stereo_sample_array(0 to N_OSCILLATORS - 1);
-        sample_buffers          : t_stereo_sample_array(0 to N_OSCILLATORS - 1);
+        output_samples          : t_stereo_sample_array(0 to N_VOICES - 1);
+        sample_buffers          : t_stereo_sample_array(0 to N_VOICES - 1);
         mipmap_address          : t_mipmap_address; -- Increment to get successive input samples.
         coeff_base_address      : unsigned(POLY_M_LOG2 - 2 downto 0); -- Concatenated with coeff_counter gives the coeff memory address.
 
@@ -126,12 +132,11 @@ architecture arch of table_interpolator is
     signal s_macc_b             : std_logic_vector(POLY_COEFF_SIZE - 1 downto 0);
     signal s_macc_p             : std_logic_vector(47 downto 0); -- Full width output.
 
-    signal s_wave_mem_wea       : std_logic_vector(0 downto 0);
-    signal s_wave_mem_addra     : std_logic_vector(MIPMAP_TABLE_SIZE_LOG2 + 1 downto 0);
-    signal s_wave_mem_dina      : std_logic_vector(SAMPLE_SIZE - 1 downto 0);
+    -- Wave array read inteface.
     signal s_wave_mem_addrb     : std_logic_vector(MIPMAP_TABLE_SIZE_LOG2 - 1 downto 0);
     signal s_wave_mem_doutb     : std_logic_vector(4 * SAMPLE_SIZE - 1 downto 0);
 
+    -- Coefficient memories interface.
     signal s_coeff_even_addra   : std_logic_vector(POLY_N_LOG2 + POLY_M_LOG2 - 2 downto 0);
     signal s_coeff_even_douta   : std_logic_vector(POLY_COEFF_SIZE - 1 downto 0);
     signal s_coeff_odd_addra    : std_logic_vector(POLY_N_LOG2 + POLY_M_LOG2 - 2 downto 0);
@@ -145,9 +150,9 @@ begin
     )
     port map (
         write_clk               => clk,
-        write_enable            => s_wave_mem_wea,
-        write_address           => s_wave_mem_addra,
-        write_data              => s_wave_mem_dina,
+        write_enable            => frame_dma_output.wave_mem_wea,
+        write_address           => frame_dma_output.wave_mem_addra,
+        write_data              => frame_dma_output.wave_mem_dina,
         read_clk                => clk,
         read_address            => s_wave_mem_addrb,
         read_data               => s_wave_mem_doutb
@@ -286,8 +291,8 @@ begin
 
         -- Start new cycle
         elsif r.state = init then
-            r_in.frame_0_index <= frame_0_index;
-            r_in.frame_1_index <= frame_1_index;
+            r_in.frame_0_index <= frame_dma_output.frame_0_index;
+            r_in.frame_1_index <= frame_dma_output.frame_1_index;
             r_in.odd_phase(0) <= v_odd_phase_0;
             r_in.phase_position(0) <= addrgen_input(0).phase(0)
                 (OSC_COEFF_FRAC + v_level - 1 downto v_level);
@@ -315,7 +320,7 @@ begin
                  -- Pre increment the osc_counter and sample_counter because they are needed for indexing in the next cycle.
                 if r.coeff_counter = POLY_N - 2 then
 
-                    if r.osc_counter(0) < N_OSCILLATORS - 1 then
+                    if r.osc_counter(0) < N_VOICES - 1 then
                         r_in.osc_counter_next <= r.osc_counter(0) + 1;
                     else
                         r_in.osc_counter_next <= 0;
@@ -333,7 +338,7 @@ begin
                 r_in.coeff_counter <= 0;
 
                 -- Check for end of sample cycle.
-                if r.osc_counter(0) = N_OSCILLATORS - 1 then
+                if r.osc_counter(0) = N_VOICES - 1 then
                     r_in.sample_counter(0) <= r.sample_counter_next;
                 end if;
 

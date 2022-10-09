@@ -78,6 +78,8 @@ architecture arch of wave_array is
     signal s_sdram_inputs       : t_sdram_input_array(0 to 0);
     signal s_sdram_outputs      : t_sdram_output_array(0 to 0);
 
+    signal s_frame_ctrl_values  : t_ctrl_value_array(0 to N_TABLES);
+
 begin
 
     -- Connect inputs.
@@ -95,6 +97,9 @@ begin
     LEDS(0) <= s_config.led;
 
     I2S_SCLK <= s_i2s_clk;
+
+    -- Connect the potentiometer value to the frame index from table 0.
+    s_frame_ctrl_values <= {s_analog_value & (CTRL_SIZE - ADC_SAMPLE_SIZE - 1 downto 0 => '0')};
 
     -- 7 segment display.
     s_display_data <=
@@ -166,7 +171,8 @@ begin
         analog_input            => s_analog_value,
         voices                  => s_voices,
         addrgen_output          => s_addgen_output,
-        sample                  => s_sample
+        sample                  => s_sample,
+        frame_ctrl_values       => s_frame_ctrl_values
     );
 
     i2s_interface : entity wave.i2s_interface

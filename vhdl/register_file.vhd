@@ -55,6 +55,10 @@ begin
             r_in.faults(FAULT_UART_TIMEOUT) <= '1';
         end if;
 
+        if status.burst_align_fault = '1' then
+            r_in.faults(FAULT_BURST_ALIGN) <= '1';
+        end if;
+
         -- Handle register read.
         if register_input.read_enable = '1' then
 
@@ -88,7 +92,7 @@ begin
 
             else
                 r_in.register_output.fault <= '1';
-                r_in.faults(FAULT_ADDRESS) <= '1';
+                r_in.faults(FAULT_REG_ADDRESS) <= '1';
             end if;
 
         -- Handle register write.
@@ -102,7 +106,7 @@ begin
                 r_in.faults <= (others => '0');
             else
                 r_in.register_output.fault <= '1';
-                r_in.faults(FAULT_ADDRESS) <= '1';
+                r_in.faults(FAULT_REG_ADDRESS) <= '1';
             end if;
         end if;
     end process;

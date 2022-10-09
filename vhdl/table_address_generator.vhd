@@ -14,14 +14,14 @@ use wave.wave_array_pkg.all;
 -- coefficient selection) and a mipmap level (used for address increment overflow).
 entity table_address_generator is
     generic (
-        N_OSCILLATORS           : natural
+        N_VOICES                : natural
     );
     port (
         clk                     : in  std_logic;
         reset                   : in  std_logic;
         next_sample             : in  std_logic; -- Next sample(s) trigger.
-        osc_inputs              : in  t_osc_input_array(0 to N_OSCILLATORS - 1);
-        addrgen_output          : out t_addrgen_to_tableinterp_array(0 to N_OSCILLATORS - 1)
+        osc_inputs              : in  t_osc_input_array(0 to N_VOICES - 1);
+        addrgen_output          : out t_addrgen2table_array(0 to N_VOICES - 1)
     );
 end entity;
 
@@ -32,19 +32,19 @@ architecture arch of table_address_generator is
 
     type t_tag_reg is record
         state                   : t_state;
-        osc_counter             : integer range 0 to N_OSCILLATORS - 1;
+        osc_counter             : integer range 0 to N_VOICES - 1;
         sample_counter          : integer range 0 to 1; -- Twe samples are needed before downsampling.
         level_counter           : integer range 0 to MIPMAP_LEVELS - 1;
-        table_phases            : t_osc_phase_array(0 to N_OSCILLATORS - 1);
+        table_phases            : t_osc_phase_array(0 to N_VOICES - 1);
         local_address           : t_mipmap_address;
-        mipmap_addresses        : t_mipmap_address_array(0 to 2 * N_OSCILLATORS - 1);
-        address_buffers         : t_mipmap_address_array(0 to 2 * N_OSCILLATORS - 1);
-        phases                  : t_osc_phase_array(0 to 2 * N_OSCILLATORS - 1);
-        phases_buffer           : t_osc_phase_array(0 to 2 * N_OSCILLATORS - 1);
-        mipmap_levels           : t_mipmap_level_array(0 to N_OSCILLATORS - 1); -- Both output samples always have the same mipmap level
-        mipmap_level_buffers    : t_mipmap_level_array(0 to N_OSCILLATORS - 1);
-        enable                  : std_logic_vector(N_OSCILLATORS - 1 downto 0);
-        enable_buffer           : std_logic_vector(N_OSCILLATORS - 1 downto 0);
+        mipmap_addresses        : t_mipmap_address_array(0 to 2 * N_VOICES - 1);
+        address_buffers         : t_mipmap_address_array(0 to 2 * N_VOICES - 1);
+        phases                  : t_osc_phase_array(0 to 2 * N_VOICES - 1);
+        phases_buffer           : t_osc_phase_array(0 to 2 * N_VOICES - 1);
+        mipmap_levels           : t_mipmap_level_array(0 to N_VOICES - 1); -- Both output samples always have the same mipmap level
+        mipmap_level_buffers    : t_mipmap_level_array(0 to N_VOICES - 1);
+        enable                  : std_logic_vector(N_VOICES - 1 downto 0);
+        enable_buffer           : std_logic_vector(N_VOICES - 1 downto 0);
     end record;
 
     constant REG_INIT : t_tag_reg := (
@@ -81,7 +81,7 @@ begin
 
         r_in <= r;
 
-        for i in 0 to N_OSCILLATORS - 1 loop
+        for i in 0 to N_VOICES - 1 loop
             addrgen_output(i).enable <= r.enable(i);
             addrgen_output(i).mipmap_level <= r.mipmap_levels(i);
             addrgen_output(i).mipmap_address(0) <= r.mipmap_addresses(2 * i);
@@ -107,7 +107,7 @@ begin
         -- Regiater signals from the osc_controller.
         elsif r.state = init then
 
-            for i in 0 to N_OSCILLATORS - 1 loop
+            for i in 0 to N_VOICES - 1 loop
                 r_in.enable_buffer(i) <= osc_inputs(i).enable;
             end loop;
 
@@ -170,7 +170,7 @@ begin
                 r_in.sample_counter <= 1;
                 r_in.state <= calculate_address_0;
 
-            elsif r.osc_counter < N_OSCILLATORS - 1 then
+            elsif r.osc_counter < N_VOICES - 1 then
                 r_in.osc_counter <= r.osc_counter + 1;
                 r_in.sample_counter <= 0;
                 r_in.level_counter <= 0;

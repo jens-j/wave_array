@@ -13,13 +13,19 @@ package wave_array_pkg is
     constant SYS_FREQ               : integer := 100_000_000;
     constant SDRAM_FREQ             : integer := 100_000_000;
     constant UART_BAUD              : integer := 1_000_000; -- 115_200;
-    constant N_VOICES               : positive := 4;
+
+    constant N_TABLES               : positive := 1; -- Number of parallel wave tables.
+    constant N_VOICES               : positive := 4; -- Number of parallel oscillators per table.
+    constant N_OSCILLATORS          : positive := N_TABLES * N_UNISON; -- Total number of oscillators.
 
     -- Audio sample constants.
     constant SAMPLE_SIZE            : integer := 16;
     constant SAMPLE_MAX             : integer := 2**(SAMPLE_SIZE - 1) - 1;
     constant SAMPLE_MIN             : integer := -2**(SAMPLE_SIZE - 1);
     constant SAMPLE_RATE            : integer := 96_000; -- Oversampling by 2x simplifies mip-mapping
+
+    -- Constants relating to control values such as LFO's or evelopes.
+    constant CTRL_SIZE              : integer := 16;
 
     -- Constants related to wavetables.
     constant WAVE_SIZE_LOG2         : integer := 11;
@@ -76,17 +82,19 @@ package wave_array_pkg is
     constant REG_DEBUG_SDRAM_COUNT  : unsigned := x"0000110"; -- ro 16 bit | SDRAM burst read word count.
     constant REG_DEBUG_SDRAM_STATE  : unsigned := x"0000111"; -- ro 16 bit | SDRAM FSM state.
 
-
-    -- fault register bit indices.
-    constant FAULT_UART_TIMEOUT     : integer := 0;
-    constant FAULT_ADDRESS          : integer := 1;
-
+    -- fault register (sticky-)bit indices.
+    constant FAULT_UART_TIMEOUT     : integer := 0; -- UART packet engine timout.
+    constant FAULT_REG_ADDRESS      : integer := 1; -- Register address undefined.
+    constant FAULT_BURST_ALIGN      : integer := 2; -- Burst address is not page aligned (128 words).
 
     -- Audio sample types.
     subtype t_mono_sample is signed(SAMPLE_SIZE - 1 downto 0);
     type t_stereo_sample is array (0 to 1) of t_mono_sample;
     type t_mono_sample_array is array (natural range <>) of t_mono_sample;
     type t_stereo_sample_array is array (natural range <>) of t_stereo_sample;
+
+    subtype t_ctrl_value is unsigned(CTRL_SIZE - 1 downto 0);
+    type t_ctrl_value_array is array (natural range <>) of t_ctrl_value;
 
     -- Address in the oscillator coefficient memory. It consists of two memories that each hold
     -- either the even or odd coefficients.
@@ -123,14 +131,14 @@ package wave_array_pkg is
 
     type t_osc_input_array is array (natural range <>) of t_osc_input;
 
-    type t_addrgen_to_tableinterp is record
+    type t_addrgen2table is record
         enable                  : std_logic; -- Oscillator enable (outputs zero when not enabled).
         mipmap_level            : t_mipmap_level; -- Active mipmap level for each oscillator.
         mipmap_address          : t_mipmap_address_array(0 to 1); -- Start mipmap address of input samples.
         phase                   : t_osc_phase_array(0 to 1); -- Oscillator phase.
     end record;
 
-    type t_addrgen_to_tableinterp_array is array (natural range <>) of t_addrgen_to_tableinterp;
+    type t_addrgen2table_array is array (natural range <>) of t_addrgen2table;
 
     type t_sdram_input is record
         read_enable             : std_logic;
@@ -139,6 +147,14 @@ package wave_array_pkg is
         address                 : std_logic_vector(SDRAM_DEPTH_LOG2 - 1 downto 0);
         write_data              : std_logic_vector(SDRAM_WIDTH - 1 downto 0);
     end record;
+
+    constant SDRAM_INPUT_INIT : t_frame_dma_output := {
+        read_enable             => '0',
+        write_enable            => '0',
+        burst_length            => 0,
+        address                 => (others => '0'),
+        write_data              => (others => '0')
+    };
 
     type t_sdram_input_array is array (natural range <>) of t_sdram_input;
 
@@ -151,6 +167,42 @@ package wave_array_pkg is
     end record;
 
     type t_sdram_output_array is array (natural range <>) of t_sdram_output;
+
+    type t_frame_dma_input is record
+        base_address            : std_logic_vector(SDRAM_DEPTH_LOG2 - 1 downto 0); -- SDRAM base address of current mipmap table.
+        n_frames                : integer range 1 to 256; -- Number of frames in the wavetable.
+        ctrl_value              : t_ctrl_value; --
+    end record;
+
+    type t_frame_dma_input_array is array (natural range <>) of t_frame_dma_input;
+
+    type t_frame_dma_output is record
+        frame_0_index           : integer range 0 to 3; -- Frame x buffer index.
+        frame_1_index           : integer range 0 to 3; -- Frame x+1 buffer index.
+        wave_mem_wea            : std_logic_vector(0 downto 0);
+        wave_mem_addra          : std_logic_vector(MIPMAP_TABLE_SIZE_LOG2 + 1 downto 0);
+        wave_mem_dina           : std_logic_vector(SAMPLE_SIZE - 1 downto 0);
+    end record;
+
+    type t_ctrl2dma is record
+        start                   : std_logic; -- Start DMA of frame.
+        address                 : std_logic_vector(SDRAM_DEPTH_LOG2 - 1 downto 0); -- Base address of frame (source).
+        index                   : integer range 0 to 3; -- Table address (destination).
+    end record;
+
+    type t_dma2ctrl is record
+        busy                    : std_logic;
+    end record;
+
+    constant FRAME_DMA_OUTPUT_INIT : t_frame_dma_output := {
+        frame_0_index           => 0,
+        frame_1_index           => 1,
+        wave_mem_wea            => (others => '0'),
+        wave_mem_addra          => (others => '0'),
+        wave_mem_dina           => (others => '0')
+    };
+
+    type t_frame_dma_output_array is array (natural range <>) of t_frame_dma_output;
 
     -- Register file interface.
     -- Does not support block reads and writes.
@@ -174,6 +226,7 @@ package wave_array_pkg is
     -- Register file inputs.
     type t_status is record
         uart_timeout            : std_logic;
+        burst_align_fault       : std_logic;
         uart_state              : integer;
         uart_count              : integer;
         uart_fifo_count         : integer;
