@@ -12,7 +12,6 @@ vcom -work xil_defaultlib $SOURCE_DIR/ip/i2s_clk_generator_sim_netlist.vhdl
 vcom -2008 -work xil_defaultlib $SOURCE_DIR/ip/xadc_gen.vhd
 vcom -2008 -work xil_defaultlib $SOURCE_DIR/ip/i2s_fifo.vhd
 vcom -2008 -work xil_defaultlib $SOURCE_DIR/ip/uart_fifo_gen.vhd
-vcom -2008 -work xil_defaultlib $SOURCE_DIR/ip/sdram_controller_fifo.vhd
 vcom -2008 -work xil_defaultlib $SOURCE_DIR/ip/sdram_uart_fifo_gen.vhd
 vcom -2008 -work xil_defaultlib $SOURCE_DIR/ip/uart_sdram_fifo_gen.vhd
 vcom -2008 -work xil_defaultlib $SOURCE_DIR/ip/midi_fifo_sim_netlist.vhdl
