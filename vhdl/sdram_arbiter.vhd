@@ -1,5 +1,6 @@
 library ieee;
 use ieee.std_logic_1164.all;
+use ieee.numeric_std.all;
 
 library wave;
 use wave.wave_array_pkg.all;
@@ -39,18 +40,30 @@ end entity;
 
 architecture arch of sdram_arbiter is
 
-    type t_state is (idle, busy);
+    type t_state is (idle, read_0, read_1, write_0, write_1, write_2);
 
     type t_arbiter_reg is record
         state                   : t_state;
+        next_state              : t_state;
         index                   : integer range 0 to N_CLIENTS - 1;
-        ack                     : std_logic;
+        sdram_input             : t_sdram_input;
+        sdram_outputs           : t_sdram_output_array(0 to N_CLIENTS - 1);
+        frame_count             : integer range 0 to SDRAM_DEPTH;
+        burst_count             : integer range 0 to SDRAM_MAX_BURST;
+        address                 : unsigned(SDRAM_DEPTH_LOG2 - 1 downto 0);
+        write_buffer            : std_logic_vector(SDRAM_WIDTH - 1 downto 0);
     end record;
 
     constant REG_INIT : t_arbiter_reg := (
         state                   => idle,
+        next_state              => idle,
         index                   => 0,
-        ack                     => '0'
+        sdram_input             => SDRAM_INPUT_INIT,
+        sdram_outputs           => (others => SDRAM_OUTPUT_INIT),
+        frame_count             => 0,
+        burst_count             => 0,
+        address                 => (others => '0'),
+        write_buffer            => (others => '0')
     );
 
     signal r, r_in              : t_arbiter_reg;
@@ -64,7 +77,7 @@ begin
         clk                     => clk,
         reset                   => reset,
         pll_locked              => pll_locked,
-        sdram_input             => s_sdram_input,
+        sdram_input             => r.sdram_input,
         sdram_output            => s_sdram_output,
         SDRAM_ADVN              => SDRAM_ADVN,
         SDRAM_CEN               => SDRAM_CEN,
@@ -85,29 +98,110 @@ begin
     begin
 
         r_in <= r;
-
-        -- Mux the SDRAM signals without a register to allow easy handshaking.
-        s_sdram_input <= sdram_inputs(r.index);
-        sdram_outputs(r.index) <= s_sdram_output;
+        r_in.sdram_outputs <= (others => SDRAM_OUTPUT_INIT);
 
         -- Check for read- or write-enables.
         if r.state = idle then
+
+            r_in.sdram_input <= SDRAM_INPUT_INIT;
+
             for i in 0 to N_CLIENTS - 1 loop
                 if sdram_inputs(i).read_enable = '1' or sdram_inputs(i).write_enable = '1' then
                     r_in.index <= i;
-                    r_in.state <= busy;
+                    r_in.address <= sdram_inputs(i).address;
+                    r_in.frame_count <= sdram_inputs(i).burst_length;
+                    r_in.sdram_outputs(i).ack <= '1';
+                    r_in.state <= read_0 when sdram_inputs(i).read_enable = '1' else write_0;
                     exit;
                 end if;
             end loop;
 
-        -- Wait for the operation to finish.
-        elsif r.state = busy then
-            if s_sdram_output.done = '1' then
-                r_in.state <= idle;
+        -- Issue burst reads untils the entire frame is read.
+        elsif r.state = read_0 then
+            if r.frame_count <= SDRAM_MAX_BURST then
+                r_in.sdram_input.burst_length <= r.frame_count;
+                r_in.frame_count <= 0;
+            else
+                r_in.sdram_input.burst_length <= SDRAM_MAX_BURST;
+                r_in.frame_count <= r.frame_count - SDRAM_MAX_BURST;
+                r_in.address <= r.address + SDRAM_MAX_BURST;
             end if;
 
-        end if;
+            r_in.sdram_input.read_enable <= '1';
+            r_in.sdram_input.address <= r.address;
+            r_in.state <= read_1;
 
+        -- Receive read data and forward to client.
+        elsif r.state = read_1 then
+
+            if s_sdram_output.ack = '1' then
+                r_in.sdram_input.read_enable <= '0';
+            end if;
+
+            if s_sdram_output.read_valid = '1' then
+                r_in.sdram_outputs(r.index).read_valid <= '1';
+                r_in.sdram_outputs(r.index).read_data <= s_sdram_output.read_data;
+            end if;
+
+            if s_sdram_output.done = '1' then
+                if r.frame_count = 0 then
+                    r_in.state <= idle;
+                    r_in.sdram_outputs(r.index).done <= '1';
+                else
+                    r_in.state <= read_0;
+                end if;
+            end if;
+
+        -- Fill write buffer
+        elsif r.state = write_0 then
+            r_in.write_buffer <= sdram_inputs(r.index).write_data;
+            r_in.sdram_outputs(r.index).write_req <= '1';
+            r_in.state <= write_1;
+
+        -- Issue burst reads untils the entire frame is read.
+        elsif r.state <= write_1 then
+            if r.frame_count <= SDRAM_MAX_BURST then
+                r_in.sdram_input.burst_length <= r.frame_count;
+                r_in.burst_count <= r.frame_count;
+                r_in.frame_count <= 0;
+            else
+                r_in.sdram_input.burst_length <= SDRAM_MAX_BURST;
+                r_in.burst_count <= SDRAM_MAX_BURST;
+                r_in.frame_count <= r.frame_count - SDRAM_MAX_BURST;
+                r_in.address <= r.address + SDRAM_MAX_BURST;
+            end if;
+
+            r_in.sdram_input.write_enable <= '1';
+            r_in.sdram_input.address <= r.address;
+
+            r_in.state <= write_2;
+
+        -- Pass write words from the client to the SDRAM. Use a 1 word write buffer to accomodate
+        -- the one cycle delay introduced by the arbiter.
+        elsif r.state <= write_2 then
+
+            if s_sdram_output.ack = '1' then
+                r_in.sdram_input.write_enable <= '0';
+            end if;
+
+            r_in.sdram_input.write_data <= r.write_buffer;
+
+            -- Load write buffer except on last write cycle.
+            if s_sdram_output.write_req = '1' and r.burst_count > 1 then
+                r_in.write_buffer <= sdram_inputs(r.index).write_data;
+                r_in.sdram_outputs(r.index).write_req <= '1';
+                r_in.burst_count <= r.burst_count - 1;
+            end if;
+
+            if s_sdram_output.done = '1' then
+                if r.frame_count = 0 then
+                    r_in.state <= idle;
+                    r_in.sdram_outputs(r.index).done <= '1';
+                else
+                    r_in.state <= write_0;
+                end if;
+            end if;
+        end if;
     end process;
 
     reg_process : process (clk)

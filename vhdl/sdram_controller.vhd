@@ -163,7 +163,7 @@ begin
                     r_in.sdram_output.ack <= '1';
                     r_in.sdram_cen <= '0';
                     r_in.sdram_advn <= '0';
-                    r_in.sdram_a <= sdram_input.address;
+                    r_in.sdram_a <= std_logic_vector(sdram_input.address);
                     r_in.counter <= sdram_input.burst_length - 1;
                     r_in.read_count <= 0;
                     r_in.latency_counter <= 2;
