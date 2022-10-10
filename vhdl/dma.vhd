@@ -30,24 +30,22 @@ end entity;
 
 architecture arch of dma is
 
-    type t_state is (idle, init, sdram_read, transfer);
+    type t_state is (idle, sdram_read, transfer);
 
     type t_dma_reg is record
         state                   : t_state;
-        next_state              : t_state;
-        dma2ctrl                : t_dma2ctrl;
+        busy                    : std_logic;
         sdram_input             : t_sdram_input;
         wave_mem_wea            : std_logic_vector(0 downto 0);
         wave_mem_addra          : std_logic_vector(MIPMAP_TABLE_SIZE_LOG2 + 1 downto 0);
         wave_mem_dina           : std_logic_vector(SAMPLE_SIZE - 1 downto 0);
-        sdram_address           : std_logic_vector(SDRAM_DEPTH_LOG2 - 1 downto 0);
+        sdram_address           : unsigned(SDRAM_DEPTH_LOG2 - 1 downto 0);
         wavetable_address       : std_logic_vector(MIPMAP_TABLE_SIZE_LOG2 + 1 downto 0);
     end record;
 
     constant REG_INIT : t_dma_reg := (
         state                   => idle,
-        next_state              => next_state,
-        dma2ctrl                => ('0'),
+        busy                    => '0',
         sdram_input             => SDRAM_INPUT_INIT,
         wave_mem_wea            => (others => '0'),
         wave_mem_addra          => (others => '0'),
@@ -60,18 +58,18 @@ architecture arch of dma is
 
 begin
 
-    comb_process : process (r, sdram_input, ctrl_values)
+    comb_process : process (r, ctrl2dma, sdram_input)
     begin
 
         r_in <= r;
-        r_in.dma2ctrl <= ('0');
-        r_in.sdram_input.read_enable <= '0';
-        r_in.wave_mem_wea <= '0';
+        r_in.busy <= '0';
+        r_in.sdram_input <= SDRAM_INPUT_INIT;
+        r_in.wave_mem_wea <= "0";
         r_in.wave_mem_addra <= (others => '0');
         r_in.wave_mem_dina <= (others => '0');
 
         -- Connect output registers.
-        dma2ctrl <= r.dma2ctrl;
+        dma2ctrl.busy <= r.busy;
         sdram_input <= r.sdram_input;
         wave_mem_wea <= r.wave_mem_wea;
         wave_mem_addra <= r.wave_mem_addra;
@@ -82,9 +80,9 @@ begin
 
                 r_in.sdram_address <= ctrl2dma.address;
                 r_in.wavetable_address <= std_logic_vector(
-                    to_unsigned(r.table_write_index, MIPMAP_TABLE_SIZE_LOG2 + 2));
+                    to_unsigned(ctrl2dma.index, MIPMAP_TABLE_SIZE_LOG2 + 2));
 
-                r_in.dma2ctrl.busy <= '1';
+                r_in.busy <= '1';
                 r_in.state <= sdram_read;
             end if;
 
@@ -93,6 +91,7 @@ begin
 
             r_in.sdram_input.read_enable <= '1';
             r_in.sdram_input.address <= r.sdram_address;
+            r_in.sdram_input.burst_length <= MIPMAP_TABLE_SIZE;
 
             if sdram_output.ack = '1' then
                 r_in.state <= transfer;
@@ -104,13 +103,13 @@ begin
 
             if sdram_output.read_valid = '1' then
 
-                r_in.frame_dma_outputs.wave_mem_wea <= '1';
-                r_in.frame_dma_outputs.wave_mem_dina <= sdram_output.read_data;
-                r_in.frame_dma_outputs.wave_mem_addra <= r.wavetable_address;
+                r_in.wave_mem_wea <= "1";
+                r_in.wave_mem_dina <= sdram_output.read_data;
+                r_in.wave_mem_addra <= r.wavetable_address;
 
                 if sdram_output.done = '1' then
                     r_in.state <= idle;
-                    r_in.dma2ctrl.busy <= '0';
+                    r_in.busy <= '0';
                 else
                     r_in.wavetable_address <= std_logic_vector(unsigned(r.wavetable_address) + 4);
                 end if;

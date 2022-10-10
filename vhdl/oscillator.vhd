@@ -7,15 +7,12 @@ use wave.wave_array_pkg.all;
 
 
 entity oscillator is
-    generic (
-        N_VOICES           : natural
-    );
     port (
         clk                     : in  std_logic;
         reset                   : in  std_logic;
         next_sample             : in  std_logic; -- Next sample trigger.
         osc_inputs              : in  t_osc_input_array(0 to N_VOICES - 1);
-        frame_dma_output        : in  t_frame_dma_output;
+        dma_output              : in  t_dma_output;
         output_samples          : out t_mono_sample_array(0 to N_VOICES - 1);
         addrgen_output          : out t_addrgen2table_array(0 to N_VOICES - 1) -- Debug output
     );
@@ -23,9 +20,6 @@ end entity;
 
 architecture arch of oscillator is
 
-
-    signal s_frame_0_index          : integer range 0 to 3;
-    signal s_frame_1_index          : integer range 0 to 3;
     signal s_intermediate_samples   : t_stereo_sample_array(0 to N_VOICES - 1);
     signal s_addrgen2table          : t_addrgen2table_array(0 to N_VOICES - 1);
     signal s_overflow               : std_logic;
@@ -34,9 +28,6 @@ architecture arch of oscillator is
 begin
 
     addrgen_output <= s_addrgen2table;
-
-    s_frame_0_index <= 0;
-    s_frame_1_index <= 1;
 
     table_addr_gen : entity wave.table_address_generator
     generic map (
@@ -58,7 +49,7 @@ begin
         clk                     => clk,
         reset                   => reset,
         next_sample             => next_sample,
-        frame_dma_output        => frame_dma_output,
+        dma_output              => dma_output,
         osc_inputs              => osc_inputs,
         addrgen_input           => s_addrgen2table,
         output_samples          => s_intermediate_samples,
