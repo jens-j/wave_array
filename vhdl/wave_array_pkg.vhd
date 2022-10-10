@@ -16,7 +16,7 @@ package wave_array_pkg is
 
     constant N_TABLES               : positive := 1; -- Number of parallel wave tables.
     constant N_VOICES               : positive := 4; -- Number of parallel oscillators per table.
-    constant N_OSCILLATORS          : positive := N_TABLES * N_UNISON; -- Total number of oscillators.
+    constant N_OSCILLATORS          : positive := N_TABLES * N_VOICES; -- Total number of oscillators.
 
     -- Audio sample constants.
     constant SAMPLE_SIZE            : integer := 16;
@@ -30,7 +30,8 @@ package wave_array_pkg is
     -- Constants related to wavetables.
     constant WAVE_SIZE_LOG2         : integer := 11;
     constant WAVE_SIZE              : integer := 2**WAVE_SIZE_LOG2; -- Number of samples per wave table.
-    constant WAVE_MAX_FRAMES        : integer := 256;
+    constant WAVE_MAX_FRAMES_LOG2   : integer := 8;
+    constant WAVE_MAX_FRAMES        : integer := 2**WAVE_MAX_FRAMES_LOG2;
 
     -- Constants relating to complete mipmap table with multiple waves.
     constant MIPMAP_LEVELS          : integer := 10; -- 1 per octave for octaves 0 - 9. This covers the entire midi range except octave -1 which is inaudible.
@@ -129,8 +130,6 @@ package wave_array_pkg is
         position                : t_osc_position; -- Frame position.
     end record;
 
-    type t_osc_input_array is array (natural range <>) of t_osc_input;
-
     type t_addrgen2table is record
         enable                  : std_logic; -- Oscillator enable (outputs zero when not enabled).
         mipmap_level            : t_mipmap_level; -- Active mipmap level for each oscillator.
@@ -138,25 +137,23 @@ package wave_array_pkg is
         phase                   : t_osc_phase_array(0 to 1); -- Oscillator phase.
     end record;
 
-    type t_addrgen2table_array is array (natural range <>) of t_addrgen2table;
+    type t_ctrl2dma is record
+        start                   : std_logic; -- Start DMA of frame.
+        address                 : unsigned(SDRAM_DEPTH_LOG2 - 1 downto 0); -- Base address of frame (source).
+        index                   : integer range 0 to 3; -- Table address (destination).
+    end record;
+
+    type t_dma2ctrl is record
+        busy                    : std_logic;
+    end record;
 
     type t_sdram_input is record
         read_enable             : std_logic;
         write_enable            : std_logic;
-        burst_length            : integer range 1 to SDRAM_MAX_BURST;
-        address                 : std_logic_vector(SDRAM_DEPTH_LOG2 - 1 downto 0);
+        burst_length            : integer range 1 to SDRAM_DEPTH;
+        address                 : unsigned(SDRAM_DEPTH_LOG2 - 1 downto 0);
         write_data              : std_logic_vector(SDRAM_WIDTH - 1 downto 0);
     end record;
-
-    constant SDRAM_INPUT_INIT : t_frame_dma_output := {
-        read_enable             => '0',
-        write_enable            => '0',
-        burst_length            => 0,
-        address                 => (others => '0'),
-        write_data              => (others => '0')
-    };
-
-    type t_sdram_input_array is array (natural range <>) of t_sdram_input;
 
     type t_sdram_output is record
         ack                     : std_logic; -- Signal the read- or write-enable has been seen.
@@ -166,43 +163,20 @@ package wave_array_pkg is
         read_data               : std_logic_vector(SDRAM_WIDTH - 1 downto 0);
     end record;
 
-    type t_sdram_output_array is array (natural range <>) of t_sdram_output;
-
-    type t_frame_dma_input is record
-        base_address            : std_logic_vector(SDRAM_DEPTH_LOG2 - 1 downto 0); -- SDRAM base address of current mipmap table.
-        n_frames                : integer range 1 to 256; -- Number of frames in the wavetable.
+    type t_dma_input is record
+        new_table               : std_logic; -- Pulse indicating a new table should be loaded.
+        base_address            : unsigned(SDRAM_DEPTH_LOG2 - 1 downto 0); -- SDRAM base address of current mipmap table.
+        n_frames_log2           : integer range 0 to 8; -- Log2 of number of frames in the wavetable.
         ctrl_value              : t_ctrl_value; --
     end record;
 
-    type t_frame_dma_input_array is array (natural range <>) of t_frame_dma_input;
-
-    type t_frame_dma_output is record
+    type t_dma_output is record
         frame_0_index           : integer range 0 to 3; -- Frame x buffer index.
         frame_1_index           : integer range 0 to 3; -- Frame x+1 buffer index.
         wave_mem_wea            : std_logic_vector(0 downto 0);
         wave_mem_addra          : std_logic_vector(MIPMAP_TABLE_SIZE_LOG2 + 1 downto 0);
         wave_mem_dina           : std_logic_vector(SAMPLE_SIZE - 1 downto 0);
     end record;
-
-    type t_ctrl2dma is record
-        start                   : std_logic; -- Start DMA of frame.
-        address                 : std_logic_vector(SDRAM_DEPTH_LOG2 - 1 downto 0); -- Base address of frame (source).
-        index                   : integer range 0 to 3; -- Table address (destination).
-    end record;
-
-    type t_dma2ctrl is record
-        busy                    : std_logic;
-    end record;
-
-    constant FRAME_DMA_OUTPUT_INIT : t_frame_dma_output := {
-        frame_0_index           => 0,
-        frame_1_index           => 1,
-        wave_mem_wea            => (others => '0'),
-        wave_mem_addra          => (others => '0'),
-        wave_mem_dina           => (others => '0')
-    };
-
-    type t_frame_dma_output_array is array (natural range <>) of t_frame_dma_output;
 
     -- Register file interface.
     -- Does not support block reads and writes.
@@ -213,15 +187,11 @@ package wave_array_pkg is
         write_data              : std_logic_vector(REGISTER_WIDTH - 1 downto 0);
     end record;
 
-    type t_register_input_array is array (natural range <>) of t_register_input;
-
     type t_register_output is record
         valid                   : std_logic; -- Indicates read data is valid
         fault                   : std_logic;
         read_data               : std_logic_vector(REGISTER_WIDTH - 1 downto 0);
     end record;
-
-    type t_register_output_array is array (natural range <>) of t_register_output;
 
     -- Register file inputs.
     type t_status is record
@@ -238,6 +208,48 @@ package wave_array_pkg is
     type t_config is record
         led                     : std_logic;
     end record;
+
+    type t_osc_input_array is array (natural range <>) of t_osc_input;
+    type t_sdram_input_array is array (natural range <>) of t_sdram_input;
+    type t_addrgen2table_array is array (natural range <>) of t_addrgen2table;
+    type t_ctrl2dma_array is array (natural range <>) of t_ctrl2dma;
+    type t_dma2ctrl_array is array (natural range <>) of t_dma2ctrl;
+    type t_sdram_output_array is array (natural range <>) of t_sdram_output;
+    type t_dma_input_array is array (natural range <>) of t_dma_input;
+    type t_dma_output_array is array (natural range <>) of t_dma_output;
+    type t_register_input_array is array (natural range <>) of t_register_input;
+    type t_register_output_array is array (natural range <>) of t_register_output;
+
+    constant SDRAM_INPUT_INIT : t_sdram_input := (
+        read_enable             => '0',
+        write_enable            => '0',
+        burst_length            => 1,
+        address                 => (others => '0'),
+        write_data              => (others => '0')
+    );
+
+    constant SDRAM_OUTPUT_INIT : t_sdram_output := (
+        ack                     => '0',
+        read_valid              => '0',
+        write_req               => '0',
+        done                    => '0',
+        read_data               => (others => '0')
+    );
+
+    constant FRAME_DMA_OUTPUT_INIT : t_dma_output := (
+        frame_0_index           => 0,
+        frame_1_index           => 1,
+        wave_mem_wea            => (others => '0'),
+        wave_mem_addra          => (others => '0'),
+        wave_mem_dina           => (others => '0')
+    );
+
+    constant CTRL2DMA_INIT : t_ctrl2dma := (
+         start                  => '0',
+         address                => (others => '0'),
+         index                  => 0
+    );
+
 
 
     constant MIPMAP_THRESHOLDS : t_osc_phase_array(0 to MIPMAP_LEVELS - 2) := (

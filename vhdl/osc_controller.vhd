@@ -8,17 +8,14 @@ use wave.midi_pkg.all;
 
 
 entity osc_controller is
-    generic (
-        N_OSCILLATORS           : natural
-    );
     port (
         clk                     : std_logic;
         reset                   : std_logic;
         next_sample             : in  std_logic; -- Next sample trigger.
         enable_midi             : in  std_logic; -- 1: use midi, 0: use potentiometer.
-        voices                  : in  t_voice_array(0 to N_OSCILLATORS - 1);
+        voices                  : in  t_voice_array(0 to N_VOICES - 1);
         analog_input            : in  std_logic_vector(ADC_SAMPLE_SIZE - 1 downto 0);
-        osc_inputs              : out t_osc_input_array(0 to N_OSCILLATORS - 1)
+        osc_inputs              : out t_osc_input_array(0 to N_VOICES - 1)
     );
 end entity;
 
@@ -29,10 +26,10 @@ architecture arch of osc_controller is
     type t_oscillator_reg is record
         state                   : t_state;
         enable_midi             : std_logic;
-        voices                  : t_voice_array(0 to N_OSCILLATORS - 1);
-        osc_counter             : integer range 0 to N_OSCILLATORS - 1;
-        osc_inputs              : t_osc_input_array(0 to N_OSCILLATORS - 1);
-        osc_inputs_buffer       : t_osc_input_array(0 to N_OSCILLATORS - 1);
+        voices                  : t_voice_array(0 to N_VOICES - 1);
+        osc_counter             : integer range 0 to N_VOICES - 1;
+        osc_inputs              : t_osc_input_array(0 to N_VOICES - 1);
+        osc_inputs_buffer       : t_osc_input_array(0 to N_VOICES - 1);
     end record;
 
     constant REG_INIT : t_oscillator_reg := (
@@ -99,7 +96,7 @@ begin
 
             r_in.osc_inputs_buffer(r.osc_counter) <= (v_enable, v_velocity, v_position);
 
-            if r.osc_counter < N_OSCILLATORS - 1 then
+            if r.osc_counter < N_VOICES - 1 then
                 r_in.osc_counter <= r.osc_counter + 1;
             else
                 r_in.state <= idle;

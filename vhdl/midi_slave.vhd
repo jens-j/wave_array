@@ -8,9 +8,6 @@ use wave.midi_pkg.all;
 
 
 entity midi_slave is
-    generic (
-        N_VOICES                : integer
-    );
     port (
         clk                     : in  std_logic;
         reset                   : in  std_logic;

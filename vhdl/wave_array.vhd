@@ -65,24 +65,24 @@ architecture arch of wave_array is
     signal s_next_sample        : std_logic;
     signal s_voices             : t_voice_array(N_VOICES - 1 downto 0);
     signal s_midi_status_byte   : t_byte;
-    signal s_analog_value       : std_logic_vector(ADC_SAMPLE_SIZE - 1 downto 0);
+    signal s_pot_value          : std_logic_vector(ADC_SAMPLE_SIZE - 1 downto 0);
     signal s_sample             : t_stereo_sample;
     signal s_display_data       : std_logic_vector(31 downto 0);
-    signal s_addgen_output      : t_addrgen_to_tableinterp_array(0 to N_VOICES - 1);
+    signal s_addgen_output      : t_addrgen2table_array(0 to N_VOICES - 1);
 
     signal s_register_input     : t_register_input;
     signal s_register_output    : t_register_output;
     signal s_status             : t_status;
     signal s_config             : t_config;
 
-    signal s_sdram_inputs       : t_sdram_input_array(0 to 0);
-    signal s_sdram_outputs      : t_sdram_output_array(0 to 0);
+    signal s_sdram_inputs       : t_sdram_input_array(0 to N_TABLES); -- 1 for the UART and 1 for each wavetable.
+    signal s_sdram_outputs      : t_sdram_output_array(0 to N_TABLES);
 
-    signal s_frame_ctrl_values  : t_ctrl_value_array(0 to N_TABLES);
+    signal s_dma_inputs         : t_dma_input_array(0 to N_TABLES - 1);
 
 begin
 
-    -- Connect inputs.
+    -- Connect reset signals.
     s_reset_ah <= not BTN_RESET;
     s_reset_al <= BTN_RESET;
 
@@ -98,16 +98,20 @@ begin
 
     I2S_SCLK <= s_i2s_clk;
 
-    -- Connect the potentiometer value to the frame index from table 0.
-    s_frame_ctrl_values <= {s_analog_value & (CTRL_SIZE - ADC_SAMPLE_SIZE - 1 downto 0 => '0')};
-
     -- 7 segment display.
     s_display_data <=
         std_logic_vector(to_unsigned(s_voices(0).note.octave, 4))           -- 1 char octave
         & std_logic_vector(to_unsigned(s_voices(0).note.key, 4))            -- 1 char note
         -- & "0" & s_voices(0).midi_velocity                                   -- 2 char midi velocity
         & std_logic_vector(to_unsigned(s_addgen_output(0).mipmap_level, 8)) -- 2 char mipmap level
-        & (0 to 16 - ADC_SAMPLE_SIZE - 1 => '0') & s_analog_value;          -- 4 char potentiometer value
+        & (0 to 16 - ADC_SAMPLE_SIZE - 1 => '0') & s_pot_value;          -- 4 char potentiometer value
+
+    -- Select wavetable and connect potentiometer to frame position.
+    s_dma_inputs(0).new_table <= '0';
+    s_dma_inputs(0).base_address <= (others => '0');
+    s_dma_inputs(0).n_frames_log2 <= 4;
+    s_dma_inputs(0).ctrl_value <=
+        unsigned(s_pot_value) & (0 to CTRL_SIZE - ADC_SAMPLE_SIZE - 1 => '0'); -- Resize potentiometer value to 16 bits left justified.
 
 
     clk_subsys : entity wave.clk_subsystem
@@ -121,9 +125,6 @@ begin
     );
 
     midi_slave : entity wave.midi_slave
-    generic map (
-        n_voices                => N_VOICES
-    )
     port map (
         clk                     => s_system_clk,
         reset                   => s_reset_ah,
@@ -160,19 +161,18 @@ begin
     );
 
     synth_subsys : entity wave.synth_subsystem
-    generic map(
-        N_OSCILLATORS           => N_VOICES
-    )
     port map(
         clk                     => s_system_clk,
         reset                   => s_reset_ah,
         next_sample             => s_next_sample,
         enable_midi             => SWITCHES(15),
-        analog_input            => s_analog_value,
+        analog_input            => s_pot_value,
         voices                  => s_voices,
         addrgen_output          => s_addgen_output,
         sample                  => s_sample,
-        frame_ctrl_values       => s_frame_ctrl_values
+        sdram_inputs            => s_sdram_inputs(1 to N_TABLES),
+        sdram_outputs           => s_sdram_outputs(1 to N_TABLES),
+        dma_inputs              => s_dma_inputs
     );
 
     i2s_interface : entity wave.i2s_interface
@@ -194,7 +194,7 @@ begin
         vauxn3                  => XADC_3N,
         average                 => SWITCHES(11 downto 10),
         filter_length           => SWITCHES(14 downto 12),
-        value                   => s_analog_value
+        value                   => s_pot_value
     );
 
     seven_segment : entity wave.seven_segment
@@ -208,7 +208,7 @@ begin
 
     arbiter : entity wave.sdram_arbiter
     generic map (
-        N_CLIENTS               => 1
+        N_CLIENTS               => 1 + N_TABLES
     )
     port map (
         clk                     => s_system_clk,

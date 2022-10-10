@@ -59,7 +59,7 @@ architecture arch of uart_packet_engine is
         sdram_read_enable       : std_logic;
         sdram_write_enable      : std_logic;
         sdram_burst_length      : integer range 1 to SDRAM_MAX_BURST;
-        sdram_address           : std_logic_vector(SDRAM_DEPTH_LOG2 - 1 downto 0);
+        sdram_address           : unsigned(SDRAM_DEPTH_LOG2 - 1 downto 0);
         timeout                 : std_logic;
         byte_counter            : integer range 0 to 2 * SDRAM_MAX_BURST - 1;
         burst_counter           : integer;
@@ -295,7 +295,7 @@ begin
         elsif r.state = read_block_1 then
 
             r_in.sdram_burst_length <= to_integer(unsigned(r.word_buffer));
-            r_in.sdram_address <= std_logic_vector(r.address(SDRAM_DEPTH_LOG2 - 1 downto 0));
+            r_in.sdram_address <= r.address(SDRAM_DEPTH_LOG2 - 1 downto 0);
 
             -- Write reply header to the tx fifo.
             if sdram_output.ack = '1' then
@@ -365,7 +365,7 @@ begin
             else
                 r_in.sdram_write_enable <= '1';
                 r_in.sdram_burst_length <= to_integer(unsigned(r.word_buffer));
-                r_in.sdram_address <= std_logic_vector(r.address(SDRAM_DEPTH_LOG2 - 1 downto 0));
+                r_in.sdram_address <= r.address(SDRAM_DEPTH_LOG2 - 1 downto 0);
             end if;
 
         -- Wait for the SDRAM arbiter to read all data from the async fifo.

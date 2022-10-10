@@ -28,7 +28,7 @@ entity table_interpolator is
         next_sample             : in  std_logic;
 
         -- Frame DMA interface.
-        frame_dma_output        : in  t_frame_dma_output;
+        dma_output              : in  t_dma_output;
 
         osc_inputs              : in  t_osc_input_array(0 to N_VOICES - 1);
         addrgen_input           : in  t_addrgen2table_array(0 to N_VOICES - 1);
@@ -150,9 +150,9 @@ begin
     )
     port map (
         write_clk               => clk,
-        write_enable            => frame_dma_output.wave_mem_wea,
-        write_address           => frame_dma_output.wave_mem_addra,
-        write_data              => frame_dma_output.wave_mem_dina,
+        write_enable            => dma_output.wave_mem_wea,
+        write_address           => dma_output.wave_mem_addra,
+        write_data              => dma_output.wave_mem_dina,
         read_clk                => clk,
         read_address            => s_wave_mem_addrb,
         read_data               => s_wave_mem_doutb
@@ -216,16 +216,12 @@ begin
         P                       => s_macc_p
     );
 
-    s_wave_mem_wea <= "0";
-    s_wave_mem_dina <= (others => '0');
-    s_wave_mem_addra <= (others => '0');
-
     -- Output connections.
     output_samples <= r.output_samples;
     overflow <= r.overflow;
     timeout <= r.timeout;
 
-    combinatorial : process (r, osc_inputs, addrgen_input, next_sample, frame_0_index, frame_1_index,
+    combinatorial : process (r, osc_inputs, addrgen_input, next_sample, dma_output,
                              s_frame_interp_p, s_coeff_interp_p, s_macc_p,
                              s_wave_mem_doutb, s_coeff_even_douta, s_coeff_odd_douta)
 
@@ -291,8 +287,8 @@ begin
 
         -- Start new cycle
         elsif r.state = init then
-            r_in.frame_0_index <= frame_dma_output.frame_0_index;
-            r_in.frame_1_index <= frame_dma_output.frame_1_index;
+            r_in.frame_0_index <= dma_output.frame_0_index;
+            r_in.frame_1_index <= dma_output.frame_1_index;
             r_in.odd_phase(0) <= v_odd_phase_0;
             r_in.phase_position(0) <= addrgen_input(0).phase(0)
                 (OSC_COEFF_FRAC + v_level - 1 downto v_level);
