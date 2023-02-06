@@ -121,13 +121,14 @@ class Mipmap:
         plt.show()
 
 
-    def write_table(self):
+    def write_table(self, filename=None):
 
         print(self.subtables[0])
 
         counter = 0
-        filename = f"{self.name}_mipmap.data"
-        with open(filename, 'w') as f:
+        filename = filename if filename else f"{self.name}_mipmap.data"
+        mode = 'a' if filename else 'w'
+        with open(filename, mode) as f:
             for subtable in self.subtables:
                 print(subtable)
                 for value in subtable:

@@ -36,6 +36,8 @@ architecture arch of uart_reader is
 
     type t_byte_array is array (natural range <>) of std_logic_vector(7 downto 0);
 
+    type t_data_array is array (0 to UART_MAX_BURST - 1) of std_logic_vector(15 downto 0);
+
     procedure write_packet (
         signal clk                  : in  std_logic;
         signal write_enable         : out std_logic;
@@ -105,6 +107,8 @@ begin
         variable v_wait_time        : integer;
         variable v_hread_success    : boolean;
         variable v_read_data        : std_logic_vector(31 downto 0);
+        variable v_hexfile          : string(1 to 120);
+        variable v_
 
     begin
 
@@ -125,7 +129,7 @@ begin
             string_read(v_line_in, v_command, v_string_length);
 
             -- Skip comment lines (strings start at 1).
-            if v_command(1) = '#' then next; end if;
+            next when v_command(1) = '#';
 
             if v_command = "wait  " then
                 -- Read wait time in ms from line
@@ -191,7 +195,7 @@ begin
 
             elsif v_command = "writeb" then
                 hread(v_line_in, v_address);
-                hread(v_line_in, v_burst_length);
+                sread(v_line_in, v_hexfile);
                 hread(v_line_in,
                     v_write_data(16 * to_integer(unsigned(v_burst_length)) - 1 downto 0));
                 v_serial_length := 9 + 2 * to_integer(unsigned(v_burst_length));
@@ -207,6 +211,10 @@ begin
                         & integer'image(to_integer(unsigned(v_reply_opcode(7 downto 0))));
                 end if;
             end if;
+
+        elsif v_command = "writef" then
+
+
         end loop;
 
         report "end of file";

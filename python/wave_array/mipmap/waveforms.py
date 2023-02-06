@@ -1,3 +1,5 @@
+import os
+
 import numpy as np
 from scipy.io import wavfile
 
@@ -13,6 +15,6 @@ def square():
         (np.ones(Mipmap.L0_SIZE // 2), -np.ones(Mipmap.L0_SIZE // 2))) * Mipmap.SAMPLE_MAX
 
 def acid():
-    acid = wavfile.read("Acid.wav")[1][:2048]
+    acid = wavfile.read(f"{os.path.dirname(__file__)}\Acid.wav")[1][:2048]
     acid *= Mipmap.SAMPLE_MAX / max(acid) # Normalize to sample size.
     return acid

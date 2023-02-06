@@ -12,7 +12,10 @@ package wave_array_pkg is
 
     constant SYS_FREQ               : integer := 100_000_000;
     constant SDRAM_FREQ             : integer := 100_000_000;
+
     constant UART_BAUD              : integer := 1_000_000; -- 115_200;
+    constant UART_MAX_BURST_LOG2    : integer := 12;
+    constant UART_MAX_BURST         : integer := 2**UART_MAX_BURST_LOG2;
 
     constant N_TABLES               : positive := 1; -- Number of parallel wave tables.
     constant N_VOICES               : positive := 4; -- Number of parallel oscillators per table.
@@ -23,9 +26,6 @@ package wave_array_pkg is
     constant SAMPLE_MAX             : integer := 2**(SAMPLE_SIZE - 1) - 1;
     constant SAMPLE_MIN             : integer := -2**(SAMPLE_SIZE - 1);
     constant SAMPLE_RATE            : integer := 96_000; -- Oversampling by 2x simplifies mip-mapping
-
-    -- Constants relating to control values such as LFO's or evelopes.
-    constant CTRL_SIZE              : integer := 16;
 
     -- Constants related to wavetables.
     constant WAVE_SIZE_LOG2         : integer := 11;
@@ -50,6 +50,14 @@ package wave_array_pkg is
     constant POLY_M                 : integer := 2**POLY_M_LOG2;
     constant POLY_N_LOG2            : integer := 4;
     constant POLY_N                 : integer := 2**POLY_N_LOG2;
+
+    -- Constants relating to control values such as LFO's or evelopes.
+    constant CTRL_SIZE              : integer := 16;
+
+    -- LFO contants
+    constant LFO_PHASE_WIDTH        : integer := 16;
+    constant LFO_MAX_RATE_LOG2      : integer := 8;
+    constant LFO_MAX_RATE           : integer := 2**LFO_MAX_RATE_LOG2;
 
     -- Oscillator downsample halfband filter constants.
     -- The odd phase (m = 1) is all zeroes except c(0) = 1.
@@ -109,7 +117,7 @@ package wave_array_pkg is
 
     -- Oscillator types.
     subtype t_osc_phase is -- Wavetable phase (index in wavetable + fractional part).
-        unsigned(MIPMAP_L0_SIZE_LOG2 + POLY_M_LOG2 + OSC_COEFF_FRAC - 1 downto 0); -- Fracional part of phase (m + fractional part).
+        unsigned(MIPMAP_L0_SIZE_LOG2 + POLY_M_LOG2 + OSC_COEFF_FRAC - 1 downto 0); -- Fractional part of phase (m + fractional part).
     subtype t_osc_phase_frac is unsigned(POLY_M_LOG2 + OSC_COEFF_FRAC - 1 downto 0); -- Fractional part of m (phase interpolation position).
     subtype t_osc_phase_position is unsigned(OSC_COEFF_FRAC - 1 downto 0);
 
@@ -250,8 +258,6 @@ package wave_array_pkg is
          index                  => 0
     );
 
-
-
     constant MIPMAP_THRESHOLDS : t_osc_phase_array(0 to MIPMAP_LEVELS - 2) := (
         to_unsigned(2**(t_osc_phase_frac'length), t_osc_phase'length), -- Go to next level when resample rate r < 1 (less than 1x supersampling).
         to_unsigned(2**(t_osc_phase_frac'length + 1), t_osc_phase'length),
@@ -292,7 +298,7 @@ package wave_array_pkg is
         x"FFF"
     );
 
-    -- Table of oscillator phase for each not of the highest octave supported (9).
+    -- Table of oscillator velocities for each note of the highest octave supported (9).
     -- Shifting these to the right gives the velocity for lower octaves.
     constant BASE_OCT_VELOCITIES : t_osc_phase_array(0 to 11) := (
          to_unsigned(Integer(2**t_osc_phase'length * 8372.16 / Real(2 * SAMPLE_RATE)), t_osc_phase'length),  -- C

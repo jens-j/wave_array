@@ -52,12 +52,14 @@ if __name__ == '__main__':
     # wave_array.set_led(True)
     # wave_array.get_led()
 
-    wave_array.write_sdram(0, list(range(16)))
+    wave_array.write_sdram(0, list(range(128)))
 
     try:
-        read_data = wave_array.read_sdram(0, 16)
+        read_data = wave_array.read_sdram(0, 128)
+        print(read_data)
     except Exception as e:
-        log.error(f'read_error: {e}')
+        log.error(e)
+
 
     print(wave_array.dev.read(WaveArray.REG_DEBUG_UART_STATE))
     print(wave_array.dev.read(WaveArray.REG_DEBUG_UART_COUNT))
@@ -66,15 +68,7 @@ if __name__ == '__main__':
     print(wave_array.dev.read(WaveArray.REG_DEBUG_SDRAM_STATE))
 
 
-    try:
-        read_data = wave_array.read_sdram(1, 16)
-    except Exception as e:
-        log.error(f'read_error: {e}')
 
-    try:
-        read_data = wave_array.read_sdram(12, 4)
-    except Exception as e:
-        log.error(f'read_error: {e}')
 
 
     # led_state = True

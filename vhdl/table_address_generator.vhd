@@ -8,8 +8,7 @@ use wave.wave_array_pkg.all;
 
 -- This entity keeps track of the phase of multiple oscillators and generates two addresses into a
 -- mipmap table for each oscillator each cycle. Two addresses are needed because the table
--- interpolator has to generate two samples before downsampling. The address generator only supplies
--- the base addess for the first input sample. The other addresses are incremented in the interpolator.
+-- interpolator has to generate two samples before downsampling.
 -- Besides the table addresses, this entity also outputs the fractional phase (used for polyphase
 -- coefficient selection) and a mipmap level (used for address increment overflow).
 entity table_address_generator is

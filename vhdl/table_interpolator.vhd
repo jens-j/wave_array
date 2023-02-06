@@ -269,12 +269,8 @@ begin
 
             if next_sample = '1' then
 
-                -- Flag an error if still busy when the next trigger comes.
-                if r.state = idle then
-                    r_in.output_samples <= r.sample_buffers;
-                else
-                    r_in.timeout <= '1';
-                end if;
+                -- Load new output samples from buffer.
+                r_in.output_samples <= r.sample_buffers;
 
                 r_in.sample_counter(0) <= 0;
                 r_in.sample_counter_next <= 0;

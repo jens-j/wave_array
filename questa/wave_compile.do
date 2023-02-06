@@ -25,9 +25,11 @@ vcom -2008 -work wave $SOURCE_DIR/table_address_generator.vhd
 vcom -2008 -work wave $SOURCE_DIR/table_interpolator.vhd
 vcom -2008 -work wave $SOURCE_DIR/halfband_filter.vhd
 vcom -2008 -work wave $SOURCE_DIR/oscillator.vhd
-vcom -2008 -work wave $SOURCE_DIR/tb_oscillator.vhd
 vcom -2008 -work wave $SOURCE_DIR/osc_controller.vhd
 vcom -2008 -work wave $SOURCE_DIR/mixer.vhd
+vcom -2008 -work wave $SOURCE_DIR/dma.vhd
+vcom -2008 -work wave $SOURCE_DIR/dma_control.vhd
+vcom -2008 -work wave $SOURCE_DIR/frame_dma.vhd
 vcom -2008 -work wave $SOURCE_DIR/synth_subsystem.vhd
 vcom -2008 -work wave $SOURCE_DIR/sdram_sim.vhd
 vcom -2008 -work wave $SOURCE_DIR/sdram_controller.vhd
