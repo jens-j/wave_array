@@ -93,6 +93,8 @@ begin
         sdram_count             => sdram_count
     );
 
+    -- Connect output registers.
+    sdram_outputs <= r.sdram_outputs;
 
     comb_process : process (r, sdram_inputs, s_sdram_output)
     begin

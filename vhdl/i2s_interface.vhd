@@ -25,8 +25,18 @@ architecture arch of i2s_interface is
 
     type t_state is (init_0, init_1, init_2, init_3, running);
 
-    signal r_state                  : t_state;
-    signal s_state                  : t_state;
+    type t_i2s_if_reg is record
+        state                       : t_state;
+        next_sample                 : std_logic;
+    end record;
+
+    constant REG_INIT               : t_i2s_if_reg := (
+        state                       => init_0,
+        next_sample                 => '0'
+    );
+
+    signal r, r_in                  : t_i2s_if_reg;
+
     signal s_serializer_next_sample : std_logic;
     signal s_serializer_sample_in   : std_logic_vector(2 * SAMPLE_SIZE - 1 downto 0);
     signal s_fifo_full              : std_logic;
@@ -59,30 +69,32 @@ begin
         wsel                        => wsel
     );
 
+    next_sample <= r.next_sample;
+
     -- Fill the fifo with zero's at startup to avoid sending too many fast next_sample pulses;
-    zero_proc : process (r_state, sample_in, s_fifo_full)
+    zero_proc : process (r, sample_in, s_fifo_full)
     begin
-        s_state <= r_state;
+        r_in <= r;
 
         s_fifo_din <= (others => '0');
-        next_sample <= '0';
+        r_in.next_sample <= '0';
 
         -- The fifo says it's full before it actually is three times.
-        if r_state = init_0 then
-            if s_fifo_full = '1' then s_state <= init_1; end if;
+        if r.state = init_0 and s_fifo_full = '1' then
+            r_in.state <= init_1;
 
-        elsif r_state = init_1 then
-            if s_fifo_full = '0' then s_state <= init_2; end if;
+        elsif r.state = init_1 and s_fifo_full = '0' then
+            r_in.state <= init_2;
 
-        elsif r_state = init_2 then
-            if s_fifo_full = '0' then s_state <= init_3; end if;
+        elsif r.state = init_2 and s_fifo_full = '0' then
+            r_in.state <= init_3;
 
-        elsif r_state = init_3 then
-            if s_fifo_full = '0' then s_state <= running; end if;
+        elsif r.state = init_3 and s_fifo_full = '0' then
+            r_in.state <= running;
 
-        else
+        elsif r.state = running then
             s_fifo_din <= std_logic_vector(sample_in(1)) & std_logic_vector(sample_in(0));
-            next_sample <= not s_fifo_full; -- Generate a next_sample pulse when the fifo not full.
+            r_in.next_sample <= not s_fifo_full; -- Generate a next_sample pulse when the fifo not full.
         end if;
     end process;
 
@@ -90,9 +102,9 @@ begin
     begin
         if rising_edge(system_clk) then
             if reset = '1' then
-                r_state <= init_0;
+                r <= REG_INIT;
             else
-                r_state <= s_state;
+                r <= r_in;
             end if;
         end if;
     end process;

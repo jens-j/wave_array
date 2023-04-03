@@ -106,13 +106,6 @@ begin
         & std_logic_vector(to_unsigned(s_addgen_output(0).mipmap_level, 8)) -- 2 char mipmap level
         & (0 to 16 - ADC_SAMPLE_SIZE - 1 => '0') & s_pot_value;          -- 4 char potentiometer value
 
-    -- Select wavetable and connect potentiometer to frame position.
-    s_dma_inputs(0).new_table <= '0';
-    s_dma_inputs(0).base_address <= (others => '0');
-    s_dma_inputs(0).n_frames_log2 <= 4;
-    s_dma_inputs(0).ctrl_value <=
-        unsigned(s_pot_value) & (0 to CTRL_SIZE - ADC_SAMPLE_SIZE - 1 => '0'); -- Resize potentiometer value to 16 bits left justified.
-
 
     clk_subsys : entity wave.clk_subsystem
     port map (

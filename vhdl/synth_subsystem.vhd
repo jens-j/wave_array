@@ -30,12 +30,38 @@ architecture arch of synth_subsystem is
     signal s_mixer_sample_out   : t_mono_sample;
     signal s_dma_outputs        : t_dma_output_array(0 to N_TABLES - 1);
     signal s_dma_inputs         : t_dma_input_array(0 to N_TABLES - 1);
-    signal s_frame_ctrl_values  : t_ctrl_value_array(0 to N_TABLES);
+    signal s_lfo_sine           : t_ctrl_value_array(0 to 0);
+    signal s_lfo_square         : t_ctrl_value_array(0 to 0);
+    signal s_lfo_saw            : t_ctrl_value_array(0 to 0);
+    signal s_lfo_velocity       : t_ctrl_value_array(0 to 0);
+
 
 begin
 
     sample(0) <= s_mixer_sample_out;
     sample(1) <= s_mixer_sample_out;
+
+    -- Select wavetable and connect lfo to frame position.
+    s_dma_inputs(0).new_table <= '0';
+    s_dma_inputs(0).base_address <= (others => '0');
+    s_dma_inputs(0).n_frames_log2 <= 4;
+    s_dma_inputs(0).frame_index <= to_integer(s_lfo_sine(0)(CTRL_SIZE - 1 downto CTRL_SIZE - 4));
+
+    s_lfo_velocity(0) <= x"FFFF";
+
+    lfo : entity wave.lfo
+    generic map (
+        N_OUTPUTS               => 1
+    )
+    port map (
+        clk                     => clk,
+        reset                   => reset,
+        next_sample             => next_sample,
+        velocity                => s_lfo_velocity,
+        sine_out                => s_lfo_sine,
+        square_out              => s_lfo_square,
+        saw_out                 => s_lfo_saw
+    );
 
     osc_controller : entity wave.osc_controller
     port map(
@@ -45,6 +71,8 @@ begin
         enable_midi             => enable_midi,
         voices                  => voices,
         analog_input            => analog_input,
+        frame_control           =>
+            t_osc_position(s_lfo_sine(0)(CTRL_SIZE - 5 downto CTRL_SIZE - 4 - OSC_SAMPLE_FRAC)),
         osc_inputs              => s_osc_inputs
     );
 
@@ -59,7 +87,6 @@ begin
         output_samples          => s_osc_samples,
         addrgen_output          => addrgen_output
     );
-
 
     mixer : entity wave.mixer
     generic map(

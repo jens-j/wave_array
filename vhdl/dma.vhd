@@ -58,7 +58,14 @@ architecture arch of dma is
 
 begin
 
-    comb_process : process (r, ctrl2dma, sdram_input)
+    -- Connect output registers.
+    dma2ctrl.busy <= r.busy;
+    sdram_input <= r.sdram_input;
+    wave_mem_wea <= r.wave_mem_wea;
+    wave_mem_addra <= r.wave_mem_addra;
+    wave_mem_dina <= r.wave_mem_dina;
+
+    comb_process : process (r, ctrl2dma, sdram_output)
     begin
 
         r_in <= r;
@@ -67,13 +74,6 @@ begin
         r_in.wave_mem_wea <= "0";
         r_in.wave_mem_addra <= (others => '0');
         r_in.wave_mem_dina <= (others => '0');
-
-        -- Connect output registers.
-        dma2ctrl.busy <= r.busy;
-        sdram_input <= r.sdram_input;
-        wave_mem_wea <= r.wave_mem_wea;
-        wave_mem_addra <= r.wave_mem_addra;
-        wave_mem_dina <= r.wave_mem_dina;
 
         if r.state = idle then
             if ctrl2dma.start = '1' then

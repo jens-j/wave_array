@@ -443,7 +443,7 @@ begin
 
             -- Pipeline stage 1: Read coefficient memory and send to interpolator. The values for the
             -- even and odd coefficient memories are swapped if the phase m is odd.
-            if r.odd_phase(PIPE_LEN_MEM) then
+            if r.odd_phase(PIPE_LEN_MEM) = '1' then
                 s_coeff_interp_a <= s_coeff_even_douta;
                 s_coeff_interp_c <= s_coeff_odd_douta & (0 to OSC_COEFF_FRAC - 1 => '0');
                 s_coeff_interp_d <= s_coeff_odd_douta;
@@ -475,7 +475,7 @@ begin
             end loop;
 
             -- Pipeline stage 9: Store output sample (store zero if oscillator is disabled).
-            if r.writeback(PIPE_LEN_TOTAL) then
+            if r.writeback(PIPE_LEN_TOTAL) = '1' then
                 if addrgen_input(r.osc_counter(PIPE_LEN_TOTAL)).enable = '1' then
                     r_in.sample_buffers(r.osc_counter(PIPE_LEN_TOTAL))
                         (r.sample_counter(PIPE_LEN_TOTAL)) <= t_mono_sample(

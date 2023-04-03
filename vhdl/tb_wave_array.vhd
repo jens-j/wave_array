@@ -14,41 +14,32 @@ architecture arch of tb_wave_array is
 
     signal clk              : std_logic := '0';
     signal resetn           : std_logic := '0';
-    signal sdata            : std_logic;
-    signal sclk             : std_logic;
-    signal wsel             : std_logic;
-    signal uart_rx          : std_logic;
-    signal uart_tx          : std_logic;
-    signal midi_uart        : std_logic;
-    signal leds             : std_logic_vector(15 downto 0);
-    signal switches         : std_logic_vector(15 downto 0);
-    signal xadc_3p          : std_logic;
-    signal xadc_3n          : std_logic;
-    signal display_segments : std_logic_vector(6 downto 0);
-    signal display_anodes   : std_logic_vector(7 downto 0);
-    signal sdram_clk        : std_logic;
-    signal sdram_advn       : std_logic;
-    signal sdram_cen        : std_logic;
-    signal sdram_cre        : std_logic;
-    signal sdram_oen        : std_logic;
-    signal sdram_wen        : std_logic;
-    signal sdram_lbn        : std_logic;
-    signal sdram_ubn        : std_logic;
-    signal sdram_wait       : std_logic;
-    signal sdram_address    : std_logic_vector(SDRAM_DEPTH_LOG2 - 1 downto 0);
-    signal sdram_dq         : std_logic_vector(SDRAM_WIDTH - 1 downto 0);
+    signal reset            : std_logic := '0';
+    signal sdata            : std_logic := '0';
+    signal sclk             : std_logic := '0';
+    signal wsel             : std_logic := '0';
+    signal uart_rx          : std_logic := '0';
+    signal uart_tx          : std_logic := '0';
+    signal midi_uart        : std_logic := '0';
+    signal leds             : std_logic_vector(15 downto 0) := (others => '0');
+    signal switches         : std_logic_vector(15 downto 0) := (others => '0');
+    signal xadc_3p          : std_logic := '0';
+    signal xadc_3n          : std_logic := '0';
+    signal display_segments : std_logic_vector(6 downto 0) := (others => '0');
+    signal display_anodes   : std_logic_vector(7 downto 0) := (others => '0');
+    signal sdram_clk        : std_logic := '0';
+    signal sdram_advn       : std_logic := '0';
+    signal sdram_cen        : std_logic := '0';
+    signal sdram_cre        : std_logic := '0';
+    signal sdram_oen        : std_logic := '0';
+    signal sdram_wen        : std_logic := '0';
+    signal sdram_lbn        : std_logic := '0';
+    signal sdram_ubn        : std_logic := '0';
+    signal sdram_wait       : std_logic := '0';
+    signal sdram_address    : std_logic_vector(SDRAM_DEPTH_LOG2 - 1 downto 0) := (others => '0');
+    signal sdram_dq         : std_logic_vector(SDRAM_WIDTH - 1 downto 0) := (others => '0');
 
 begin
-
-    midi_tester : entity wave.midi_tester
-    generic map (
-        FILENAME                => "four_notes.txt"
-    )
-    port map (
-        clk                     => clk,
-        reset                   => not resetn,
-        uart_tx                 => midi_uart
-    );
 
     uart_tester : entity wave.uart_tester
     generic map (
@@ -56,9 +47,19 @@ begin
     )
     port map (
         clk                     => clk,
-        reset                   => not resetn,
+        reset                   => reset,
         uart_rx                 => uart_tx,
         uart_tx                 => uart_rx
+    );
+
+    midi_tester : entity wave.midi_tester
+    generic map (
+        FILENAME                => "four_notes.txt"
+    )
+    port map (
+        clk                     => clk,
+        reset                   => reset,
+        uart_tx                 => midi_uart
     );
 
     wave_array : entity wave.wave_array
@@ -111,6 +112,8 @@ begin
 
     clk <= not clk after 5 ns;
     resetn <= '1' after 1 us;
+    reset <= not resetn;
     switches <= x"9400";
+
 
 end architecture;

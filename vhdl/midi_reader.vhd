@@ -4,6 +4,7 @@ use std.textio.all;
 library ieee;
 use ieee.std_logic_1164.all;
 use ieee.numeric_std.all;
+use ieee.std_logic_textio.all;
 
 
 entity midi_reader is
@@ -59,7 +60,7 @@ begin
             next when v_line_in'length = 0;  -- Skip empty lines
 
             --string_init(v_command);
-            string_read(v_line_in, v_command, v_string_length);
+            read(v_line_in, v_command);
 
             -- Skip comment lines (strings start at 1).
             if v_command(1) = '#' then next; end if;
@@ -75,7 +76,8 @@ begin
 
                 loop
                     -- Wait until the midi uart fifo has room
-                    wait until clk'event and full = '0'; -- This does not work in modelsim
+                    --wait until full = '0';
+                    --wait until rising_edge(clk); -- This does not work in modelsim
 
                     hread(v_line_in, v_midi_byte, v_hread_success);
 

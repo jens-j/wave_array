@@ -25,7 +25,7 @@ package wave_array_pkg is
     constant SAMPLE_SIZE            : integer := 16;
     constant SAMPLE_MAX             : integer := 2**(SAMPLE_SIZE - 1) - 1;
     constant SAMPLE_MIN             : integer := -2**(SAMPLE_SIZE - 1);
-    constant SAMPLE_RATE            : integer := 96_000; -- Oversampling by 2x simplifies mip-mapping
+    constant SAMPLE_RATE            : integer := 48_000;
 
     -- Constants related to wavetables.
     constant WAVE_SIZE_LOG2         : integer := 11;
@@ -33,7 +33,7 @@ package wave_array_pkg is
     constant WAVE_MAX_FRAMES_LOG2   : integer := 8;
     constant WAVE_MAX_FRAMES        : integer := 2**WAVE_MAX_FRAMES_LOG2;
 
-    -- Constants relating to complete mipmap table with multiple waves.
+    -- Constants relating to complete mipmap table of a single frame.
     constant MIPMAP_LEVELS          : integer := 10; -- 1 per octave for octaves 0 - 9. This covers the entire midi range except octave -1 which is inaudible.
     constant MIPMAP_L0_SIZE_LOG2    : integer := 11;
     constant MIPMAP_L0_SIZE         : integer := 2**MIPMAP_L0_SIZE_LOG2;
@@ -54,10 +54,30 @@ package wave_array_pkg is
     -- Constants relating to control values such as LFO's or evelopes.
     constant CTRL_SIZE              : integer := 16;
 
-    -- LFO contants
-    constant LFO_PHASE_WIDTH        : integer := 16;
-    constant LFO_MAX_RATE_LOG2      : integer := 8;
-    constant LFO_MAX_RATE           : integer := 2**LFO_MAX_RATE_LOG2;
+    -- LFO contants.
+    constant LFO_PHASE_SIZE         : integer := 48; -- Phase accumulator bit width.
+    constant LFO_PHASE_INT          : integer := 3; -- Integer bit width of phase.
+    constant LFO_PHASE_FRAC         : integer := LFO_PHASE_SIZE - LFO_PHASE_INT; -- Fractional bit width of phase.
+    constant LFO_MIN_RATE           : real := 0.125;
+    constant LFO_MAX_RATE           : real := 256.0;
+
+    -- Some of these constants are to big to pre calculate using 32 bit integers.
+    constant LFO_MIN_VELOCITY       : unsigned(LFO_PHASE_SIZE - 1 downto 0) := resize(x"aec33e1", LFO_PHASE_SIZE);
+    -- constant LFO_MAX_VELOCITY       : unsigned(LFO_PHASE_SIZE - 1 downto 0) := resize(x"57619f0fb", LFO_PHASE_SIZE); -- 16 Hz
+    constant LFO_MAX_VELOCITY       : unsigned(LFO_PHASE_SIZE - 1 downto 0) := resize(x"57619f0fb3", LFO_PHASE_SIZE); -- 256 Hz:
+    -- constant LFO_VELOCITY_STEP      : unsigned(LFO_PHASE_SIZE - 1 downto 0) := resize(x"56b2d", LFO_PHASE_SIZE);-- Velocity increase for every bit of the LFO input control value.
+    constant LFO_VELOCITY_STEP      : unsigned(LFO_PHASE_SIZE - 1 downto 0) := resize(x"5756b2", LFO_PHASE_SIZE);-- Velocity increase for every bit of the LFO input control value.
+
+
+    -- constant LFO_MIN_VELOCITY       : integer :=
+    --     integer(LFO_MIN_RATE / real(SAMPLE_RATE) * real(2**(LFO_PHASE_FRAC + 1)));
+    --
+    -- constant LFO_MAX_VELOCITY       : integer :=
+    --     integer(LFO_MAX_RATE / real(SAMPLE_RATE) * real(2**(LFO_PHASE_FRAC + 1)));
+    --
+    -- constant LFO_VELOCITY_STEP      : integer := -- Velocity increase for every bit of the LFO input control value.
+    --     (LFO_MAX_VELOCITY - LFO_MIN_VELOCITY) / 2**CTRL_SIZE;
+
 
     -- Oscillator downsample halfband filter constants.
     -- The odd phase (m = 1) is all zeroes except c(0) = 1.
@@ -175,7 +195,7 @@ package wave_array_pkg is
         new_table               : std_logic; -- Pulse indicating a new table should be loaded.
         base_address            : unsigned(SDRAM_DEPTH_LOG2 - 1 downto 0); -- SDRAM base address of current mipmap table.
         n_frames_log2           : integer range 0 to 8; -- Log2 of number of frames in the wavetable.
-        ctrl_value              : t_ctrl_value; --
+        frame_index             : integer range 0 to WAVE_MAX_FRAMES_LOG2 - 1; -- Current frame index.
     end record;
 
     type t_dma_output is record
@@ -300,6 +320,7 @@ package wave_array_pkg is
 
     -- Table of oscillator velocities for each note of the highest octave supported (9).
     -- Shifting these to the right gives the velocity for lower octaves.
+    -- Note that the wavetable runs at 2x the sample rate before it downsamples.
     constant BASE_OCT_VELOCITIES : t_osc_phase_array(0 to 11) := (
          to_unsigned(Integer(2**t_osc_phase'length * 8372.16 / Real(2 * SAMPLE_RATE)), t_osc_phase'length),  -- C
          to_unsigned(Integer(2**t_osc_phase'length * 8869.76 / Real(2 * SAMPLE_RATE)), t_osc_phase'length),  -- C#

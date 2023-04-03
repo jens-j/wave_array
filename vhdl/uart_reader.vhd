@@ -4,6 +4,7 @@ use std.textio.all;
 library ieee;
 use ieee.std_logic_1164.all;
 use ieee.numeric_std.all;
+use ieee.std_logic_textio.all;
 
 library xil_defaultlib;
 
@@ -95,7 +96,6 @@ begin
         file input_file             : text;
         variable v_line_in          : line;
         variable v_command          : string(1 to 6); -- Strings cannot start at 0.
-        variable v_string_length    : integer := 0;
         variable v_address          : std_logic_vector(31 downto 0);
         variable v_length           : std_logic_vector(31 downto 0);
         variable v_write_data       : std_logic_vector(16 * SDRAM_MAX_BURST - 1 downto 0);
@@ -108,7 +108,6 @@ begin
         variable v_hread_success    : boolean;
         variable v_read_data        : std_logic_vector(31 downto 0);
         variable v_hexfile          : string(1 to 120);
-        variable v_
 
     begin
 
@@ -126,7 +125,7 @@ begin
 
             readline(input_file, v_line_in);
             next when v_line_in'length = 0;  -- Skip empty lines
-            string_read(v_line_in, v_command, v_string_length);
+            read(v_line_in, v_command);
 
             -- Skip comment lines (strings start at 1).
             next when v_command(1) = '#';
@@ -195,7 +194,7 @@ begin
 
             elsif v_command = "writeb" then
                 hread(v_line_in, v_address);
-                sread(v_line_in, v_hexfile);
+
                 hread(v_line_in,
                     v_write_data(16 * to_integer(unsigned(v_burst_length)) - 1 downto 0));
                 v_serial_length := 9 + 2 * to_integer(unsigned(v_burst_length));
@@ -210,10 +209,12 @@ begin
                     report "received "
                         & integer'image(to_integer(unsigned(v_reply_opcode(7 downto 0))));
                 end if;
+
+            elsif v_command = "writef" then
+
+                read(v_line_in, v_hexfile);
+
             end if;
-
-        elsif v_command = "writef" then
-
 
         end loop;
 

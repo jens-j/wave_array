@@ -15,6 +15,7 @@ entity osc_controller is
         enable_midi             : in  std_logic; -- 1: use midi, 0: use potentiometer.
         voices                  : in  t_voice_array(0 to N_VOICES - 1);
         analog_input            : in  std_logic_vector(ADC_SAMPLE_SIZE - 1 downto 0);
+        frame_control           : in  t_osc_position;
         osc_inputs              : out t_osc_input_array(0 to N_VOICES - 1)
     );
 end entity;
@@ -47,7 +48,7 @@ begin
 
     osc_inputs <= r.osc_inputs;
 
-    combinatorial : process (r, next_sample, enable_midi, voices, analog_input)
+    combinatorial : process (r, next_sample, enable_midi, voices, analog_input, frame_control)
         variable v_enable : std_logic;
         variable v_velocity : t_osc_phase;
         variable v_position : t_osc_position;
@@ -76,8 +77,7 @@ begin
             -- Use the potentiometer as frame position input.
             if r.enable_midi = '1' then
                 v_enable := r.voices(r.osc_counter).enable;
-                v_position := unsigned(
-                    analog_input(ADC_SAMPLE_SIZE - 1 downto ADC_SAMPLE_SIZE - OSC_SAMPLE_FRAC));
+                v_position := frame_control;
                 v_velocity := shift_right(BASE_OCT_VELOCITIES(r.voices(r.osc_counter).note.key),
                                           9 - r.voices(r.osc_counter).note.octave);
 
