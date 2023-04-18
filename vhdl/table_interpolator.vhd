@@ -283,8 +283,8 @@ begin
 
         -- Start new cycle
         elsif r.state = init then
-            r_in.frame_0_index <= dma_output.frame_0_index;
-            r_in.frame_1_index <= dma_output.frame_1_index;
+            r_in.frame_0_index <= dma_output.buffer_index;
+            r_in.frame_1_index <= to_integer(to_unsigned(dma_output.buffer_index, 2) + 1); -- Cast to unsigned for correct overflow.
             r_in.odd_phase(0) <= v_odd_phase_0;
             r_in.phase_position(0) <= addrgen_input(0).phase(0)
                 (OSC_COEFF_FRAC + v_level - 1 downto v_level);
@@ -309,7 +309,7 @@ begin
             if r.coeff_counter < POLY_N - 1 then
                 r_in.coeff_counter <= r.coeff_counter + 1;
 
-                 -- Pre increment the osc_counter and sample_counter because they are needed for indexing in the next cycle.
+                 -- Pre-increment the osc_counter and sample_counter because they are needed for indexing in the next cycle.
                 if r.coeff_counter = POLY_N - 2 then
 
                     if r.osc_counter(0) < N_VOICES - 1 then

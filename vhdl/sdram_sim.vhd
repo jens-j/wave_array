@@ -5,8 +5,8 @@ use ieee.numeric_std.all;
 library wave;
 use wave.wave_array_pkg.all;
 
--- SDRAM simulation model. It can only handle burst reads and writes and writes to the configuration
--- register. Writing to this register does nothing. The model also does not consider page boundaries.
+-- SDRAM simulation model. Only uses the DEPTH_LOG2 lsb.
+-- Configuration register is writable but does nothing.
 entity sdram_sim is
     generic (
         DEPTH_LOG2              : integer := 8
@@ -74,10 +74,11 @@ begin
         case r.state is
 
             when idle =>
+                r_in.sdram_wait <= '0';
+
                 if SDRAM_CEN = '0' and SDRAM_ADVN = '0' then
 
                     r_in.address <= to_integer(unsigned(SDRAM_ADDRESS(DEPTH_LOG2 - 1 downto 0)));
-                    r_in.sdram_wait <= '0';
 
                     if SDRAM_CRE = '1' then
 

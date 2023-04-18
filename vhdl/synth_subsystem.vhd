@@ -41,13 +41,20 @@ begin
     sample(0) <= s_mixer_sample_out;
     sample(1) <= s_mixer_sample_out;
 
-    -- Select wavetable and connect lfo to frame position.
-    s_dma_inputs(0).new_table <= '0';
-    s_dma_inputs(0).base_address <= (others => '0');
-    s_dma_inputs(0).n_frames_log2 <= 4;
-    s_dma_inputs(0).frame_index <= to_integer(s_lfo_sine(0)(CTRL_SIZE - 1 downto CTRL_SIZE - 4));
-
     s_lfo_velocity(0) <= x"FFFF";
+
+    dma_input_proc : process(dma_inputs)
+    begin
+    -- Select wavetable and connect lfo to frame position.
+    -- s_dma_inputs(0).new_table <= '0';
+    -- s_dma_inputs(0).base_address <= (others => '0');
+    -- s_dma_inputs(0).n_frames_log2 <= 4;
+    -- s_dma_inputs(0).frame_index <= to_integer(s_lfo_sine(0)(CTRL_SIZE - 1 downto CTRL_SIZE - 4));
+        s_dma_inputs <= dma_inputs;
+        s_dma_inputs(0).frame_index <= 0;
+    end process;
+
+
 
     lfo : entity wave.lfo
     generic map (
@@ -71,8 +78,8 @@ begin
         enable_midi             => enable_midi,
         voices                  => voices,
         analog_input            => analog_input,
-        frame_control           =>
-            t_osc_position(s_lfo_sine(0)(CTRL_SIZE - 5 downto CTRL_SIZE - 4 - OSC_SAMPLE_FRAC)),
+        frame_control           => --(others => '1'),
+            t_osc_position(s_lfo_sine(0)(CTRL_SIZE - 1 downto CTRL_SIZE - OSC_SAMPLE_FRAC)),
         osc_inputs              => s_osc_inputs
     );
 

@@ -14,6 +14,11 @@ entity register_file is
         register_input          : in  t_register_input;
         register_output         : out t_register_output;
 
+        -- Frame DMA outputs.
+        base_address            : out unsigned(SDRAM_DEPTH_LOG2 - 1 downto 0);
+        n_frames_log2           : out integer range 0 to 8;
+        new_table               : out std_logic;
+
         status                  : in  t_status;
         config                  : out t_config
     );
@@ -28,27 +33,37 @@ architecture arch of register_file is
         register_output         : t_register_output;
         faults                  : std_logic_vector(15 downto 0);
         led                     : std_logic;
+        base_address            : unsigned(SDRAM_DEPTH_LOG2 - 1 downto 0);
+        n_frames_log2           : integer range 0 to 8;
+        new_table               : std_logic;
     end record;
 
     constant REG_INIT : t_packet_engine_reg := (
         state                   => idle,
         register_output         => ('0', '0', (others => '0')),
         faults                  => (others => '0'),
-        led                     => '0'
+        led                     => '0',
+        base_address            => (others => '0'),
+        n_frames_log2           => 0,
+        new_table               => '0'
     );
 
     signal r, r_in              : t_packet_engine_reg;
 
 begin
 
-    register_output <= r.register_output;
-    config.led <= r.led;
+    register_output             <= r.register_output;
+    config.led                  <= r.led;
+    base_address                <= r.base_address;
+    n_frames_log2               <= r.n_frames_log2;
+    new_table                   <= r.new_table;
 
     comb_process : process (r, register_input, status)
     begin
 
         r_in <= r;
         r_in.register_output <= ('0', '0', (others => '0'));
+        r_in.new_table <= '0'; 
 
         -- Register fault sticky bits.
         if status.uart_timeout = '1' then
@@ -90,6 +105,18 @@ begin
                 r_in.register_output.read_data <=
                     std_logic_vector(to_unsigned(status.sdram_state, REGISTER_WIDTH));
 
+            elsif register_input.address = REG_TABLE_BASE_L then
+                r_in.register_output.read_data <=
+                    std_logic_vector(r.base_address(REGISTER_WIDTH - 1 downto 0));
+
+            elsif register_input.address = REG_TABLE_BASE_H then
+                r_in.register_output.read_data(SDRAM_DEPTH_LOG2 - REGISTER_WIDTH - 1 downto 0) <=
+                    std_logic_vector(r.base_address(SDRAM_DEPTH_LOG2 - 1 downto REGISTER_WIDTH));
+
+            elsif register_input.address = REG_TABLE_FRAMES then
+                r_in.register_output.read_data <=
+                    std_logic_vector(to_unsigned(r.n_frames_log2, WAVE_MAX_FRAMES_LOG2_LOG2));
+
             else
                 r_in.register_output.fault <= '1';
                 r_in.faults(FAULT_REG_ADDRESS) <= '1';
@@ -102,8 +129,24 @@ begin
 
             if register_input.address = REG_LED then
                 r_in.led <= register_input.write_data(0);
+
             elsif register_input.address = REG_FAULT then
                 r_in.faults <= (others => '0');
+
+            elsif register_input.address = REG_TABLE_BASE_L then
+                r_in.base_address(REGISTER_WIDTH - 1 downto 0) <= unsigned(register_input.write_data);
+
+            elsif register_input.address = REG_TABLE_BASE_H then
+                r_in.base_address(SDRAM_DEPTH_LOG2 - 1 downto REGISTER_WIDTH) <= unsigned(
+                    register_input.write_data(SDRAM_DEPTH_LOG2 - REGISTER_WIDTH - 1 downto 0));
+
+            elsif register_input.address = REG_TABLE_FRAMES then
+                r_in.n_frames_log2 <= to_integer(unsigned(
+                    register_input.write_data(WAVE_MAX_FRAMES_LOG2_LOG2 - 1 downto 0)));
+
+            elsif register_input.address = REG_TABLE_NEW then
+                r_in.new_table <= register_input.write_data(0);
+
             else
                 r_in.register_output.fault <= '1';
                 r_in.faults(FAULT_REG_ADDRESS) <= '1';

@@ -149,6 +149,9 @@ begin
         reset                   => s_reset_ah,
         register_output         => s_register_output,
         register_input          => s_register_input,
+        base_address            => s_dma_inputs(0).base_address,
+        n_frames_log2           => s_dma_inputs(0).n_frames_log2,
+        new_table               => s_dma_inputs(0).new_table,
         status                  => s_status,
         config                  => s_config
     );

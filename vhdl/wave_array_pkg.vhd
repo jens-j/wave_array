@@ -1,6 +1,7 @@
 library ieee;
 use ieee.std_logic_1164.all;
 use ieee.numeric_std.all;
+use ieee.math_real.all;
 
 package wave_array_pkg is
 
@@ -13,7 +14,12 @@ package wave_array_pkg is
     constant SYS_FREQ               : integer := 100_000_000;
     constant SDRAM_FREQ             : integer := 100_000_000;
 
-    constant UART_BAUD              : integer := 1_000_000; -- 115_200;
+    constant UART_BAUD              : integer := 1_000_000 -- 115_200;
+    --pragma synthesis_off
+                                      * 50
+    --pragma synthesis_on
+    ;
+
     constant UART_MAX_BURST_LOG2    : integer := 12;
     constant UART_MAX_BURST         : integer := 2**UART_MAX_BURST_LOG2;
 
@@ -31,6 +37,7 @@ package wave_array_pkg is
     constant WAVE_SIZE_LOG2         : integer := 11;
     constant WAVE_SIZE              : integer := 2**WAVE_SIZE_LOG2; -- Number of samples per wave table.
     constant WAVE_MAX_FRAMES_LOG2   : integer := 8;
+    constant WAVE_MAX_FRAMES_LOG2_LOG2 : integer := integer(ceil(log2(real(WAVE_MAX_FRAMES_LOG2)))); -- Needed for register width.
     constant WAVE_MAX_FRAMES        : integer := 2**WAVE_MAX_FRAMES_LOG2;
 
     -- Constants relating to complete mipmap table of a single frame.
@@ -102,9 +109,16 @@ package wave_array_pkg is
 
     -- Register file constants.
     constant REGISTER_WIDTH         : integer := 16;
-    constant REG_RESET              : unsigned := x"0000000"; -- wo 1 bit  | soft reset.
-    constant REG_FAULT              : unsigned := x"0000001"; -- rw 16 bit | fault flags.
-    constant REG_LED                : unsigned := x"0000002"; -- rw 1 bit  | on-board led register.
+
+    constant REG_RESET              : unsigned := x"0000000"; -- wo 1 bit  | Soft reset.
+    constant REG_FAULT              : unsigned := x"0000001"; -- rw 16 bit | Fault flags.
+    constant REG_LED                : unsigned := x"0000002"; -- rw 1 bit  | On-board led register.
+
+    constant REG_TABLE_BASE_L       : unsigned := x"0000010"; -- rw 16 bit | Bit 15 downto 0 of the wavetable base SDRAM address.
+    constant REG_TABLE_BASE_H       : unsigned := x"0000011"; -- rw 7 bit  | Bit 22 downto 16 of the wavetable base SDRAM address.
+    constant REG_TABLE_FRAMES       : unsigned := x"0000012"; -- rw 4 bit  | Log2 of the number of frames in the wavetable. Cannot be > WAVE_MAX_FRAMES_LOG2.
+    constant REG_TABLE_NEW          : unsigned := x"0000013"; -- wo 1 bit  | Writing to this register triggers initialization of the wavetable BRAMS.
+
     constant REG_DEBUG_UART_COUNT   : unsigned := x"0000100"; -- ro 16 bit | UART burst read byte count.
     constant REG_DEBUG_UART_FIFO_COUNT : unsigned := x"0000101"; -- ro 16 bit | SDRAM to UART fifo count.
     constant REG_DEBUG_UART_STATE   : unsigned := x"0000102"; -- ro 16 bit | SDRAM to UART fifo count.
@@ -199,8 +213,7 @@ package wave_array_pkg is
     end record;
 
     type t_dma_output is record
-        frame_0_index           : integer range 0 to 3; -- Frame x buffer index.
-        frame_1_index           : integer range 0 to 3; -- Frame x+1 buffer index.
+        buffer_index            : integer range 0 to 3; -- Lower table buffer index.
         wave_mem_wea            : std_logic_vector(0 downto 0);
         wave_mem_addra          : std_logic_vector(MIPMAP_TABLE_SIZE_LOG2 + 1 downto 0);
         wave_mem_dina           : std_logic_vector(SAMPLE_SIZE - 1 downto 0);
@@ -265,8 +278,7 @@ package wave_array_pkg is
     );
 
     constant FRAME_DMA_OUTPUT_INIT : t_dma_output := (
-        frame_0_index           => 0,
-        frame_1_index           => 1,
+        buffer_index            => 0,
         wave_mem_wea            => (others => '0'),
         wave_mem_addra          => (others => '0'),
         wave_mem_dina           => (others => '0')

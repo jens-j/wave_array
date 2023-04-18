@@ -93,7 +93,7 @@ begin
 
     sdram : entity wave.sdram_sim
     generic map (
-        DEPTH_LOG2              => 8
+        DEPTH_LOG2              => 13
     )
     port map (
         SDRAM_RESETN            => resetn,

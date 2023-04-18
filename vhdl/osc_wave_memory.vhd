@@ -64,7 +64,7 @@ begin
         if rising_edge(write_clk) then
             if write_enable = "1" then
 
-                v_addr := to_integer(unsigned(write_address(MIPMAP_TABLE_SIZE_LOG2 - 1 downto 2)));
+                v_addr := to_integer(unsigned(write_address(MIPMAP_TABLE_SIZE_LOG2 + 1 downto 2)));
 
                 -- The lowest 2 bits of the write address select the word within the memory line.
                 case write_address(1 downto 0) is

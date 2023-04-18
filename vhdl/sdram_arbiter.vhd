@@ -2,6 +2,8 @@ library ieee;
 use ieee.std_logic_1164.all;
 use ieee.numeric_std.all;
 
+library xil_defaultlib;
+
 library wave;
 use wave.wave_array_pkg.all;
 
@@ -51,7 +53,8 @@ architecture arch of sdram_arbiter is
         frame_count             : integer range 0 to SDRAM_DEPTH;
         burst_count             : integer range 0 to SDRAM_MAX_BURST;
         address                 : unsigned(SDRAM_DEPTH_LOG2 - 1 downto 0);
-        write_buffer            : std_logic_vector(SDRAM_WIDTH - 1 downto 0);
+        prefetch_count          : integer range 0 to SDRAM_MAX_BURST;
+        fifo_wr_en              : std_logic;
     end record;
 
     constant REG_INIT : t_arbiter_reg := (
@@ -63,21 +66,43 @@ architecture arch of sdram_arbiter is
         frame_count             => 0,
         burst_count             => 0,
         address                 => (others => '0'),
-        write_buffer            => (others => '0')
+        prefetch_count          => 0,
+        fifo_wr_en              => '0'
     );
 
     signal r, r_in              : t_arbiter_reg;
+
+    signal s_fifo_din           : std_logic_vector(SDRAM_WIDTH - 1 downto 0);
+    signal s_fifo_rd_en         : std_logic;
+    signal s_fifo_dout          : std_logic_vector(SDRAM_WIDTH - 1 downto 0);
+    signal s_fifo_full          : std_logic;
+    signal s_fifo_empty         : std_logic;
+    signal s_fifo_data_count    : std_logic_vector(4 downto 0);
+
     signal s_sdram_input        : t_sdram_input;
     signal s_sdram_output       : t_sdram_output;
 
 begin
+
+    prefetch : entity xil_defaultlib.arbiter_fifo
+    port map (
+        clk                     => clk,
+        srst                    => reset,
+        din                     => s_fifo_din,
+        wr_en                   => r.fifo_wr_en,
+        rd_en                   => s_fifo_rd_en,
+        dout                    => s_fifo_dout,
+        full                    => s_fifo_full,
+        empty                   => s_fifo_empty,
+        data_count              => s_fifo_data_count
+    );
 
     sdram_controller : entity wave.sdram_controller
     port map (
         clk                     => clk,
         reset                   => reset,
         pll_locked              => pll_locked,
-        sdram_input             => r.sdram_input,
+        sdram_input             => s_sdram_input,
         sdram_output            => s_sdram_output,
         SDRAM_ADVN              => SDRAM_ADVN,
         SDRAM_CEN               => SDRAM_CEN,
@@ -96,11 +121,22 @@ begin
     -- Connect output registers.
     sdram_outputs <= r.sdram_outputs;
 
+    s_sdram_input.read_enable <= r.sdram_input.read_enable;
+    s_sdram_input.write_enable <= r.sdram_input.write_enable;
+    s_sdram_input.burst_length <= r.sdram_input.burst_length;
+    s_sdram_input.address <= r.sdram_input.address;
+    s_sdram_input.write_data <= s_fifo_dout;
+
     comb_process : process (r, sdram_inputs, s_sdram_output)
     begin
 
         r_in <= r;
+        r_in.fifo_wr_en <= '0';
         r_in.sdram_outputs <= (others => SDRAM_OUTPUT_INIT);
+
+        -- Mux prefetch fifo input.
+        s_fifo_din <= sdram_inputs(r.index).write_data;
+        s_fifo_rd_en <= '0';
 
         -- Check for read- or write-enables.
         if r.state = idle then
@@ -154,10 +190,9 @@ begin
                 end if;
             end if;
 
-        -- Fill write buffer
+        -- Start prefetching.
         elsif r.state = write_0 then
-            r_in.write_buffer <= sdram_inputs(r.index).write_data;
-            r_in.sdram_outputs(r.index).write_req <= '1';
+            r_in.prefetch_count <= r.frame_count;
             r_in.state <= write_1;
 
         -- Issue burst reads untils the entire frame is read.
@@ -178,32 +213,39 @@ begin
 
             r_in.state <= write_2;
 
-        -- Pass write words from the client to the SDRAM. Use a 1 word write buffer to accomodate
-        -- the one cycle delay introduced by the arbiter.
+        -- Pass write words from the prefetch fifo to the SDRAM.
         elsif r.state <= write_2 then
 
             if s_sdram_output.ack = '1' then
                 r_in.sdram_input.write_enable <= '0';
             end if;
 
-            r_in.sdram_input.write_data <= r.write_buffer;
-
-            -- Load write buffer except on last write cycle.
-            if s_sdram_output.write_req = '1' and r.burst_count > 1 then
-                r_in.write_buffer <= sdram_inputs(r.index).write_data;
-                r_in.sdram_outputs(r.index).write_req <= '1';
-                r_in.burst_count <= r.burst_count - 1;
+            if s_sdram_output.write_req = '1' then
+                r_in.sdram_input.write_data <= s_fifo_dout;
+                s_fifo_rd_en <= '1';
             end if;
 
             if s_sdram_output.done = '1' then
                 if r.frame_count = 0 then
                     r_in.state <= idle;
-                    r_in.sdram_outputs(r.index).done <= '1';
                 else
-                    r_in.state <= write_0;
+                    r_in.state <= write_1;
                 end if;
             end if;
         end if;
+
+        if r.prefetch_count > 0 then
+
+            r_in.fifo_wr_en <= '1';
+            r_in.prefetch_count <= r.prefetch_count - 1;
+
+            if r.prefetch_count = 1 then
+                r_in.sdram_outputs(r.index).done <= '1';
+            else
+                r_in.sdram_outputs(r.index).write_req <= '1';
+            end if;
+        end if;
+
     end process;
 
     reg_process : process (clk)

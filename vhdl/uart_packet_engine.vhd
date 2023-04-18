@@ -352,12 +352,6 @@ begin
                 end if;
             end if;
 
-            -- -- Check if all data is in the SDRAM fifo (count is in bytes while burstlength is in 16 bit words).
-            -- if '0' & s_u2s_fifo_rd_data_count(SDRAM_MAX_BURST_LOG2 - 1 downto 1)
-            --         = r.word_buffer(SDRAM_MAX_BURST_LOG2 - 1 downto 0) then
-            --     r_in.state <= write_block_1;
-            -- end if;
-
         -- Issue SDRAM write and wait for ack.
         elsif r.state = write_block_2 then
             if sdram_output.ack = '1' then

@@ -40,10 +40,10 @@ architecture arch of uart_subsystem is
     signal s_tx_done            : std_logic;
     signal s_tx_dv              : std_logic;
     signal s_tx_active          : std_logic;
-    signal s_tx_byte            : std_logic_vector(7 downto 0);
+    signal s_tx_fifo_dout       : std_logic_vector(7 downto 0);
 
-    signal s_rx_dv              : std_logic;
-    signal s_rx_byte            : std_logic_vector(7 downto 0);
+    signal s_rx_fifo_wr_en      : std_logic;
+    signal s_rx_fifo_din        : std_logic_vector(7 downto 0);
 
     signal s_tx_fifo_wr_en      : std_logic;
     signal s_tx_fifo_empty      : std_logic;
@@ -87,8 +87,8 @@ begin
     )
     port map(
         i_Clk                   => clk,
-        o_RX_DV                 => s_rx_dv,
-        o_RX_Byte               => s_rx_byte,
+        o_RX_DV                 => s_rx_fifo_wr_en,
+        o_RX_Byte               => s_rx_fifo_din,
         i_RX_Serial             => UART_RX
     );
 
@@ -97,8 +97,8 @@ begin
     port map (
         clk                     => clk,
         srst                    => reset,
-        din                     => s_rx_byte,
-        wr_en                   => s_rx_dv,
+        din                     => s_rx_fifo_din,
+        wr_en                   => s_rx_fifo_wr_en,
         rd_en                   => s_rx_fifo_rd_en,
         dout                    => s_rx_fifo_dout,
         full                    => open,
@@ -114,7 +114,7 @@ begin
     port map(
         i_Clk                   => clk,
         i_TX_DV                 => s_tx_dv,
-        i_TX_Byte               => s_tx_byte,
+        i_TX_Byte               => s_tx_fifo_dout,
         o_TX_Active             => s_tx_active,
         o_TX_Serial             => UART_TX,
         o_TX_Done               => s_tx_done
@@ -128,7 +128,7 @@ begin
         din                     => s_tx_fifo_din,
         wr_en                   => s_tx_fifo_wr_en,
         rd_en                   => s_tx_fifo_rd_en,
-        dout                    => s_tx_byte,
+        dout                    => s_tx_fifo_dout,
         full                    => open,
         empty                   => s_tx_fifo_empty
     );

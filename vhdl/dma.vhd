@@ -69,7 +69,6 @@ begin
     begin
 
         r_in <= r;
-        r_in.busy <= '0';
         r_in.sdram_input <= SDRAM_INPUT_INIT;
         r_in.wave_mem_wea <= "0";
         r_in.wave_mem_addra <= (others => '0');
@@ -89,16 +88,17 @@ begin
         -- Issue SDRAM read. and wait for ack.
         elsif r.state = sdram_read then
 
-            r_in.sdram_input.read_enable <= '1';
             r_in.sdram_input.address <= r.sdram_address;
             r_in.sdram_input.burst_length <= MIPMAP_TABLE_SIZE;
 
             if sdram_output.ack = '1' then
                 r_in.state <= transfer;
+            else
+                r_in.sdram_input.read_enable <= '1';
             end if;
 
         -- Send SDRAM read data to wavetable.
-        -- Sampels are written with stride 4 and offset by the table index.
+        -- Samples are written with stride 4 and offset by the table index.
         elsif r.state = transfer then
 
             if sdram_output.read_valid = '1' then

@@ -33,8 +33,7 @@ begin
             dma_input               => dma_inputs(i),
             dma2ctrl                => s_dma2ctrl(i),
             ctrl2dma                => s_ctrl2dma(i),
-            frame_0_index           => dma_outputs(i).frame_0_index,
-            frame_1_index           => dma_outputs(i).frame_1_index
+            buffer_index            => dma_outputs(i).buffer_index 
         );
 
         dma : entity wave.dma
