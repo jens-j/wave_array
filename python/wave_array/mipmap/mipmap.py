@@ -126,20 +126,21 @@ class Mipmap:
         print(self.subtables[0])
 
         counter = 0
-        filename = filename if filename else f"{self.name}_mipmap.data"
         mode = 'a' if filename else 'w'
+        filename = filename if filename else f"{self.name}_mipmap.data"
         with open(filename, mode) as f:
             for subtable in self.subtables:
                 print(subtable)
                 for value in subtable:
-                    f.write(f"{value & 0xFFFF:04X}")
-                    f.write(f"{value & 0xFFFF:04X}")
-                    f.write(f"{value & 0xFFFF:04X}")
+                    # f.write(f"{value & 0xFFFF:04X}")
+                    # f.write(f"{value & 0xFFFF:04X}")
+                    # f.write(f"{value & 0xFFFF:04X}")
                     f.write(f"{value & 0xFFFF:04X}\n")
                     counter += 1
 
             for i in range(4096 - counter):
-                f.write(f"0000000000000000\n")
+                # f.write(f"0000000000000000\n")
+                f.write(f"0000\n")
 
 
 def main():

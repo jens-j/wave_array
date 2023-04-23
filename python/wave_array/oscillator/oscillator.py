@@ -4,8 +4,8 @@ from scipy.io import wavfile
 import matplotlib.pyplot as plt
 from matplotlib import mlab
 
-from wavearray.mipmap.mipmap import Mipmap
-from wavearray.oscillator.polyphase import PolyphaseFilter
+from wave_array.mipmap.mipmap import Mipmap
+from wave_array.oscillator.polyphase import PolyphaseFilter
 
 class Oscillator:
 
@@ -39,7 +39,7 @@ class Oscillator:
 
 
     def generate_waveform(self, cycles):
-        """ Generate a waveform of lenght cycles. """
+        """ Generate a waveform of length cycles. """
 
         phase = 0.0 # [0.0, table_size] Table phase.
         velocity = self.rho # [0.5, 1.0] Oscillator normalized angular velocity (table steps / cycle).
