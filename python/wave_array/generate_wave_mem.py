@@ -4,25 +4,40 @@ import matplotlib.pyplot as plt
 from wave_array.mipmap.mipmap import Mipmap
 from wave_array.mipmap import waveforms
 
-# Generate some waveforms.
-wave_a = waveforms.saw()
-wave_b = waveforms.square()
+# Generate some mipmap tables.
+frame_tables = []
+frame_tables.append(Mipmap('frame_0', waveforms.sine(), prefilter=True))
+frame_tables.append(Mipmap('frame_1', waveforms.triangle(), prefilter=True))
+frame_tables.append(Mipmap('frame_2', waveforms.saw(), prefilter=True))
+frame_tables.append(Mipmap('frame_3', waveforms.square(), prefilter=True))
 
-wave_a_table = Mipmap('wave_a', wave_a, prefilter=True)
-wave_b_table = Mipmap('wave_b', wave_b)
 counter = 0
 
-# Write a table with the saw mipmap in position 0, sqaure in position 1 and zeros in position 2 and 3.
+
 with open('osc_wave_memory.coe', 'w') as f:
-    for sub_wave_a, sub_wave_b in zip(wave_a_table.subtables, wave_b_table.subtables):
-        for wave_a_sample, wave_b_sample in zip(sub_wave_a, sub_wave_b):
-            # f.write("0000000000000000\n")
-            # f.write("00000000")
-            f.write(f"{int(wave_b_sample) & 0xFFFF:04X}")
-            f.write(f"{int(wave_a_sample) & 0xFFFF:04X}")
-            f.write(f"{int(wave_b_sample) & 0xFFFF:04X}")
-            f.write(f"{int(wave_a_sample) & 0xFFFF:04X}\n")
+
+    # for sub_frame_0, sub_frame_1 in zip(wave_0_table.subtables, wave_1_table.subtables):
+    #     for frame_0_sample, frame_1_sample in zip(sub_frame_0, sub_frame_1):
+    
+    #         # f.write("0000000000000000\n")
+    #         # f.write("00000000")
+    #         f.write(f"{int(wave_1_sample) & 0xFFFF:04X}")
+    #         f.write(f"{int(wave_0_sample) & 0xFFFF:04X}")
+    #         f.write(f"{int(wave_1_sample) & 0xFFFF:04X}")
+    #         f.write(f"{int(wave_0_sample) & 0xFFFF:04X}\n")
+    #         counter += 1
+
+    for level in range(len(frame_tables[0].subtables)):
+
+        for sample in range(len(frame_tables[0].subtables[level])):
+
+            for i in range(4):
+                f.write(f"{int(frame_tables[i].subtables[level][sample]) & 0xFFFF:04X}") 
+
+            f.write('\n')   
             counter += 1
+
+ 
 
     # Pad with zero's
     for i in range(4096 - counter):

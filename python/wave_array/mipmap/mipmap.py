@@ -148,11 +148,13 @@ def main():
     from wave_array.mipmap import waveforms
 
     # Generate some waveforms.
+    sine = waveforms.sine()
+    triangle = waveforms.triangle()
     saw = waveforms.saw()
     square = waveforms.square()
     acid = waveforms.acid()
 
-    mm = Mipmap('saw', saw, prefilter=True)
+    mm = Mipmap('sine', sine, prefilter=True)
     mm.plot()
     mm.write_table()
 

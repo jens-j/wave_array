@@ -1,9 +1,0 @@
-send 95 1f 7F   # note G1 on with max velocity
-send 95 2B 7F   # note G2 on with max velocity
-send 95 40 7F   # note E4 on with max velocity
-send 95 68 7F   # note G#7 on with max velocity
-wait 5          # wait for 5 ms
-#send 95 1f 00   # note G1 off using 0 velocity
-#send 95 2B 00   # note G2 off using 0 velocity
-#send 96 40 00   # note E4 off using note-off command
-#send 96 68 00   # note G#7 off using note-off command

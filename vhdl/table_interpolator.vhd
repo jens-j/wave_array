@@ -146,7 +146,7 @@ begin
 
     wave_mem : entity wave.osc_wave_memory
     generic map (
-        init_file               => "osc_wave_memory_saw_square.coe"
+        init_file               => INPUT_FILE_PATH & "osc_wave_memory_basic.coe"
     )
     port map (
         write_clk               => clk,
@@ -164,7 +164,7 @@ begin
     -- ROM that holds the filter coefficients for the even phases.
     coeff_mem_even : entity wave.osc_coeff_memory
     generic map (
-        init_file               => "osc_coeff_memory_even.coe"
+        init_file               => INPUT_FILE_PATH & "osc_coeff_memory_even.coe"
     )
     port map (
         clk                     => clk,
@@ -175,7 +175,7 @@ begin
     -- ROM that holds the filter coefficients for the odd phases.
     coeff_mem_odd : entity wave.osc_coeff_memory
     generic map (
-        init_file               => "osc_coeff_memory_odd.coe"
+        init_file               => INPUT_FILE_PATH & "osc_coeff_memory_odd.coe"
     )
     port map (
         clk                     => clk,

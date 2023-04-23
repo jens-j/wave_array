@@ -10,7 +10,7 @@ use wave.wave_array_pkg.all;
 
 entity uart_tester is
     generic (
-        FILENAME                : string := "uart.txt"
+        FILENAME                : string
     );
     port (
         clk                     : in  std_logic;
@@ -47,7 +47,7 @@ begin
 
     reader : entity wave.uart_reader
     generic map (
-        FILENAME                => "uart.txt"
+        FILENAME                => FILENAME
     )
     port map (
         clk                     => clk,
