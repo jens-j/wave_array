@@ -114,15 +114,15 @@ architecture arch of table_interpolator is
 
     -- Frame interpolation signals ((a - d) * b + c = p).
     signal s_frame_interp_a     : std_logic_vector(SAMPLE_SIZE - 1 downto 0);
-    signal s_frame_interp_b     : std_logic_vector(OSC_SAMPLE_FRAC - 1 downto 0);
-    signal s_frame_interp_c     : std_logic_vector(SAMPLE_SIZE + OSC_SAMPLE_FRAC - 1 downto 0); -- 16.8 fixed point.
+    signal s_frame_interp_b     : std_logic_vector(OSC_SAMPLE_FRAC downto 0); -- Add '0' msb to make unsigned (1.8 fixed point).
+    signal s_frame_interp_c     : std_logic_vector(SAMPLE_SIZE + OSC_SAMPLE_FRAC downto 0); -- 17.8 fixed point.
     signal s_frame_interp_d     : std_logic_vector(SAMPLE_SIZE - 1 downto 0);
     signal s_frame_interp_p     : std_logic_vector(SAMPLE_SIZE + 1 downto 0); -- Output is only the integer part + two overflow bits
 
     -- Coefficient interpolation signals ([a - d] * b + c = p).
     signal s_coeff_interp_a     : std_logic_vector(POLY_COEFF_SIZE - 1 downto 0);
-    signal s_coeff_interp_b     : std_logic_vector(OSC_COEFF_FRAC - 1 downto 0);
-    signal s_coeff_interp_c     : std_logic_vector(POLY_COEFF_SIZE + OSC_COEFF_FRAC - 1 downto 0); -- 16.8 fixed point.
+    signal s_coeff_interp_b     : std_logic_vector(OSC_COEFF_FRAC downto 0);
+    signal s_coeff_interp_c     : std_logic_vector(POLY_COEFF_SIZE + OSC_COEFF_FRAC downto 0); -- 17.8 fixed point.
     signal s_coeff_interp_d     : std_logic_vector(POLY_COEFF_SIZE - 1 downto 0);
     signal s_coeff_interp_p     : std_logic_vector(POLY_COEFF_SIZE + 1 downto 0); -- Output is only the integer part + two overflow bits
 
@@ -146,13 +146,16 @@ begin
 
     wave_mem : entity wave.osc_wave_memory
     generic map (
-        init_file               => "osc_wave_memory.coe"
+        init_file               => "osc_wave_memory_saw_square.coe"
     )
     port map (
         write_clk               => clk,
-        write_enable            => dma_output.wave_mem_wea,
-        write_address           => dma_output.wave_mem_addra,
-        write_data              => dma_output.wave_mem_dina,
+        -- write_enable            => dma_output.wave_mem_wea,
+        -- write_address           => dma_output.wave_mem_addra,
+        -- write_data              => dma_output.wave_mem_dina,
+        write_enable            => "0",
+        write_address           => (others => '0'),
+        write_data              => (others => '0'),
         read_clk                => clk,
         read_address            => s_wave_mem_addrb,
         read_data               => s_wave_mem_doutb
@@ -180,7 +183,7 @@ begin
         data                    => s_coeff_odd_douta
     );
 
-    -- DSP slice confifgured to perform linear interpolation of two frames (samples).
+    -- DSP slice configured to perform linear interpolation of two frames (samples).
     -- Implements (A - D) * B + C = P.
     frame_interp: entity xil_defaultlib.osc_interpolation_gen
     port map (
@@ -192,7 +195,7 @@ begin
         P                       => s_frame_interp_p
     );
 
-    -- DSP slice confifgured to perform linear interpolation of filter phases (coefficients).
+    -- DSP slice configured to perform linear interpolation of filter phases (coefficients).
     -- Implements (A - D) * B + C = P.
     coeff_interp: entity xil_defaultlib.osc_interpolation_gen
     port map (
@@ -228,7 +231,7 @@ begin
         variable v_level : t_mipmap_level;
         variable v_odd_phase_0 : std_logic;
         variable v_frame_interp_a : std_logic_vector(SAMPLE_SIZE - 1 downto 0);
-        variable v_frame_interp_c : std_logic_vector(SAMPLE_SIZE + OSC_SAMPLE_FRAC - 1 downto 0);
+        variable v_frame_interp_c : std_logic_vector(SAMPLE_SIZE + OSC_SAMPLE_FRAC downto 0);
         variable v_frame_interp_d : std_logic_vector(SAMPLE_SIZE - 1 downto 0);
 
     begin
@@ -417,43 +420,48 @@ begin
 
             -- Pipeline stage 1: Read wave memory (mux by active buffer indices) and send to frame
             -- interpolator. Interpolation is performed in a single DSP slice (4 stage pipeline).
-            -- (A - D) * B + C = (sampleB - sampleA) * frac(position) + sampleA.
+            -- (D - A) * B + C = (sampleB - sampleA) * frac(position) + sampleA.
             -- The input samples are also shifted right by one bit to leave some headroom to
             -- aavoid overflow in the filter.
-            v_frame_interp_a := s_wave_mem_doutb((r.frame_1_index + 1) * SAMPLE_SIZE - 1
-                                    downto r.frame_1_index * SAMPLE_SIZE);
-
-            v_frame_interp_c := s_wave_mem_doutb((r.frame_0_index + 1) * SAMPLE_SIZE - 1
-                                    downto r.frame_0_index * SAMPLE_SIZE)
-                                    & (0 to OSC_SAMPLE_FRAC - 1 => '0');
-
-            v_frame_interp_d := s_wave_mem_doutb((r.frame_0_index + 1) * SAMPLE_SIZE - 1
+            s_frame_interp_a <= s_wave_mem_doutb((r.frame_0_index + 1) * SAMPLE_SIZE - 1
                                     downto r.frame_0_index * SAMPLE_SIZE);
 
-            s_frame_interp_b <= std_logic_vector(r.frame_position(PIPE_LEN_MEM - 1));
+            -- C needs to be sign extended by one bit because of operand B.
+            -- Also append zeros to align with the multiplication.
+            s_frame_interp_c <= s_wave_mem_doutb((r.frame_0_index + 1) * SAMPLE_SIZE - 1)      -- sign extention
+                                    & s_wave_mem_doutb((r.frame_0_index + 1) * SAMPLE_SIZE - 1 -- operand
+                                        downto r.frame_0_index * SAMPLE_SIZE) 
+                                    & (0 to OSC_SAMPLE_FRAC - 1 => '0');                       -- shift
 
-            s_frame_interp_a <= v_frame_interp_a(SAMPLE_SIZE - 1)
-                & v_frame_interp_a(SAMPLE_SIZE - 1 downto 1);
+            s_frame_interp_d <= s_wave_mem_doutb((r.frame_1_index + 1) * SAMPLE_SIZE - 1
+                                    downto r.frame_1_index * SAMPLE_SIZE);
 
-            s_frame_interp_c <= v_frame_interp_c(SAMPLE_SIZE + OSC_SAMPLE_FRAC - 1)
-                & v_frame_interp_c(SAMPLE_SIZE + OSC_SAMPLE_FRAC - 1 downto 1);
+            s_frame_interp_b <= '0' & std_logic_vector(r.frame_position(PIPE_LEN_MEM - 1)); -- Add zero msb to make B unsigned.
 
-            s_frame_interp_d <= v_frame_interp_d(SAMPLE_SIZE - 1)
-                & v_frame_interp_d(SAMPLE_SIZE - 1 downto 1);
+            -- s_frame_interp_a <= v_frame_interp_a(SAMPLE_SIZE - 1)
+            --     & v_frame_interp_a(SAMPLE_SIZE - 1 downto 1);
+
+            -- s_frame_interp_c <= v_frame_interp_c(SAMPLE_SIZE + OSC_SAMPLE_FRAC - 1)
+            --     & v_frame_interp_c(SAMPLE_SIZE + OSC_SAMPLE_FRAC - 1 downto 1);
+
+            -- s_frame_interp_d <= v_frame_interp_d(SAMPLE_SIZE - 1)
+            --     & v_frame_interp_d(SAMPLE_SIZE - 1 downto 1);
 
             -- Pipeline stage 1: Read coefficient memory and send to interpolator. The values for the
             -- even and odd coefficient memories are swapped if the phase m is odd.
             if r.odd_phase(PIPE_LEN_MEM) = '1' then
-                s_coeff_interp_a <= s_coeff_even_douta;
-                s_coeff_interp_c <= s_coeff_odd_douta & (0 to OSC_COEFF_FRAC - 1 => '0');
-                s_coeff_interp_d <= s_coeff_odd_douta;
-            else
                 s_coeff_interp_a <= s_coeff_odd_douta;
-                s_coeff_interp_c <= s_coeff_even_douta & (0 to OSC_COEFF_FRAC - 1 => '0');
                 s_coeff_interp_d <= s_coeff_even_douta;
+                s_coeff_interp_c <= s_coeff_odd_douta(POLY_COEFF_SIZE - 1) -- Sign extend by one bit to make unsigned.
+                    & s_coeff_odd_douta & (0 to OSC_COEFF_FRAC - 1 => '0');
+            else
+                s_coeff_interp_a <= s_coeff_even_douta;
+                s_coeff_interp_d <= s_coeff_odd_douta;
+                s_coeff_interp_c <= s_coeff_even_douta(POLY_COEFF_SIZE - 1) -- Sign extend by one bit to make unsigned.
+                    & s_coeff_even_douta & (0 to OSC_COEFF_FRAC - 1 => '0');
             end if;
 
-            s_coeff_interp_b <= std_logic_vector(r.phase_position(PIPE_LEN_MEM - 1));
+            s_coeff_interp_b <= '0'& std_logic_vector(r.phase_position(PIPE_LEN_MEM - 1));
 
             -- Pipeline stage 5: Connect linear interpolator outputs to the MACC.
             if r.zero_coeff(PIPE_SUM_INTP) = '0' then

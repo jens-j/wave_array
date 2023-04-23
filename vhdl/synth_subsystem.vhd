@@ -78,7 +78,7 @@ begin
         enable_midi             => enable_midi,
         voices                  => voices,
         analog_input            => analog_input,
-        frame_control           => --(others => '1'),
+        frame_control           => -- (OSC_SAMPLE_FRAC - 1 => '1', others => '1'),
             t_osc_position(s_lfo_sine(0)(CTRL_SIZE - 1 downto CTRL_SIZE - OSC_SAMPLE_FRAC)),
         osc_inputs              => s_osc_inputs
     );

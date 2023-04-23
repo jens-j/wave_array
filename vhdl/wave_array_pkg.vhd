@@ -11,6 +11,8 @@ package wave_array_pkg is
     --pragma synthesis_on
     ;
 
+    constant INPUT_FILE_PATH        : string := "../../../../../../vhdl/data/";
+
     constant SYS_FREQ               : integer := 100_000_000;
     constant SDRAM_FREQ             : integer := 100_000_000;
 

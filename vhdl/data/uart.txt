@@ -1,0 +1,12 @@
+write  00000002 0001                            # enable LED
+read   00000002                                 # read back LED
+
+#wait   1                                        # wait 1 ms
+#writeb 00060708 00000004 0001000200030004000    # write [1,2,3,4] to SDRAM address 0x00060708
+#readb  00060708 00000004                        # read back SDRAM
+#read   00000100                                 # read uart count
+
+#wait   1
+writef 00000000 00002000                        # write wavetable to the SDRAM
+write  00000012 0001                            # write n_frames_log2
+write  00000013 0001                            # initialize wavetable

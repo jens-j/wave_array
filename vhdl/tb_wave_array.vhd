@@ -43,7 +43,7 @@ begin
 
     uart_tester : entity wave.uart_tester
     generic map (
-        FILENAME                => "uart.txt"
+        FILENAME                => INPUT_FILE_PATH & "uart.txt"
     )
     port map (
         clk                     => clk,
@@ -54,7 +54,7 @@ begin
 
     midi_tester : entity wave.midi_tester
     generic map (
-        FILENAME                => "four_notes.txt"
+        FILENAME                => INPUT_FILE_PATH & "four_notes.txt"
     )
     port map (
         clk                     => clk,
