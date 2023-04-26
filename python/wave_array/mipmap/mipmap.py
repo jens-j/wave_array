@@ -154,7 +154,7 @@ def main():
     square = waveforms.square()
     acid = waveforms.acid()
 
-    mm = Mipmap('sine', sine, prefilter=True)
+    mm = Mipmap('sine', acid, prefilter=True)
     mm.plot()
     mm.write_table()
 

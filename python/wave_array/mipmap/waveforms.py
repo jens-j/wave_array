@@ -2,6 +2,7 @@ import os
 
 import numpy as np
 from scipy.io import wavfile
+import matplotlib.pyplot as plt
 
 from wave_array.mipmap.mipmap import Mipmap
 
@@ -38,3 +39,15 @@ def acid():
     wave = wavfile.read(f"{os.path.dirname(__file__)}\Acid.wav")[1][:2048]
     wave *= Mipmap.SAMPLE_MAX / max(wave) # Normalize to sample size.
     return wave
+
+def main():
+    plt.figure()
+    plt.plot(sine())
+    plt.plot(triangle())
+    plt.plot(saw())
+    plt.plot(square())
+    plt.show()
+
+if __name__ == '__main__':
+    main()
+

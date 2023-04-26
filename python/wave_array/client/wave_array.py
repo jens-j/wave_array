@@ -42,24 +42,23 @@ class WaveArray:
 
 
 
-if __name__ == '__main__':
+def main():
 
     logging.basicConfig(level=logging.DEBUG)
     log = logging.getLogger(__name__)
 
     wave_array = WaveArray()
 
-    # wave_array.set_led(True)
-    # wave_array.get_led()
+    wave_array.set_led(True)
+    wave_array.get_led()
 
-    wave_array.write_sdram(0, list(range(128)))
+    wave_array.write_sdram(0, list(range(256)))
 
     try:
-        read_data = wave_array.read_sdram(0, 128)
+        read_data = wave_array.read_sdram(0, 256)
         print(read_data)
     except Exception as e:
         log.error(e)
-
 
     print(wave_array.dev.read(WaveArray.REG_DEBUG_UART_STATE))
     print(wave_array.dev.read(WaveArray.REG_DEBUG_UART_COUNT))
@@ -67,12 +66,12 @@ if __name__ == '__main__':
     print(wave_array.dev.read(WaveArray.REG_DEBUG_SDRAM_COUNT))
     print(wave_array.dev.read(WaveArray.REG_DEBUG_SDRAM_STATE))
 
-
-
-
-
     # led_state = True
     # while True:
     #     wave_array.set_led(led_state)
     #     led_state = not led_state
     #     time.sleep(0.5)
+
+
+if __name__ == '__main__':
+    main()
