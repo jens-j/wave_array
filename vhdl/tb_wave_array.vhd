@@ -43,7 +43,7 @@ begin
 
     uart_tester : entity wave.uart_tester
     generic map (
-        FILENAME                => INPUT_FILE_PATH & "uart.txt"
+        FILENAME                => SIM_FILE_PATH & "uart.txt"
     )
     port map (
         clk                     => clk,
@@ -54,7 +54,7 @@ begin
 
     midi_tester : entity wave.midi_tester
     generic map (
-        FILENAME                => INPUT_FILE_PATH & "four_notes.txt"
+        FILENAME                => SIM_FILE_PATH & "four_notes.txt"
     )
     port map (
         clk                     => clk,
@@ -93,7 +93,7 @@ begin
 
     sdram : entity wave.sdram_sim
     generic map (
-        DEPTH_LOG2              => 13
+        DEPTH_LOG2              => 15
     )
     port map (
         SDRAM_RESETN            => resetn,

@@ -52,7 +52,7 @@ architecture arch of sdram_controller is
         sdram_oen               : std_logic;
         sdram_wen               : std_logic;
         sdram_a                 : std_logic_vector(SDRAM_DEPTH_LOG2 - 1 downto 0);
-        sdram_dq_in             : std_logic_vector(SDRAM_WIDTH - 1 downto 0);
+        -- sdram_dq_in             : std_logic_vector(SDRAM_WIDTH - 1 downto 0);
         sdram_dq_out            : std_logic_vector(SDRAM_WIDTH - 1 downto 0);
         sdram_wait              : std_logic;
         counter                 : integer range 0 to SDRAM_DEPTH;
@@ -72,7 +72,7 @@ architecture arch of sdram_controller is
         sdram_oen               => '1',
         sdram_wen               => '1',
         sdram_a                 => (others => '0'),
-        sdram_dq_in             => (others => '0'),
+        -- sdram_dq_in             => (others => '0'),
         sdram_dq_out            => (others => '0'),
         sdram_wait              => '0',
         counter                 => 0,
@@ -109,7 +109,7 @@ begin
         r_in.sdram_cen <= '1';
         r_in.sdram_a <= (others => '0');
         r_in.sdram_wait <= SDRAM_WAIT;
-        r_in.sdram_dq_in <= SDRAM_DQ;
+        -- r_in.sdram_dq_in <= SDRAM_DQ;
 
         -- Connect SDRAM interface output registers.
         SDRAM_LBN <= '0';
@@ -199,7 +199,8 @@ begin
                 if r.sdram_wait = '1' then
                     r_in.read_count <= r.read_count + 1;
                     r_in.sdram_output.read_valid <= '1';
-                    r_in.sdram_output.read_data <= r.sdram_dq_in;
+                    -- r_in.sdram_output.read_data <= r.sdram_dq_in;
+                    r_in.sdram_output.read_data <= SDRAM_DQ;
                     if r.counter > 0 then
                         r_in.counter <= r.counter - 1;
                     else

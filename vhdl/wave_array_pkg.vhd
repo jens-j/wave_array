@@ -11,7 +11,8 @@ package wave_array_pkg is
     --pragma synthesis_on
     ;
 
-    constant INPUT_FILE_PATH        : string := "../../../../../../vhdl/data/";
+    constant SIM_FILE_PATH          : string := "../../../../../../vhdl/data/";
+    constant SYNTH_FILE_PATH        : string := "../../../../vhdl/data/";
 
     constant SYS_FREQ               : integer := 100_000_000;
     constant SDRAM_FREQ             : integer := 100_000_000;
@@ -210,8 +211,8 @@ package wave_array_pkg is
     type t_dma_input is record
         new_table               : std_logic; -- Pulse indicating a new table should be loaded.
         base_address            : unsigned(SDRAM_DEPTH_LOG2 - 1 downto 0); -- SDRAM base address of current mipmap table.
-        n_frames_log2           : integer range 0 to 8; -- Log2 of number of frames in the wavetable.
-        frame_index             : integer range 0 to WAVE_MAX_FRAMES_LOG2 - 1; -- Current frame index.
+        n_frames_log2           : integer range 0 to WAVE_MAX_FRAMES_LOG2; -- Log2 of number of frames in the wavetable - 1.
+        frame_index             : integer range 0 to WAVE_MAX_FRAMES - 1; -- Current frame index.
     end record;
 
     type t_dma_output is record
@@ -357,5 +358,19 @@ package wave_array_pkg is
         x"F97B", x"0850", x"F4F2", x"0FE0", x"E518", x"5166"
     );
 
+    function GET_INPUT_FILE_PATH return string;
 
 end package;
+
+package body wave_array_pkg is
+
+    function GET_INPUT_FILE_PATH return string is
+    begin
+        if SIMULATION then 
+            return SIM_FILE_PATH;
+        else 
+            return SYNTH_FILE_PATH;
+        end if;
+    end;
+
+end package body wave_array_pkg;

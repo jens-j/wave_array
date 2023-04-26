@@ -146,16 +146,13 @@ begin
 
     wave_mem : entity wave.osc_wave_memory
     generic map (
-        init_file               => INPUT_FILE_PATH & "osc_wave_memory_basic.coe"
+        init_file               => GET_INPUT_FILE_PATH & "osc_wave_memory_basic.coe"
     )
     port map (
         write_clk               => clk,
-        -- write_enable            => dma_output.wave_mem_wea,
-        -- write_address           => dma_output.wave_mem_addra,
-        -- write_data              => dma_output.wave_mem_dina,
-        write_enable            => "0",
-        write_address           => (others => '0'),
-        write_data              => (others => '0'),
+        write_enable            => dma_output.wave_mem_wea,
+        write_address           => dma_output.wave_mem_addra,
+        write_data              => dma_output.wave_mem_dina,
         read_clk                => clk,
         read_address            => s_wave_mem_addrb,
         read_data               => s_wave_mem_doutb
@@ -164,7 +161,7 @@ begin
     -- ROM that holds the filter coefficients for the even phases.
     coeff_mem_even : entity wave.osc_coeff_memory
     generic map (
-        init_file               => INPUT_FILE_PATH & "osc_coeff_memory_even.coe"
+        init_file               => GET_INPUT_FILE_PATH & "osc_coeff_memory_even.coe"
     )
     port map (
         clk                     => clk,
@@ -175,7 +172,7 @@ begin
     -- ROM that holds the filter coefficients for the odd phases.
     coeff_mem_odd : entity wave.osc_coeff_memory
     generic map (
-        init_file               => INPUT_FILE_PATH & "osc_coeff_memory_odd.coe"
+        init_file               => GET_INPUT_FILE_PATH & "osc_coeff_memory_odd.coe"
     )
     port map (
         clk                     => clk,

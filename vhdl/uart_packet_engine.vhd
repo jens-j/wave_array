@@ -151,7 +151,7 @@ begin
 
     -- Connect asymmetric fifo read side to the sdram interface.
     sdram_input.write_data <= s_u2s_fifo_dout;
-    s_u2s_fifo_rd_en <= sdram_output.write_req;
+    s_u2s_fifo_rd_en <= sdram_output.write_req or sdram_output.done;
 
     comb_process : process (r, rx_empty, rx_data, register_output, sdram_output, s_s2u_fifo_dout,
         s_s2u_fifo_empty, s_u2s_fifo_rd_data_count, s_s2u_fifo_rd_data_count)

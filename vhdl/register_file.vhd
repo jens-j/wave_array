@@ -115,7 +115,7 @@ begin
 
             elsif register_input.address = REG_TABLE_FRAMES then
                 r_in.register_output.read_data <=
-                    std_logic_vector(to_unsigned(r.n_frames_log2, WAVE_MAX_FRAMES_LOG2_LOG2));
+                    std_logic_vector(to_unsigned(r.n_frames_log2, REGISTER_WIDTH));
 
             else
                 r_in.register_output.fault <= '1';

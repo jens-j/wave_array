@@ -22,14 +22,15 @@ end entity;
 
 architecture arch of dma_control is
 
-    type t_state is (idle, init_0, init_1, init_2, init_3, init_4, init_5,
+    type t_state is (idle, dma_start, init_0, init_1, init_2, init_3, init_4, init_5,
         increment_0, increment_1, decrement_0, decrement_1);
 
     type t_dma_ctrl_reg is record
         state                   : t_state;
+        next_state              : t_state;
         ctrl2dma                : t_ctrl2dma;
         buffer_index            : unsigned(1 downto 0); -- Unsigned for easy overflow.
-        frame_index             : unsigned(WAVE_MAX_FRAMES_LOG2 - 1 downto 0);
+        frame_index             : unsigned(WAVE_MAX_FRAMES_LOG2 downto 0); -- Can also be WAVE_MAX_FRAMES + 1.
         new_table               : std_logic; -- Register this signal because it is a pulse.
         base_address            : unsigned(SDRAM_DEPTH_LOG2 - 1 downto 0);
         n_frames_log2           : integer range 0 to 8;
@@ -37,6 +38,7 @@ architecture arch of dma_control is
 
     constant REG_INIT : t_dma_ctrl_reg := (
         state                   => init_0,
+        next_state              => idle,
         ctrl2dma                => CTRL2DMA_INIT,
         buffer_index            => "00",
         frame_index             => (others => '0'),
@@ -72,103 +74,136 @@ begin
 
         -- Read frame position input.
         if r.state = init_0 then
-            r_in.frame_index <= to_unsigned(dma_input.frame_index, WAVE_MAX_FRAMES_LOG2);
+            r_in.frame_index <= '0' & to_unsigned(dma_input.frame_index, WAVE_MAX_FRAMES_LOG2);
             r_in.state <= init_1;
 
         -- Write current frame (frame_0).
-        elsif r.state = init_1 then
-            if dma2ctrl.busy = '0' then
+        elsif r.state = init_1 and dma2ctrl.busy = '0' then
 
-                v_address_offset := r.frame_index
-                    * to_unsigned(MIPMAP_TABLE_SIZE, SDRAM_DEPTH_LOG2 - WAVE_MAX_FRAMES_LOG2);
+            v_address_offset := r.frame_index
+                * to_unsigned(MIPMAP_TABLE_SIZE, SDRAM_DEPTH_LOG2 - WAVE_MAX_FRAMES_LOG2 - 1);
 
-                r_in.ctrl2dma.start <= '1';
-                r_in.ctrl2dma.index <= to_integer(r.buffer_index + 2);
-                r_in.ctrl2dma.address <=
-                    r.base_address + v_address_offset(SDRAM_DEPTH_LOG2 - 1 downto 0);
+            r_in.ctrl2dma.start <= '1';
+            r_in.ctrl2dma.index <= to_integer(r.buffer_index + 2);
+            r_in.ctrl2dma.address <=
+                r.base_address + v_address_offset(SDRAM_DEPTH_LOG2 - 1 downto 0);
 
-                r_in.state <= init_2;
-            end if;
+            r_in.state <= dma_start;
+            r_in.next_state <= init_2;
 
         -- Wait for DMA to start.
-        elsif r.state = init_2 then
+        elsif r.state = dma_start then
             if dma2ctrl.busy = '1' then
-                r_in.state <= init_3;
+                r_in.state <= r.next_state;
             end if;
 
         -- Write frame index+1 (frame_1).
-        elsif r.state = init_3 then
-            if dma2ctrl.busy = '0' then
+        elsif r.state = init_2 and dma2ctrl.busy = '0' then
 
-                v_address_offset := (r.frame_index + 1)
-                    * to_unsigned(MIPMAP_TABLE_SIZE, SDRAM_DEPTH_LOG2 - WAVE_MAX_FRAMES_LOG2);
+            v_address_offset := (r.frame_index + 1)
+                * to_unsigned(MIPMAP_TABLE_SIZE, SDRAM_DEPTH_LOG2 - WAVE_MAX_FRAMES_LOG2 - 1);
+
+            r_in.ctrl2dma.start <= '1';
+            r_in.ctrl2dma.index <= to_integer(r.buffer_index + 3);
+            r_in.ctrl2dma.address <=
+                r.base_address + v_address_offset(SDRAM_DEPTH_LOG2 - 1 downto 0);
+
+            r_in.state <= dma_start;
+            r_in.next_state <= init_3;
+
+
+        -- Wait from DMA to complete and update table pointer.
+        -- Then start writing frame index+2 if required.
+        elsif r.state = init_3 and dma2ctrl.busy = '0' then
+
+            r_in.buffer_index <= r.buffer_index + 2;
+
+            if r.frame_index + 2 <= 2**dma_input.n_frames_log2 then 
+
+                v_address_offset := (r.frame_index + 2)
+                    * to_unsigned(MIPMAP_TABLE_SIZE, SDRAM_DEPTH_LOG2 - WAVE_MAX_FRAMES_LOG2 - 1);
 
                 r_in.ctrl2dma.start <= '1';
-                r_in.ctrl2dma.index <= to_integer(r.buffer_index + 3);
+                r_in.ctrl2dma.index <= to_integer(r.buffer_index + 4);
                 r_in.ctrl2dma.address <=
                     r.base_address + v_address_offset(SDRAM_DEPTH_LOG2 - 1 downto 0);
 
+                r_in.state <= dma_start;
+                r_in.next_state <= init_4;
+            else 
                 r_in.state <= init_4;
             end if;
 
-        -- Wait for DMA to start.
-        elsif r.state = init_4 then
-            if dma2ctrl.busy = '1' then
-                r_in.state <= init_5;
-            end if;
+        -- Write frame index-1 if required.
+        elsif r.state = init_4 and dma2ctrl.busy = '0' then
 
-        -- Wait from DMA to complete and update table pointer.
-        elsif r.state = init_5 then
-            if dma2ctrl.busy = '0' then
-                r_in.buffer_index <= r.buffer_index + 2;
-                r_in.state <= idle;
-            end if;
-
-        -- Write higher frame to wavetable memory to index+2.
-        elsif r.state = increment_0 then
-            if dma2ctrl.busy = '0' then
-
-                v_address_offset := (r.frame_index + 2)
-                    * to_unsigned(MIPMAP_TABLE_SIZE, SDRAM_DEPTH_LOG2 - WAVE_MAX_FRAMES_LOG2);
-
-                r_in.ctrl2dma.start <= '1';
-                r_in.ctrl2dma.index <= to_integer(r.buffer_index + 2);
-                r_in.ctrl2dma.address <=
-                    r.base_address + v_address_offset(SDRAM_DEPTH_LOG2 - 1 downto 0);
-
-                r_in.state <= increment_1;
-            end if;
-
-        -- Increment frame and table pointer.
-        elsif r.state = increment_1 then
-            if dma2ctrl.busy = '0' then
-                r_in.buffer_index <= r.buffer_index + 1;
-                r_in.frame_index <= r.frame_index + 1;
-                r_in.state <= idle;
-            end if;
-
-        -- Write lower frame to index below current index.
-        elsif r.state = decrement_0 then
-            if dma2ctrl.busy = '0' then
+            if r.frame_index > 0 then 
 
                 v_address_offset := (r.frame_index - 1)
-                    * to_unsigned(MIPMAP_TABLE_SIZE, SDRAM_DEPTH_LOG2 - WAVE_MAX_FRAMES_LOG2);
+                    * to_unsigned(MIPMAP_TABLE_SIZE, SDRAM_DEPTH_LOG2 - WAVE_MAX_FRAMES_LOG2 - 1);
 
                 r_in.ctrl2dma.start <= '1';
                 r_in.ctrl2dma.index <= to_integer(r.buffer_index - 1);
                 r_in.ctrl2dma.address <=
                     r.base_address + v_address_offset(SDRAM_DEPTH_LOG2 - 1 downto 0);
 
-                r_in.state <= decrement_1;
+                r_in.state <= dma_start;
+                r_in.next_state <= idle;
+            else 
+                r_in.state <= idle;
             end if;
 
-        -- Decrement frame and table pointer.
-        elsif r.state = decrement_1 then
+         -- Increment frame and table pointer.
+        elsif r.state = increment_0 then
+            r_in.buffer_index <= r.buffer_index + 1;
+            r_in.frame_index <= r.frame_index + 1;
+            r_in.state <= increment_1;
+
+        -- Write higher frame to wavetable memory to index+2.
+        elsif r.state = increment_1 and dma2ctrl.busy = '0' then
+
+            if r.frame_index + 2 <= 2**dma_input.n_frames_log2 then 
+
+                v_address_offset := (r.frame_index + 2)
+                    * to_unsigned(MIPMAP_TABLE_SIZE, SDRAM_DEPTH_LOG2 - WAVE_MAX_FRAMES_LOG2 - 1);
+
+                r_in.ctrl2dma.start <= '1';
+                r_in.ctrl2dma.index <= to_integer(r.buffer_index + 2);
+                r_in.ctrl2dma.address <=
+                    r.base_address + v_address_offset(SDRAM_DEPTH_LOG2 - 1 downto 0);
+
+                r_in.state <= dma_start;
+                r_in.next_state <= idle;    
+            else 
+                r_in.state <= idle;   
+            end if;
+
+         -- Decrement frame and table pointer.
+        elsif r.state = decrement_0 then
             if dma2ctrl.busy = '0' then
                 r_in.buffer_index <= r.buffer_index - 1;
                 r_in.frame_index <= r.frame_index - 1;
-                r_in.state <= idle;
+                r_in.state <= decrement_1;
             end if;
+
+        -- Write lower frame to index below current index.
+        elsif r.state = decrement_1 and dma2ctrl.busy = '0' then
+
+            if r.frame_index > 0 then 
+
+                v_address_offset := (r.frame_index - 1)
+                    * to_unsigned(MIPMAP_TABLE_SIZE, SDRAM_DEPTH_LOG2 - WAVE_MAX_FRAMES_LOG2 - 1);
+
+                r_in.ctrl2dma.start <= '1';
+                r_in.ctrl2dma.index <= to_integer(r.buffer_index - 1);
+                r_in.ctrl2dma.address <=
+                    r.base_address + v_address_offset(SDRAM_DEPTH_LOG2 - 1 downto 0);
+
+                r_in.state <= dma_start;
+                r_in.next_state <= idle;    
+            else 
+                r_in.state <= idle;   
+            end if;       
 
         -- Wait for something to happen.
         elsif r.state = idle then

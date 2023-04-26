@@ -108,7 +108,7 @@ begin
 
         r_in <= r;
         s_phase_tvalid <= '0';
-        -- s_phase_tdata <= (others => '0');
+        s_phase_tdata <= (others => '0');
 
         if next_sample = '1' then
 
