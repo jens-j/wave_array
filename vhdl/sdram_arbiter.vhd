@@ -15,8 +15,10 @@ entity sdram_arbiter is
     );
     port (
         clk                     : in    std_logic;
+        sdram_clk               : in    std_logic;
         reset                   : in    std_logic;
         pll_locked              : in    std_logic; -- SDRAM clock needs to be running before becoming active.
+        sdram_clk_enable        : out   std_logic;
 
         -- Client interfaces.
         sdram_inputs            : in    t_sdram_input_array(0 to N_CLIENTS - 1);
@@ -84,6 +86,7 @@ architecture arch of sdram_arbiter is
 
 begin
 
+    -- 18 word deep FWFT fifo.
     prefetch : entity xil_defaultlib.arbiter_fifo
     port map (
         clk                     => clk,
@@ -100,8 +103,10 @@ begin
     sdram_controller : entity wave.sdram_controller
     port map (
         clk                     => clk,
+        sdram_clk               => sdram_clk,
         reset                   => reset,
         pll_locked              => pll_locked,
+        sdram_clk_enable        => sdram_clk_enable,
         sdram_input             => s_sdram_input,
         sdram_output            => s_sdram_output,
         SDRAM_ADVN              => SDRAM_ADVN,
@@ -127,7 +132,7 @@ begin
     s_sdram_input.address <= r.sdram_input.address;
     s_sdram_input.write_data <= s_fifo_dout;
 
-    comb_process : process (r, sdram_inputs, s_sdram_output)
+    comb_process : process (r, sdram_inputs, s_sdram_output, s_fifo_dout, s_fifo_data_count)
     begin
 
         r_in <= r;
@@ -226,6 +231,7 @@ begin
             end if;
 
             if s_sdram_output.done = '1' then
+                s_fifo_rd_en <= '1';
                 if r.frame_count = 0 then
                     r_in.state <= idle;
                 else
@@ -234,7 +240,7 @@ begin
             end if;
         end if;
 
-        if r.prefetch_count > 0 then
+        if r.prefetch_count > 0 and to_integer(unsigned(s_fifo_data_count)) < 16 then
 
             r_in.fifo_wr_en <= '1';
             r_in.prefetch_count <= r.prefetch_count - 1;

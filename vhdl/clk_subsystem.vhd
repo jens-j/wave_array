@@ -17,6 +17,7 @@ entity clk_subsystem is
         system_clk              : out std_logic; -- 100 MHz.
         i2s_clk                 : out std_logic; -- 1.5360175 MHz.
         sdram_clk               : out std_logic; -- 100 MHz 270 degrees shifted.
+        sdram_clk_enable        : in  std_logic;
         pll_locked              : out std_logic  -- SDRAM clock PLL locked.
     );
 end entity;
@@ -56,6 +57,7 @@ begin
          sdram_clk              => sdram_clk,
          reset                  => reset,
          ext_clk                => ext_clk,
+         sdram_clk_ce           => sdram_clk_enable,
          locked                 => pll_locked
     );
 

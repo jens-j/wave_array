@@ -12,8 +12,7 @@ entity synth_subsystem is
         clk                     : in  std_logic;
         reset                   : in  std_logic;
         next_sample             : in  std_logic;
-        enable_midi             : in  std_logic; -- 1: use midi, 0: use potentiometer.
-        analog_input            : in  std_logic_vector(ADC_SAMPLE_SIZE - 1 downto 0);
+        frame_control           : in  t_ctrl_value;
         voices                  : in  t_voice_array(0 to N_VOICES - 1);
         addrgen_output          : out t_addrgen2table_array(0 to N_VOICES - 1); -- Debug output.
         sample                  : out t_stereo_sample;
@@ -34,7 +33,7 @@ architecture arch of synth_subsystem is
     signal s_lfo_square         : t_ctrl_value_array(0 to 0);
     signal s_lfo_saw            : t_ctrl_value_array(0 to 0);
     signal s_lfo_velocity       : t_ctrl_value_array(0 to 0);
-    signal s_frame_control      : t_osc_position;
+    signal s_frame_position      : t_osc_position;
 
 
 begin
@@ -45,14 +44,22 @@ begin
     s_lfo_velocity(0) <= x"3FFF";
 
     -- Connect the LFO sine output to the frame index and position in the dma and table interpolator respectively.
-    dma_input_proc : process(dma_inputs, s_lfo_sine, analog_input)
+    dma_input_proc : process(dma_inputs, s_lfo_sine, frame_control)
     begin
         s_dma_inputs <= dma_inputs;
-        s_dma_inputs(0).frame_index <= to_integer( 
-            s_lfo_sine(0)(CTRL_SIZE - 1 downto CTRL_SIZE - dma_inputs(0).n_frames_log2));
 
-        s_frame_control <= unsigned(analog_input(ADC_SAMPLE_SIZE - 1 downto ADC_SAMPLE_SIZE - OSC_SAMPLE_FRAC));
-        -- s_frame_control <= t_osc_position(s_lfo_sine(0)(CTRL_SIZE - s_dma_inputs(0).n_frames_log2 - 1 
+        if dma_inputs(0).n_frames_log2 = 0 then 
+            s_dma_inputs(0).frame_index <= 0;
+            s_frame_position <= unsigned(frame_control(CTRL_SIZE - 1 downto CTRL_SIZE - OSC_SAMPLE_FRAC));
+        else
+            s_dma_inputs(0).frame_index <= to_integer( 
+                frame_control(CTRL_SIZE - 1 downto CTRL_SIZE - dma_inputs(0).n_frames_log2));
+
+            s_frame_position <= unsigned(frame_control(CTRL_SIZE - dma_inputs(0).n_frames_log2 - 1 
+                downto CTRL_SIZE - dma_inputs(0).n_frames_log2 - OSC_SAMPLE_FRAC));
+        end if;
+
+        -- s_frame_position <= t_osc_position(s_lfo_sine(0)(CTRL_SIZE - s_dma_inputs(0).n_frames_log2 - 1 
         --     downto CTRL_SIZE - s_dma_inputs(0).n_frames_log2 - OSC_SAMPLE_FRAC));
 
         
@@ -78,10 +85,8 @@ begin
         clk                     => clk,
         reset                   => reset,
         next_sample             => next_sample,
-        enable_midi             => enable_midi,
         voices                  => voices,
-        analog_input            => analog_input,
-        frame_control           => s_frame_control,
+        frame_position          => s_frame_position,
         osc_inputs              => s_osc_inputs
     );
 

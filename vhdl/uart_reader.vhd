@@ -228,7 +228,7 @@ begin
                 -- string_init(v_hexfile);
                 -- string_read(v_line_in, v_hexfile, v_string_length);
 
-                file_open(data_file, SIM_FILE_PATH & "basic_table.data",  read_mode);
+                file_open(data_file, SIM_FILE_PATH & "basic.table",  read_mode);
 
                 -- Split into 128 word bursts.
                 for i in 0 to to_integer(unsigned(v_burst_length)) / SDRAM_MAX_BURST - 1 loop

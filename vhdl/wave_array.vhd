@@ -57,10 +57,12 @@ end entity;
 architecture arch of wave_array is
 
     signal s_system_clk         : std_logic;
+    signal s_sdram_clk          : std_logic;
     signal s_i2s_clk            : std_logic;
     signal s_reset_al           : std_logic;
     signal s_reset_ah           : std_logic;
     signal s_pll_locked         : std_logic;
+    signal s_sdram_clk_enable   : std_logic;
 
     signal s_next_sample        : std_logic;
     signal s_voices             : t_voice_array(N_VOICES - 1 downto 0);
@@ -79,6 +81,7 @@ architecture arch of wave_array is
     signal s_sdram_outputs      : t_sdram_output_array(0 to N_TABLES);
 
     signal s_dma_inputs         : t_dma_input_array(0 to N_TABLES - 1);
+    signal s_frame_control      : t_ctrl_value;
 
 begin
 
@@ -96,15 +99,19 @@ begin
     LEDS(7 downto 1) <= (others => '0');
     LEDS(0) <= s_config.led;
 
+    -- SDRAM_CLK <= s_system_clk;
     I2S_SCLK <= s_i2s_clk;
+    SDRAM_CLK <= s_sdram_clk;
 
     -- 7 segment display.
     s_display_data <=
         std_logic_vector(to_unsigned(s_voices(0).note.octave, 4))           -- 1 char octave
         & std_logic_vector(to_unsigned(s_voices(0).note.key, 4))            -- 1 char note
-        -- & "0" & s_voices(0).midi_velocity                                   -- 2 char midi velocity
+        -- & "0" & s_voices(0).midi_velocity                                -- 2 char midi velocity
         & std_logic_vector(to_unsigned(s_addgen_output(0).mipmap_level, 8)) -- 2 char mipmap level
-        & (0 to 16 - ADC_SAMPLE_SIZE - 1 => '0') & s_pot_value;          -- 4 char potentiometer value
+        & (0 to 16 - ADC_SAMPLE_SIZE - 1 => '0') & s_pot_value;             -- 4 char potentiometer value
+
+    s_frame_control <= unsigned(s_pot_value) & (0 to CTRL_SIZE - ADC_SAMPLE_SIZE - 1 => '0');
 
 
     clk_subsys : entity wave.clk_subsystem
@@ -113,7 +120,8 @@ begin
         ext_clk                 => EXT_CLK,         -- 100 MHz.
         system_clk              => s_system_clk,    -- 100 MHz.
         i2s_clk                 => s_i2s_clk,       -- 1.5360175 MHz.
-        sdram_clk               => SDRAM_CLK,       -- 100 MHz 180 degrees shifted.
+        sdram_clk               => s_sdram_clk,     -- 100 MHz gated output clock shifted -72 degrees (2 ns early).
+        sdram_clk_enable        => s_sdram_clk_enable,
         pll_locked              => s_pll_locked
     );
 
@@ -161,8 +169,7 @@ begin
         clk                     => s_system_clk,
         reset                   => s_reset_ah,
         next_sample             => s_next_sample,
-        enable_midi             => SWITCHES(15),
-        analog_input            => s_pot_value,
+        frame_control           => s_frame_control,
         voices                  => s_voices,
         addrgen_output          => s_addgen_output,
         sample                  => s_sample,
@@ -208,8 +215,10 @@ begin
     )
     port map (
         clk                     => s_system_clk,
+        sdram_clk               => s_sdram_clk,
         reset                   => s_reset_ah,
         pll_locked              => s_pll_locked,
+        sdram_clk_enable        => s_sdram_clk_enable,
         sdram_inputs            => s_sdram_inputs,
         sdram_outputs           => s_sdram_outputs,
         SDRAM_ADVN              => SDRAM_ADVN,

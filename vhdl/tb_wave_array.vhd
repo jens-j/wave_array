@@ -39,7 +39,24 @@ architecture arch of tb_wave_array is
     signal sdram_address    : std_logic_vector(SDRAM_DEPTH_LOG2 - 1 downto 0) := (others => '0');
     signal sdram_dq         : std_logic_vector(SDRAM_WIDTH - 1 downto 0) := (others => '0');
 
+    component cellram is
+    port (
+        clk                     : in    std_logic;
+        adv_n                   : in    std_logic;
+        cre                     : in    std_logic;
+        o_wait                  : out   std_logic;
+        ce_n                    : in    std_logic;
+        oe_n                    : in    std_logic;
+        we_n                    : in    std_logic;
+        lb_n                    : in    std_logic;
+        ub_n                    : in    std_logic;
+        addr                    : in    std_logic_vector(SDRAM_DEPTH_LOG2 - 1 downto 0);
+        dq                      : inout std_logic_vector(SDRAM_WIDTH - 1 downto 0));
+    end component;
+
 begin
+
+   
 
     uart_tester : entity wave.uart_tester
     generic map (
@@ -63,7 +80,7 @@ begin
     );
 
     wave_array : entity wave.wave_array
-    port map(
+    port map (
         EXT_CLK                 => clk,
         BTN_RESET               => resetn,
         LEDS                    => leds,
@@ -91,24 +108,39 @@ begin
         SDRAM_DQ                => sdram_dq
     );
 
-    sdram : entity wave.sdram_sim
-    generic map (
-        DEPTH_LOG2              => 15
-    )
+    sdram_verilog : cellram
     port map (
-        SDRAM_RESETN            => resetn,
-        SDRAM_CLK               => sdram_clk,
-        SDRAM_ADVN              => sdram_advn,
-        SDRAM_CEN               => sdram_cen,
-        SDRAM_CRE               => sdram_cre,
-        SDRAM_OEN               => sdram_oen,
-        SDRAM_WEN               => sdram_wen,
-        SDRAM_LBN               => sdram_lbn,
-        SDRAM_UBN               => sdram_ubn,
-        SDRAM_WAIT              => sdram_wait,
-        SDRAM_ADDRESS           => sdram_address,
-        SDRAM_DQ                => sdram_dq
+        clk                     => sdram_clk,
+        adv_n                   => sdram_advn,
+        cre                     => sdram_cre,
+        o_wait                  => sdram_wait,
+        ce_n                    => sdram_cen,
+        oe_n                    => sdram_oen,
+        we_n                    => sdram_wen,
+        lb_n                    => sdram_lbn,
+        ub_n                    => sdram_ubn,
+        addr                    => sdram_address,
+        dq                      => sdram_dq
     );
+
+    -- sdram_sim : entity wave.sdram_sim
+    -- generic map (
+    --     DEPTH_LOG2              => 15
+    -- )
+    -- port map (
+    --     SDRAM_RESETN            => resetn,
+    --     SDRAM_CLK               => sdram_clk,
+    --     SDRAM_ADVN              => sdram_advn,
+    --     SDRAM_CEN               => sdram_cen,
+    --     SDRAM_CRE               => sdram_cre,
+    --     SDRAM_OEN               => sdram_oen,
+    --     SDRAM_WEN               => sdram_wen,
+    --     SDRAM_LBN               => sdram_lbn,
+    --     SDRAM_UBN               => sdram_ubn,
+    --     SDRAM_WAIT              => sdram_wait,
+    --     SDRAM_ADDRESS           => sdram_address,
+    --     SDRAM_DQ                => sdram_dq
+    -- );
 
     clk <= not clk after 5 ns;
     resetn <= '1' after 1 us;

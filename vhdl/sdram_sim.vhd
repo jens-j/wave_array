@@ -5,8 +5,11 @@ use ieee.numeric_std.all;
 library wave;
 use wave.wave_array_pkg.all;
 
--- SDRAM simulation model. Only uses the DEPTH_LOG2 lsb.
--- Configuration register is writable but does nothing.
+-- SDRAM simulation model. Only uses the DEPTH_LOG2 lsb of the address.
+-- Configuration register (BCR) is writable and supports:
+--     wait polarity 
+--     wait configuration (wait de-asserted one cycle early)
+--     delay cycles
 entity sdram_sim is
     generic (
         DEPTH_LOG2              : integer := 8
@@ -61,24 +64,32 @@ architecture arch of sdram_sim is
 
 begin
 
-    combinatorial : process (r,
-        SDRAM_ADVN, SDRAM_CEN, SDRAM_CRE, SDRAM_OEN, SDRAM_WEN, SDRAM_ADDRESS, SDRAM_DQ)
+    combinatorial : process (r, SDRAM_ADVN, SDRAM_CEN, SDRAM_CRE, SDRAM_OEN, SDRAM_WEN, SDRAM_ADDRESS, SDRAM_DQ)
+        variable v_delay_cycles : integer range 3 to 9;
     begin
 
         r_in <= r;
 
         -- Connect outputs.
         SDRAM_DQ <= r.sdram_dq when SDRAM_OEN = '0' else (others => 'Z');
-        SDRAM_WAIT <= r.sdram_wait;
+        SDRAM_WAIT <= r.sdram_wait when r.config_bcr(10) = '1' else not r.sdram_wait;
+
+        if r.config_bcr(13 downto 11) = "000" then 
+            v_delay_cycles := 9;
+        else
+            v_delay_cycles := to_integer(unsigned(r.config_bcr(13 downto 11))) + 1;
+        end if;
 
         case r.state is
 
             when idle =>
-                r_in.sdram_wait <= '0';
+                r_in.sdram_wait <= '1';
 
                 if SDRAM_CEN = '0' and SDRAM_ADVN = '0' then
 
                     r_in.address <= to_integer(unsigned(SDRAM_ADDRESS(DEPTH_LOG2 - 1 downto 0)));
+                    r_in.counter <= v_delay_cycles - 1;
+                    r_in.state <= delay;
 
                     if SDRAM_CRE = '1' then
 
@@ -90,28 +101,28 @@ begin
                         r_in.state <= config_write;
 
                     elsif SDRAM_WEN = '0' then
-
-                        r_in.counter <= 1;
-                        r_in.state <= delay;
                         r_in.next_state <= write_0;
-
                     else
-                        r_in.counter <= 2;
-                        r_in.state <= delay;
                         r_in.next_state <= read_0;
                     end if;
                 end if;
 
             when config_write =>
                 if SDRAM_CEN = '1' then
-                    r_in.sdram_wait <= '1';
+                    r_in.sdram_wait <= '0';
                     r_in.state <= idle;
                 end if;
 
             when delay =>
+
                 if r.counter = 0 then
+
+                    -- De-assert wait signal one cycle early if bit 8 of the BCR is set. 
+                    if r.config_bcr(8) = '1' then
+                        r_in.sdram_wait <= '0';
+                    end if;
+
                     r_in.state <= r.next_state;
-                    r_in.counter <= 0;
                 else
                     r_in.counter <= r.counter - 1;
                 end if;
@@ -119,7 +130,7 @@ begin
             when read_0 =>
 
                 if SDRAM_CEN = '0' then
-                    r_in.sdram_wait <= '1';
+                    r_in.sdram_wait <= '0';
                     r_in.sdram_dq <= r.memory(r.address);
                 else
                     r_in.state <= idle;
@@ -138,13 +149,13 @@ begin
                 end if;
 
             when write_0 =>
-                r_in.sdram_wait <= '1';
+                r_in.sdram_wait <= '0';
                 r_in.state <= write_1;
 
             when write_1 =>
 
                 if SDRAM_CEN = '0' then
-                    r_in.sdram_wait <= '1';
+                    r_in.sdram_wait <= '0';
                     r_in.memory(r.address) <= SDRAM_DQ;
                 else
                     r_in.state <= idle;

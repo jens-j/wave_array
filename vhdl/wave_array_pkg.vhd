@@ -78,17 +78,6 @@ package wave_array_pkg is
     -- constant LFO_VELOCITY_STEP      : unsigned(LFO_PHASE_SIZE - 1 downto 0) := resize(x"56b2d", LFO_PHASE_SIZE);-- Velocity increase for every bit of the LFO input control value.
     constant LFO_VELOCITY_STEP      : unsigned(LFO_PHASE_SIZE - 1 downto 0) := resize(x"5756b2", LFO_PHASE_SIZE);-- Velocity increase for every bit of the LFO input control value.
 
-
-    -- constant LFO_MIN_VELOCITY       : integer :=
-    --     integer(LFO_MIN_RATE / real(SAMPLE_RATE) * real(2**(LFO_PHASE_FRAC + 1)));
-    --
-    -- constant LFO_MAX_VELOCITY       : integer :=
-    --     integer(LFO_MAX_RATE / real(SAMPLE_RATE) * real(2**(LFO_PHASE_FRAC + 1)));
-    --
-    -- constant LFO_VELOCITY_STEP      : integer := -- Velocity increase for every bit of the LFO input control value.
-    --     (LFO_MAX_VELOCITY - LFO_MIN_VELOCITY) / 2**CTRL_SIZE;
-
-
     -- Oscillator downsample halfband filter constants.
     -- The odd phase (m = 1) is all zeroes except c(0) = 1.
     -- The even phase is symmetric so only half of the coefficients for m = 0 are stored.
