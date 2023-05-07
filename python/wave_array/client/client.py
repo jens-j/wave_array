@@ -9,16 +9,25 @@ class WaveArray:
     REG_ADDR_RESET              = 0x00000000
     REG_ADDR_FAULT              = 0x00000001
     REG_ADDR_LED                = 0x00000002
-    REG_TABLE_BASE_L            = 0x00000010
-    REG_TABLE_BASE_H            = 0x00000011
-    REG_TABLE_FRAMES            = 0x00000012
-    REG_TABLE_NEW               = 0x00000013
-    REG_DEBUG_UART_COUNT        = 0x00000100
-    REG_DEBUG_UART_FIFO_COUNT   = 0x00000101
-    REG_DEBUG_UART_STATE        = 0x00000102
-    REG_DEBUG_SDRAM_COUNT       = 0x00000110
-    REG_DEBUG_SDRAM_STATE       = 0x00000111
 
+    REG_DBG_UART_COUNT          = 0x00000100
+    REG_DBG_UART_FIFO           = 0x00000101
+    REG_DBG_UART_STATE          = 0x00000102
+
+    REG_TABLE_BASE_L            = 0x00000200
+    REG_TABLE_BASE_H            = 0x00000201
+    REG_TABLE_FRAMES            = 0x00000202
+    REG_TABLE_NEW               = 0x00000203
+
+    REG_FRAME_INDEX             = 0x00000300
+    REG_FRAME_POSITION          = 0x00000301
+    REG_FRAME_BANK              = 0x00000302
+
+    REG_POTOENTIOMETER          = 0x00000400
+
+    REG_LFO_VELOCITY            = 0x00000500
+    
+     
 
     def __init__(self, port='COM4'):
         self.dev = UartDevice(port, 1000000)
@@ -34,12 +43,6 @@ class WaveArray:
 
     def read_faults(self):
         return self.dev.read(self.REG_ADDR_FAULT)
-
-    def get_uart_count(self):
-        return self.dev.read(self.REG_DEBUG_UART_FIFO)
-
-    def get_uart_fifo_count(self):
-        return self.dev.read(self.REG_DEBUG_UART_COUNT)
 
     def write_sdram(self, address, data):
 
@@ -82,11 +85,9 @@ def main():
     except Exception as e:
         log.error(e)
 
-    # print(wave_array.dev.read(WaveArray.REG_DEBUG_UART_STATE))
-    # print(wave_array.dev.read(WaveArray.REG_DEBUG_UART_COUNT))
-    # print(wave_array.dev.read(WaveArray.REG_DEBUG_UART_FIFO_COUNT))
-    # print(wave_array.dev.read(WaveArray.REG_DEBUG_SDRAM_COUNT))
-    # print(wave_array.dev.read(WaveArray.REG_DEBUG_SDRAM_STATE))
+    print(wave_array.dev.read(WaveArray.REG_FRAME_INDEX))
+    print(wave_array.dev.read(WaveArray.REG_FRAME_POSITION))
+    print(wave_array.dev.read(WaveArray.REG_FRAME_BANK))
 
     # with open('basic_table.data') as f:
     #     string_table = f.read().split('\n')

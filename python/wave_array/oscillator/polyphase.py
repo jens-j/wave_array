@@ -115,14 +115,20 @@ class PolyphaseFilter:
             for easy convolution """
 
         with open("osc_coeff_memory_even.coe", 'w') as f:
+            f.write("memory_initialization_radix=16;\n")
+            f.write("memory_initialization_vector=\n")
             for fb in self.filterbank[::2]:
-                for coeff in reversed(fb):
-                    f.write(f"{int(coeff * 0x7FFF) & 0xFFFF:04X}\n")
+                for i, coeff in enumerate(reversed(fb)):
+                    endl = ';' if i == len(fb) - 1 else ','
+                    f.write(f"{int(coeff * 0x7FFF) & 0xFFFF:04X}{endl}\n")
 
         with open("osc_coeff_memory_odd.coe", 'w') as f:
+            f.write("memory_initialization_radix=16;\n")
+            f.write("memory_initialization_vector=\n")
             for fb in self.filterbank[1::2]:
-                for coeff in reversed(fb):
-                    f.write(f"{int(coeff * 0x7FFF) & 0xFFFF:04X}\n")
+                for i, coeff in enumerate(reversed(fb)):
+                    endl = ';' if i == len(fb) - 1 else ','
+                    f.write(f"{int(coeff * 0x7FFF) & 0xFFFF:04X}{endl}\n")
 
 
 def main():
