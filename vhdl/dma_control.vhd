@@ -13,7 +13,8 @@ entity dma_control is
     port (
         clk                     : in  std_logic;
         reset                   : in  std_logic;
-        dma_input               : in  t_dma_input;
+        config                  : in  t_config;
+        frame_index             : in  integer range 0 to WAVE_MAX_FRAMES - 1;
         dma2ctrl                : in  t_dma2ctrl;
         ctrl2dma                : out t_ctrl2dma;
         buffer_index            : out integer range 0 to 3
@@ -52,7 +53,7 @@ architecture arch of dma_control is
 begin
 
 
-    comb_process : process (r, dma_input, dma2ctrl)
+    comb_process : process (r, config, dma2ctrl, frame_index)
         variable v_address_offset : unsigned(SDRAM_DEPTH_LOG2 - 1 downto 0);
     begin
 
@@ -62,10 +63,10 @@ begin
         r_in.ctrl2dma.index <= 0;
 
         -- Register this signal in case the state machine is busy.
-        if dma_input.new_table = '1' then
+        if config.dma_new_table = '1' then
             r_in.new_table <= '1';
-            r_in.base_address <= dma_input.base_address;
-            r_in.n_frames_log2 <= dma_input.n_frames_log2;
+            r_in.base_address <= config.dma_base_address;
+            r_in.n_frames_log2 <= config.dma_n_frames_log2;
         end if;
 
         -- Connect output registers.
@@ -74,7 +75,7 @@ begin
 
         -- Read frame position input.
         if r.state = init_0 then
-            r_in.frame_index <= '0' & to_unsigned(dma_input.frame_index, WAVE_MAX_FRAMES_LOG2);
+            r_in.frame_index <= '0' & to_unsigned(frame_index, WAVE_MAX_FRAMES_LOG2);
             r_in.state <= init_1;
 
         -- Write current frame (frame_0).
@@ -118,7 +119,7 @@ begin
 
             r_in.buffer_index <= r.buffer_index + 2;
 
-            if r.frame_index + 2 <= 2**dma_input.n_frames_log2 then 
+            if r.frame_index + 2 <= 2**config.dma_n_frames_log2 then 
 
                 v_address_offset := (r.frame_index + 2)
                     * to_unsigned(MIPMAP_TABLE_SIZE, SDRAM_DEPTH_LOG2 - WAVE_MAX_FRAMES_LOG2 - 1);
@@ -162,7 +163,7 @@ begin
         -- Write higher frame to wavetable memory to index+2.
         elsif r.state = increment_1 and dma2ctrl.busy = '0' then
 
-            if r.frame_index + 2 <= 2**dma_input.n_frames_log2 then 
+            if r.frame_index + 2 <= 2**config.dma_n_frames_log2 then 
 
                 v_address_offset := (r.frame_index + 2)
                     * to_unsigned(MIPMAP_TABLE_SIZE, SDRAM_DEPTH_LOG2 - WAVE_MAX_FRAMES_LOG2 - 1);
@@ -214,11 +215,11 @@ begin
                 r_in.state <= init_0;
 
             -- Check if control value requires changing to lower frame.
-            elsif dma_input.frame_index > to_integer(r.frame_index) then
+            elsif frame_index > to_integer(r.frame_index) then
                 r_in.state <= increment_0;
 
             -- CHeck if control value requires changing to higher frame.
-            elsif dma_input.frame_index < to_integer(r.frame_index) then
+            elsif frame_index < to_integer(r.frame_index) then
                 r_in.state <= decrement_0;
             end if;
         end if;

@@ -5,7 +5,8 @@ use ieee.numeric_std.all;
 library wave;
 use wave.wave_array_pkg.all;
 
-library xil_defaultlib;
+library xilinx;
+library osc;
 
 
 -- This entity performs interpolation on samples from the mipmap table.
@@ -28,7 +29,7 @@ entity table_interpolator is
         next_sample             : in  std_logic;
 
         -- Frame DMA interface.
-        dma_output              : in  t_dma_output;
+        dma2table               : in  t_dma2table;
 
         osc_inputs              : in  t_osc_input_array(0 to N_VOICES - 1);
         addrgen_input           : in  t_addrgen2table_array(0 to N_VOICES - 1);
@@ -143,25 +144,36 @@ architecture arch of table_interpolator is
     signal s_coeff_odd_douta    : std_logic_vector(POLY_COEFF_SIZE - 1 downto 0);
 
 begin
+    -- This works in simulation but not on the board. The RAM is never written somehow.
+    -- wave_mem : entity oscillator.osc_wave_memory
+    -- generic map (
+    --     init_file               => GET_INPUT_FILE_PATH & "osc_wave_memory_basic.hex"
+    -- )
+    -- port map (
+    --     write_clk               => clk,
+    --     write_enable            => dma2table.wave_mem_wea,
+    --     write_address           => dma2table.wave_mem_addra,
+    --     write_data              => dma2table.wave_mem_dina,
+    --     read_clk                => clk,
+    --     read_address            => s_wave_mem_addrb,
+    --     read_data               => s_wave_mem_doutb
+    -- );
 
-    wave_mem : entity wave.osc_wave_memory
-    generic map (
-        init_file               => GET_INPUT_FILE_PATH & "osc_wave_memory_basic.coe"
-    )
+    wave_mem : entity xilinx.wave_mem_gen
     port map (
-        write_clk               => clk,
-        write_enable            => dma_output.wave_mem_wea,
-        write_address           => dma_output.wave_mem_addra,
-        write_data              => dma_output.wave_mem_dina,
-        read_clk                => clk,
-        read_address            => s_wave_mem_addrb,
-        read_data               => s_wave_mem_doutb
+        clka                    => clk,
+        wea                     => dma2table.wave_mem_wea,
+        addra                   => dma2table.wave_mem_addra,
+        dina                    => dma2table.wave_mem_dina,
+        clkb                    => clk,
+        addrb                   => s_wave_mem_addrb,
+        doutb                   => s_wave_mem_doutb
     );
 
     -- ROM that holds the filter coefficients for the even phases.
-    coeff_mem_even : entity wave.osc_coeff_memory
+    coeff_mem_even : entity osc.osc_coeff_memory
     generic map (
-        init_file               => GET_INPUT_FILE_PATH & "osc_coeff_memory_even.coe"
+        init_file               => GET_INPUT_FILE_PATH & "osc_coeff_memory_even.hex"
     )
     port map (
         clk                     => clk,
@@ -170,9 +182,9 @@ begin
     );
 
     -- ROM that holds the filter coefficients for the odd phases.
-    coeff_mem_odd : entity wave.osc_coeff_memory
+    coeff_mem_odd : entity osc.osc_coeff_memory
     generic map (
-        init_file               => GET_INPUT_FILE_PATH & "osc_coeff_memory_odd.coe"
+        init_file               => GET_INPUT_FILE_PATH & "osc_coeff_memory_odd.hex"
     )
     port map (
         clk                     => clk,
@@ -182,7 +194,7 @@ begin
 
     -- DSP slice configured to perform linear interpolation of two frames (samples).
     -- Implements (A - D) * B + C = P.
-    frame_interp: entity xil_defaultlib.osc_interpolation_gen
+    frame_interp: entity xilinx.osc_interpolation_gen
     port map (
         CLK                     => clk,
         A                       => s_frame_interp_a,
@@ -194,7 +206,7 @@ begin
 
     -- DSP slice configured to perform linear interpolation of filter phases (coefficients).
     -- Implements (A - D) * B + C = P.
-    coeff_interp: entity xil_defaultlib.osc_interpolation_gen
+    coeff_interp: entity xilinx.osc_interpolation_gen
     port map (
         CLK                     => clk,
         A                       => s_coeff_interp_a,
@@ -207,7 +219,7 @@ begin
     -- DSP slice configured as polyphase filter multiply-accumulate.
     -- sel: 0 -> A * B + P = P
     -- sel: 1 -> A * B = P
-    filter_macc: entity xil_defaultlib.osc_macc_gen
+    filter_macc: entity xilinx.osc_macc_gen
     port map (
         CLK                     => clk,
         SEL                     => s_macc_sel,
@@ -221,7 +233,7 @@ begin
     overflow <= r.overflow;
     timeout <= r.timeout;
 
-    combinatorial : process (r, osc_inputs, addrgen_input, next_sample, dma_output,
+    combinatorial : process (r, osc_inputs, addrgen_input, next_sample, dma2table,
                              s_frame_interp_p, s_coeff_interp_p, s_macc_p,
                              s_wave_mem_doutb, s_coeff_even_douta, s_coeff_odd_douta)
 
@@ -283,8 +295,8 @@ begin
 
         -- Start new cycle
         elsif r.state = init then
-            r_in.frame_0_index <= dma_output.buffer_index;
-            r_in.frame_1_index <= to_integer(to_unsigned(dma_output.buffer_index, 2) + 1); -- Cast to unsigned for correct overflow.
+            r_in.frame_0_index <= dma2table.buffer_index;
+            r_in.frame_1_index <= to_integer(to_unsigned(dma2table.buffer_index, 2) + 1); -- Cast to unsigned for correct overflow.
             r_in.odd_phase(0) <= v_odd_phase_0;
             r_in.phase_position(0) <= addrgen_input(0).phase(0)
                 (OSC_COEFF_FRAC + v_level - 1 downto v_level);
@@ -379,13 +391,6 @@ begin
                 -- and shift the rest back one position.
                 if r.coeff_base_address = POLY_M / 2 - 1 then
 
-                    -- if r.coeff_counter < POLY_N - 1 then
-                    --     s_coeff_even_addra <= std_logic_vector(r.coeff_base_address + 1)
-                    --         & std_logic_vector(to_unsigned(r.coeff_counter, POLY_N_LOG2) + 1);
-                    -- else
-                    --     r_in.zero_coeff(0) <= '1';
-                    -- end if;
-
                     if r.coeff_counter = 0 then
                         r_in.zero_coeff(0) <= '1';
                     else
@@ -401,12 +406,6 @@ begin
                 s_coeff_even_addra <= std_logic_vector(r.coeff_base_address)
                     & std_logic_vector(to_unsigned(r.coeff_counter, POLY_N_LOG2));
             end if;
-
-            -- with v_odd_phase_0 select s_coeff_even_addra <=
-            --     std_logic_vector(r.coeff_base_address)
-            --         & std_logic_vector(to_unsigned(r.coeff_counter, POLY_N_LOG2)) when '0',
-            --     std_logic_vector(r.coeff_base_address + 1)
-            --         & std_logic_vector(to_unsigned(r.coeff_counter, POLY_N_LOG2)) when others;
 
             -- Pipeline stage 0 shift pipeline registers.
             for i in PIPE_LEN_MEM downto 1 loop
@@ -434,15 +433,6 @@ begin
                                     downto r.frame_1_index * SAMPLE_SIZE);
 
             s_frame_interp_b <= '0' & std_logic_vector(r.frame_position(PIPE_LEN_MEM - 1)); -- Add zero msb to make B unsigned.
-
-            -- s_frame_interp_a <= v_frame_interp_a(SAMPLE_SIZE - 1)
-            --     & v_frame_interp_a(SAMPLE_SIZE - 1 downto 1);
-
-            -- s_frame_interp_c <= v_frame_interp_c(SAMPLE_SIZE + OSC_SAMPLE_FRAC - 1)
-            --     & v_frame_interp_c(SAMPLE_SIZE + OSC_SAMPLE_FRAC - 1 downto 1);
-
-            -- s_frame_interp_d <= v_frame_interp_d(SAMPLE_SIZE - 1)
-            --     & v_frame_interp_d(SAMPLE_SIZE - 1 downto 1);
 
             -- Pipeline stage 1: Read coefficient memory and send to interpolator. The values for the
             -- even and odd coefficient memories are swapped if the phase m is odd.

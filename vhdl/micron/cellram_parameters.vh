@@ -188,7 +188,7 @@ endspecify
 
     parameter ADDR_BITS      = 23;
     parameter COL_BITS       = 7;           // DIDR[15] = 128 words per row
-    parameter MEM_BITS       = 15;
+    parameter MEM_BITS       = 16;
 
     parameter BCR            = 2'b10;
     parameter RCR            = 2'b00;

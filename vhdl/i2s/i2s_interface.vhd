@@ -2,10 +2,11 @@ library IEEE;
 use IEEE.std_logic_1164.all;
 use IEEE.numeric_std.all;
 
-library xil_defaultlib;
-
 library wave;
 use wave.wave_array_pkg.all;
+
+library xil_defaultlib;
+library i2s;
 
 
 entity i2s_interface is
@@ -59,7 +60,7 @@ begin
         wr_data_count               => s_fifo_wr_data_count
     );
 
-    i2s_serializer : entity wave.i2s_serializer
+    i2s_serializer : entity i2s.i2s_serializer
     port map (
         clk                         => i2s_clk,
         reset                       => reset,

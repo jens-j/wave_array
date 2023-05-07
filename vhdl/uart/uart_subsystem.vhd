@@ -1,11 +1,11 @@
 library IEEE;
 use IEEE.std_logic_1164.all;
 
-library xil_defaultlib;
-
 library wave;
 use wave.wave_array_pkg.all;
 
+library xilinx;
+library uart;
 
 -- This entity receives packets over the UART interface and handles the protocol to perform
 -- register and SDRAM reads and writes. Two 2048 word deep FWFT FIFO's connect the UART tranceiver
@@ -60,7 +60,7 @@ begin
     s_tx_dv <= not s_tx_fifo_empty;
 
 
-    packet_engine : entity wave.uart_packet_engine
+    packet_engine : entity uart.uart_packet_engine
     port map (
         clk                     => clk,
         reset                   => reset,
@@ -80,7 +80,7 @@ begin
     );
 
 
-    rx_uart : entity wave.uart_rx
+    rx_uart : entity uart.uart_rx
     generic map (
         g_CLKS_PER_BIT          => SYS_FREQ / UART_BAUD,
         g_BIT_POLARITY          => '1'
@@ -93,7 +93,7 @@ begin
     );
 
 
-    rx_fifo : entity xil_defaultlib.uart_fifo_gen
+    rx_fifo : entity xilinx.uart_fifo_gen
     port map (
         clk                     => clk,
         srst                    => reset,
@@ -106,7 +106,7 @@ begin
     );
 
 
-    tx_uart : entity wave.uart_tx
+    tx_uart : entity uart.uart_tx
     generic map (
         g_CLKS_PER_BIT          => SYS_FREQ / UART_BAUD,
         g_BIT_POLARITY          => '1'
@@ -121,7 +121,7 @@ begin
     );
 
 
-    tx_fifo : entity xil_defaultlib.uart_fifo_gen
+    tx_fifo : entity xilinx.uart_fifo_gen
     port map (
         clk                     => clk,
         srst                    => reset,

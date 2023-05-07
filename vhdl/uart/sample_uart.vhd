@@ -4,6 +4,8 @@ use IEEE.std_logic_1164.all;
 library wave;
 use wave.wave_array_pkg.all;
 
+library uart;
+
 -- This entity outputs the output audio samples on the UART interface delimited by newline
 -- characters. An unusually high baudrate is necessary to keep up.
 -- It assumes the SAMPLE_SIZE is a byte multiple (it will always be 16 bit).
@@ -41,7 +43,7 @@ architecture arch of sample_uart is
 
 begin
 
-    uart : entity wave.uart_transmitter
+    uart : entity uart.uart_transmitter
     port map(
         clk                     => clk,
         reset                   => reset,

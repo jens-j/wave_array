@@ -11,8 +11,8 @@ package wave_array_pkg is
     --pragma synthesis_on
     ;
 
-    constant SIM_FILE_PATH          : string := "../../../../../../vhdl/data/";
-    constant SYNTH_FILE_PATH        : string := "../../../../vhdl/data/";
+    constant SIM_FILE_PATH          : string := "../../../../../../data/";
+    constant SYNTH_FILE_PATH        : string := "../../../../data/";
 
     constant SYS_FREQ               : integer := 100_000_000;
     constant SDRAM_FREQ             : integer := 100_000_000;
@@ -72,7 +72,7 @@ package wave_array_pkg is
     constant LFO_MAX_RATE           : real := 256.0;
 
     -- Some of these constants are to big to pre calculate using 32 bit integers.
-    constant LFO_MIN_VELOCITY       : unsigned(LFO_PHASE_SIZE - 1 downto 0) := resize(x"aec33e1", LFO_PHASE_SIZE);
+    constant LFO_MIN_VELOCITY       : unsigned(LFO_PHASE_SIZE - 1 downto 0) := resize(x"aec33e1", LFO_PHASE_SIZE); -- 0.125 Hz
     -- constant LFO_MAX_VELOCITY       : unsigned(LFO_PHASE_SIZE - 1 downto 0) := resize(x"57619f0fb", LFO_PHASE_SIZE); -- 16 Hz
     constant LFO_MAX_VELOCITY       : unsigned(LFO_PHASE_SIZE - 1 downto 0) := resize(x"57619f0fb3", LFO_PHASE_SIZE); -- 256 Hz:
     -- constant LFO_VELOCITY_STEP      : unsigned(LFO_PHASE_SIZE - 1 downto 0) := resize(x"56b2d", LFO_PHASE_SIZE);-- Velocity increase for every bit of the LFO input control value.
@@ -106,16 +106,22 @@ package wave_array_pkg is
     constant REG_FAULT              : unsigned := x"0000001"; -- rw 16 bit | Fault flags.
     constant REG_LED                : unsigned := x"0000002"; -- rw 1 bit  | On-board led register.
 
-    constant REG_TABLE_BASE_L       : unsigned := x"0000010"; -- rw 16 bit | Bit 15 downto 0 of the wavetable base SDRAM address.
-    constant REG_TABLE_BASE_H       : unsigned := x"0000011"; -- rw 7 bit  | Bit 22 downto 16 of the wavetable base SDRAM address.
-    constant REG_TABLE_FRAMES       : unsigned := x"0000012"; -- rw 4 bit  | Log2 of the number of frames in the wavetable. Cannot be > WAVE_MAX_FRAMES_LOG2.
-    constant REG_TABLE_NEW          : unsigned := x"0000013"; -- wo 1 bit  | Writing to this register triggers initialization of the wavetable BRAMS.
+    constant REG_DBG_UART_COUNT     : unsigned := x"0000100"; -- ro 16 bit | UART burst read byte count.
+    constant REG_DBG_UART_FIFO      : unsigned := x"0000101"; -- ro 16 bit | SDRAM to UART fifo count.
+    constant REG_DBG_UART_STATE     : unsigned := x"0000102"; -- ro 16 bit | UART packet engine state.
 
-    constant REG_DEBUG_UART_COUNT   : unsigned := x"0000100"; -- ro 16 bit | UART burst read byte count.
-    constant REG_DEBUG_UART_FIFO_COUNT : unsigned := x"0000101"; -- ro 16 bit | SDRAM to UART fifo count.
-    constant REG_DEBUG_UART_STATE   : unsigned := x"0000102"; -- ro 16 bit | SDRAM to UART fifo count.
-    constant REG_DEBUG_SDRAM_COUNT  : unsigned := x"0000110"; -- ro 16 bit | SDRAM burst read word count.
-    constant REG_DEBUG_SDRAM_STATE  : unsigned := x"0000111"; -- ro 16 bit | SDRAM FSM state.
+    constant REG_TABLE_BASE_L       : unsigned := x"0000200"; -- rw 16 bit | Bit 15 downto 0 of the wavetable base SDRAM address.
+    constant REG_TABLE_BASE_H       : unsigned := x"0000201"; -- rw 7 bit  | Bit 22 downto 16 of the wavetable base SDRAM address.
+    constant REG_TABLE_FRAMES       : unsigned := x"0000202"; -- rw 4 bit  | Log2 of the number of frames in the wavetable. Cannot be > WAVE_MAX_FRAMES_LOG2.
+    constant REG_TABLE_NEW          : unsigned := x"0000203"; -- wo 1 bit  | Writing to this register triggers initialization of the wavetable BRAMS.
+
+    constant REG_FRAME_INDEX        : unsigned := x"0000300"; -- ro 16 bit | UART burst read byte count.
+    constant REG_FRAME_POSITION     : unsigned := x"0000301"; -- ro 16 bit | SDRAM to UART fifo count.
+    constant REG_FRAME_BANK         : unsigned := x"0000302"; -- ro 16 bit | UART packet engine state. 
+
+    constant REG_POTENTIOMETER      : unsigned := x"0000400"; -- ro 12 bit | potentiometer value. 
+
+    constant REG_LFO_VELOCITY       : unsigned := x"0000500"; -- rw 16 bit | LFO velocity control value. 
 
     -- fault register (sticky-)bit indices.
     constant FAULT_UART_TIMEOUT     : integer := 0; -- UART packet engine timout.
@@ -158,6 +164,27 @@ package wave_array_pkg is
     subtype t_osc_position is unsigned(OSC_SAMPLE_FRAC - 1 downto 0); -- Oscillator frame position (only fractional).
     type t_osc_position_array is array (natural range <>) of t_osc_position;
 
+    -- Register file outputs.
+    type t_config is record
+        led                     : std_logic;
+        lfo_velocity            : t_ctrl_value;
+        dma_new_table           : std_logic; -- Pulse indicating a new table should be loaded.
+        dma_base_address        : unsigned(SDRAM_DEPTH_LOG2 - 1 downto 0); -- SDRAM base address of current mipmap table.
+        dma_n_frames_log2       : integer range 0 to WAVE_MAX_FRAMES_LOG2; -- Log2 of number of frames in the wavetable - 1.
+    end record;
+
+    -- Register file inputs.
+    type t_status is record
+        pot_value               : std_logic_vector(ADC_SAMPLE_SIZE - 1 downto 0);
+        frame_index             : integer range 0 to WAVE_MAX_FRAMES - 1;
+        frame_position          : t_osc_position;
+        frame_bank              : integer range 0 to 3;
+        uart_timeout            : std_logic;
+        uart_state              : integer;
+        uart_count              : integer;
+        uart_fifo_count         : integer;
+    end record;
+
     type t_osc_input is record
         enable                  : std_logic; -- Voice enable (outputs zero when not enabled).
         velocity                : t_osc_phase; -- Table velocity.
@@ -181,6 +208,14 @@ package wave_array_pkg is
         busy                    : std_logic;
     end record;
 
+
+    type t_dma2table is record
+        buffer_index            : integer range 0 to 3; -- Lower table buffer index.
+        wave_mem_wea            : std_logic_vector(0 downto 0);
+        wave_mem_addra          : std_logic_vector(MIPMAP_TABLE_SIZE_LOG2 + 1 downto 0);
+        wave_mem_dina           : std_logic_vector(SAMPLE_SIZE - 1 downto 0);
+    end record;
+
     type t_sdram_input is record
         read_enable             : std_logic;
         write_enable            : std_logic;
@@ -195,20 +230,6 @@ package wave_array_pkg is
         write_req               : std_logic; -- Request next write word.
         done                    : std_logic; -- Signal end of read or write in last valid cycle.
         read_data               : std_logic_vector(SDRAM_WIDTH - 1 downto 0);
-    end record;
-
-    type t_dma_input is record
-        new_table               : std_logic; -- Pulse indicating a new table should be loaded.
-        base_address            : unsigned(SDRAM_DEPTH_LOG2 - 1 downto 0); -- SDRAM base address of current mipmap table.
-        n_frames_log2           : integer range 0 to WAVE_MAX_FRAMES_LOG2; -- Log2 of number of frames in the wavetable - 1.
-        frame_index             : integer range 0 to WAVE_MAX_FRAMES - 1; -- Current frame index.
-    end record;
-
-    type t_dma_output is record
-        buffer_index            : integer range 0 to 3; -- Lower table buffer index.
-        wave_mem_wea            : std_logic_vector(0 downto 0);
-        wave_mem_addra          : std_logic_vector(MIPMAP_TABLE_SIZE_LOG2 + 1 downto 0);
-        wave_mem_dina           : std_logic_vector(SAMPLE_SIZE - 1 downto 0);
     end record;
 
     -- Register file interface.
@@ -226,32 +247,23 @@ package wave_array_pkg is
         read_data               : std_logic_vector(REGISTER_WIDTH - 1 downto 0);
     end record;
 
-    -- Register file inputs.
-    type t_status is record
-        uart_timeout            : std_logic;
-        burst_align_fault       : std_logic;
-        uart_state              : integer;
-        uart_count              : integer;
-        uart_fifo_count         : integer;
-        sdram_state             : integer;
-        sdram_count             : integer;
-    end record;
-
-    -- Register file outputs.
-    type t_config is record
-        led                     : std_logic;
-    end record;
-
     type t_osc_input_array is array (natural range <>) of t_osc_input;
     type t_sdram_input_array is array (natural range <>) of t_sdram_input;
     type t_addrgen2table_array is array (natural range <>) of t_addrgen2table;
     type t_ctrl2dma_array is array (natural range <>) of t_ctrl2dma;
     type t_dma2ctrl_array is array (natural range <>) of t_dma2ctrl;
     type t_sdram_output_array is array (natural range <>) of t_sdram_output;
-    type t_dma_input_array is array (natural range <>) of t_dma_input;
-    type t_dma_output_array is array (natural range <>) of t_dma_output;
+    type t_dma2table_array is array (natural range <>) of t_dma2table;
     type t_register_input_array is array (natural range <>) of t_register_input;
     type t_register_output_array is array (natural range <>) of t_register_output;
+
+    constant CONFIG_INIT : t_config := (
+        led                     => '0',
+        lfo_velocity            => (others => '0'),
+        dma_new_table           => '0',
+        dma_base_address        => (others => '0'),
+        dma_n_frames_log2       => 0
+    );
 
     constant SDRAM_INPUT_INIT : t_sdram_input := (
         read_enable             => '0',
@@ -269,7 +281,7 @@ package wave_array_pkg is
         read_data               => (others => '0')
     );
 
-    constant FRAME_DMA_OUTPUT_INIT : t_dma_output := (
+    constant DMA2TABLE_INIT : t_dma2table := (
         buffer_index            => 0,
         wave_mem_wea            => (others => '0'),
         wave_mem_addra          => (others => '0'),

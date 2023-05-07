@@ -4,7 +4,9 @@ use ieee.numeric_std.all;
 
 library wave;
 use wave.wave_array_pkg.all;
-use wave.midi_pkg.all;
+
+library midi;
+use midi.midi_pkg.all;
 
 
 entity osc_controller is

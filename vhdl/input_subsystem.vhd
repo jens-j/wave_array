@@ -96,7 +96,7 @@ begin
         carryout                => mul_carryout
     );
 
-    XADC_inst : entity xil_defaultlib.xadc_gen
+    XADC_inst : entity xil_defaultlib.xadc_gen_2
     port map (
         daddr_in                => drp_daddr_s,  -- Address bus for the dynamic reconfiguration port
         den_in                  => drp_den_s,    -- Enable Signal for the dynamic reconfiguration port

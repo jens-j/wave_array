@@ -2,10 +2,11 @@ library ieee;
 use ieee.std_logic_1164.all;
 use ieee.numeric_std.all;
 
-library xil_defaultlib;
-
 library wave;
 use wave.wave_array_pkg.all;
+
+library xilinx;
+library uart;
 
 
 entity uart_tester is
@@ -45,7 +46,7 @@ begin
     s_tx_fifo_rd_en <= not s_tx_fifo_empty and not s_tx_active;
     s_tx_dv <= not s_tx_fifo_empty;
 
-    reader : entity wave.uart_reader
+    reader : entity uart.uart_reader
     generic map (
         FILENAME                => FILENAME
     )
@@ -64,7 +65,7 @@ begin
         write_data              => s_tx_fifo_din
     );
 
-    rx_uart : entity wave.uart_rx
+    rx_uart : entity uart.uart_rx
     generic map (
         g_CLKS_PER_BIT          => SYS_FREQ / UART_BAUD,
         g_BIT_POLARITY          => '1'
@@ -76,7 +77,7 @@ begin
         i_RX_Serial             => uart_rx
     );
 
-    rx_fifo : entity xil_defaultlib.uart_fifo_gen
+    rx_fifo : entity xilinx.uart_fifo_gen
     port map (
         clk                     => clk,
         srst                    => reset,
@@ -88,7 +89,7 @@ begin
         empty                   => s_rx_fifo_empty
     );
 
-    tx_uart : entity wave.uart_tx
+    tx_uart : entity uart.uart_tx
     generic map (
         g_CLKS_PER_BIT          => SYS_FREQ / UART_BAUD,
         g_BIT_POLARITY          => '1'
@@ -102,7 +103,7 @@ begin
         o_TX_Done               => s_tx_done
     );
 
-    tx_fifo : entity xil_defaultlib.uart_fifo_gen
+    tx_fifo : entity xilinx.uart_fifo_gen
     port map (
         clk                     => clk,
         srst                    => reset,

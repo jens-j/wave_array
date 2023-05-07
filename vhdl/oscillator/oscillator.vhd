@@ -5,6 +5,8 @@ use ieee.numeric_std.all;
 library wave;
 use wave.wave_array_pkg.all;
 
+library osc;
+
 
 entity oscillator is
     port (
@@ -12,7 +14,7 @@ entity oscillator is
         reset                   : in  std_logic;
         next_sample             : in  std_logic; -- Next sample trigger.
         osc_inputs              : in  t_osc_input_array(0 to N_VOICES - 1);
-        dma_output              : in  t_dma_output;
+        dma2table               : in  t_dma2table;
         output_samples          : out t_mono_sample_array(0 to N_VOICES - 1);
         addrgen_output          : out t_addrgen2table_array(0 to N_VOICES - 1) -- Debug output
     );
@@ -29,7 +31,7 @@ begin
 
     addrgen_output <= s_addrgen2table;
 
-    table_addr_gen : entity wave.table_address_generator
+    table_addr_gen : entity osc.table_address_generator
     generic map (
         N_VOICES                => N_VOICES
     )
@@ -41,7 +43,7 @@ begin
         addrgen_output          => s_addrgen2table
     );
 
-    table_interpolator : entity wave.table_interpolator
+    table_interpolator : entity osc.table_interpolator
     generic map (
         N_VOICES                => N_VOICES
     )
@@ -49,7 +51,7 @@ begin
         clk                     => clk,
         reset                   => reset,
         next_sample             => next_sample,
-        dma_output              => dma_output,
+        dma2table               => dma2table,
         osc_inputs              => osc_inputs,
         addrgen_input           => s_addrgen2table,
         output_samples          => s_intermediate_samples,
@@ -57,7 +59,7 @@ begin
         timeout                 => s_timeout
     );
 
-    halfband : entity wave.halfband_filter
+    halfband : entity osc.halfband_filter
     generic map (
         N_VOICES                => N_VOICES
     )

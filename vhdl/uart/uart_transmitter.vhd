@@ -1,10 +1,11 @@
 library IEEE;
 use IEEE.std_logic_1164.all;
 
-library xil_defaultlib;
-
 library wave;
 use wave.wave_array_pkg.all;
+
+library xil_defaultlib;
+library uart;
 
 
 -- UART transmitter with 8-bit fifo buffer
@@ -56,7 +57,7 @@ begin
         data_count              => s_data_count
     );
 
-    uart : entity wave.uart_tx
+    uart : entity uart.uart_tx
     generic map (
         g_CLKS_PER_BIT          => SYS_FREQ / UART_BAUD,
         g_BIT_POLARITY          => '1'

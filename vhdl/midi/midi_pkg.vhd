@@ -4,7 +4,6 @@ use ieee.numeric_std.all;
 use ieee.math_real.all;
 
 
-
 package midi_pkg is
 
     subtype t_byte is std_logic_vector(7 downto 0);

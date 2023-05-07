@@ -5,11 +5,15 @@ use ieee.numeric_std.all;
 library unisim;
 use unisim.vcomponents.all;
 
-library ip;
-
 library wave;
 use wave.wave_array_pkg.all;
-use wave.midi_pkg.all;
+
+library midi;
+use midi.midi_pkg.all;
+
+library sdram;
+library i2s;
+library uart;
 
 
 entity wave_array is
@@ -80,8 +84,15 @@ architecture arch of wave_array is
     signal s_sdram_inputs       : t_sdram_input_array(0 to N_TABLES); -- 1 for the UART and 1 for each wavetable.
     signal s_sdram_outputs      : t_sdram_output_array(0 to N_TABLES);
 
-    signal s_dma_inputs         : t_dma_input_array(0 to N_TABLES - 1);
     signal s_frame_control      : t_ctrl_value;
+
+    signal s_uart_timeout       : std_logic;
+    signal s_uart_state         : integer;
+    signal s_uart_count         : integer;
+    signal s_uart_fifo_count    : integer;
+    signal s_frame_index        : integer range 0 to WAVE_MAX_FRAMES - 1;
+    signal s_frame_position     : t_osc_position;
+    signal s_frame_bank         : integer range 0 to 3;
 
 begin
 
@@ -113,6 +124,14 @@ begin
 
     s_frame_control <= unsigned(s_pot_value) & (0 to CTRL_SIZE - ADC_SAMPLE_SIZE - 1 => '0');
 
+    s_status.pot_value          <= s_pot_value;
+    s_status.frame_index        <= s_frame_index;
+    s_status.frame_position     <= s_frame_position;
+    s_status.frame_bank         <= s_frame_bank;
+    s_status.uart_timeout       <= s_uart_timeout;
+    s_status.uart_state         <= s_uart_state;
+    s_status.uart_count         <= s_uart_count;
+    s_status.uart_fifo_count    <= s_uart_fifo_count;
 
     clk_subsys : entity wave.clk_subsystem
     port map (
@@ -125,7 +144,7 @@ begin
         pll_locked              => s_pll_locked
     );
 
-    midi_slave : entity wave.midi_slave
+    midi_slave : entity midi.midi_slave
     port map (
         clk                     => s_system_clk,
         reset                   => s_reset_ah,
@@ -135,7 +154,7 @@ begin
         status_byte             => s_midi_status_byte
     );
 
-    uart_subsys : entity wave.uart_subsystem
+    uart_subsys : entity uart.uart_subsystem
     port map (
         clk                     => s_system_clk,
         reset                   => s_reset_ah,
@@ -145,10 +164,10 @@ begin
         sdram_output            => s_sdram_outputs(0),
         UART_RX                 => UART_RX,
         UART_TX                 => UART_TX,
-        timeout                 => s_status.uart_timeout,
-        uart_state              => s_status.uart_state,
-        uart_count              => s_status.uart_count,
-        fifo_count              => s_status.uart_fifo_count
+        timeout                 => s_uart_timeout,
+        uart_state              => s_uart_state,
+        uart_count              => s_uart_count,
+        fifo_count              => s_uart_fifo_count
     );
 
     reg_file : entity wave.register_file
@@ -157,9 +176,6 @@ begin
         reset                   => s_reset_ah,
         register_output         => s_register_output,
         register_input          => s_register_input,
-        base_address            => s_dma_inputs(0).base_address,
-        n_frames_log2           => s_dma_inputs(0).n_frames_log2,
-        new_table               => s_dma_inputs(0).new_table,
         status                  => s_status,
         config                  => s_config
     );
@@ -168,6 +184,7 @@ begin
     port map(
         clk                     => s_system_clk,
         reset                   => s_reset_ah,
+        config                  => s_config,
         next_sample             => s_next_sample,
         frame_control           => s_frame_control,
         voices                  => s_voices,
@@ -175,10 +192,12 @@ begin
         sample                  => s_sample,
         sdram_inputs            => s_sdram_inputs(1 to N_TABLES),
         sdram_outputs           => s_sdram_outputs(1 to N_TABLES),
-        dma_inputs              => s_dma_inputs
+        frame_index             => s_frame_index,
+        frame_position          => s_frame_position,
+        frame_bank              => s_frame_bank
     );
 
-    i2s_interface : entity wave.i2s_interface
+    i2s_interface : entity i2s.i2s_interface
     port map (
         system_clk              => s_system_clk,
         i2s_clk                 => s_i2s_clk,
@@ -209,7 +228,7 @@ begin
         anodes                  => DISPLAY_ANODES
     );
 
-    arbiter : entity wave.sdram_arbiter
+    arbiter : entity sdram.sdram_arbiter
     generic map (
         N_CLIENTS               => 1 + N_TABLES
     )
@@ -230,9 +249,7 @@ begin
         SDRAM_UBN               => SDRAM_UBN,
         SDRAM_WAIT              => SDRAM_WAIT,
         SDRAM_ADDRESS           => SDRAM_ADDRESS,
-        SDRAM_DQ                => SDRAM_DQ,
-        sdram_state             => s_status.sdram_state,
-        sdram_count             => s_status.sdram_count
+        SDRAM_DQ                => SDRAM_DQ
     );
 
 

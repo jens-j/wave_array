@@ -2,10 +2,11 @@ library ieee;
 use ieee.std_logic_1164.all;
 use ieee.numeric_std.all;
 
-library xil_defaultlib;
-
 library wave;
 use wave.wave_array_pkg.all;
+
+library xil_defaultlib;
+library sdram;
 
 -- Priority memory arbiter. Lowest index goes first.
 -- Clients can assert their read- or write-enable lines and wait for the valid line.
@@ -34,11 +35,7 @@ entity sdram_arbiter is
         SDRAM_UBN               : out   std_logic;
         SDRAM_WAIT              : in    std_logic;
         SDRAM_ADDRESS           : out   std_logic_vector(SDRAM_DEPTH_LOG2 - 1 downto 0);
-        SDRAM_DQ                : inout std_logic_vector(SDRAM_WIDTH - 1 downto 0);
-
-        -- Debug outputs.
-        sdram_state             : out   integer;
-        sdram_count             : out   integer
+        SDRAM_DQ                : inout std_logic_vector(SDRAM_WIDTH - 1 downto 0)
     );
 end entity;
 
@@ -100,7 +97,7 @@ begin
         data_count              => s_fifo_data_count
     );
 
-    sdram_controller : entity wave.sdram_controller
+    sdram_controller : entity sdram.sdram_controller
     port map (
         clk                     => clk,
         sdram_clk               => sdram_clk,
@@ -118,9 +115,7 @@ begin
         SDRAM_UBN               => SDRAM_UBN,
         SDRAM_WAIT              => SDRAM_WAIT,
         SDRAM_ADDRESS           => SDRAM_ADDRESS,
-        SDRAM_DQ                => SDRAM_DQ,
-        sdram_state             => sdram_state,
-        sdram_count             => sdram_count
+        SDRAM_DQ                => SDRAM_DQ
     );
 
     -- Connect output registers.

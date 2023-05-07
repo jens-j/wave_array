@@ -5,7 +5,11 @@ library xil_defaultlib;
 
 library wave;
 use wave.wave_array_pkg.all;
-use wave.midi_pkg.all;
+
+library midi;
+use midi.midi_pkg.all;
+
+library uart;
 
 
 entity midi_tester is
@@ -38,7 +42,7 @@ begin
     uart_dv_s    <= not fifo_empty_s;
     fifo_rd_en_s <= uart_done_s and not uart_active_s and not fifo_empty_s;
 
-    reader : entity wave.midi_reader
+    reader : entity midi.midi_reader
     generic map(
         FILENAME                => FILENAME
     )
@@ -50,7 +54,7 @@ begin
         data                    => fifo_din_s
     );
 
-    uart : entity wave.uart_tx
+    tx : entity uart.uart_tx
     generic map (
         g_CLKS_PER_BIT          => SYS_FREQ / MIDI_BAUD,
         g_BIT_POLARITY          => '1'

@@ -21,7 +21,6 @@ entity dma is
         sdram_output            : in  t_sdram_output;
         sdram_input             : out t_sdram_input;
 
-        -- Wave table memory interface.
         wave_mem_wea            : out std_logic_vector(0 downto 0);
         wave_mem_addra          : out std_logic_vector(MIPMAP_TABLE_SIZE_LOG2 + 1 downto 0);
         wave_mem_dina           : out std_logic_vector(SAMPLE_SIZE - 1 downto 0)

@@ -77,12 +77,6 @@ begin
                     when others =>
                         s_memory(v_addr)(4 * SAMPLE_SIZE - 1 downto 3 * SAMPLE_SIZE) <= write_data;
                 end case;
-
-                -- -- The lowest 2 bits select the word within the memory line.
-                -- v_sub := to_integer(unsigned(write_address(1 downto 0)));
-                -- s_memory(to_integer(unsigned(
-                --     write_address(MIPMAP_TABLE_SIZE_LOG2 - 1 downto 2))))
-                --         <= write_data((v_sub + 1) * SAMPLE_SIZE - 1 downto v_sub * SAMPLE_SIZE);
             end if;
         end if;
     end process;

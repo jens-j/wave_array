@@ -29,11 +29,7 @@ entity sdram_controller is
         SDRAM_UBN               : out   std_logic;
         SDRAM_WAIT              : in    std_logic;
         SDRAM_ADDRESS           : out   std_logic_vector(SDRAM_DEPTH_LOG2 - 1 downto 0);
-        SDRAM_DQ                : inout std_logic_vector(SDRAM_WIDTH - 1 downto 0);
-
-        -- Debug outputs.
-        sdram_state             : out   integer;
-        sdram_count             : out   integer
+        SDRAM_DQ                : inout std_logic_vector(SDRAM_WIDTH - 1 downto 0)
     );
 end entity;
 
@@ -132,10 +128,6 @@ begin
         -- Connect read/write interface output registers.
         sdram_output <= r.sdram_output;
         sdram_output.write_req <= '0';
-
-        -- Connect degug ports.
-        sdram_state <= t_state'pos(r.state);
-        sdram_count <= r.read_count;
 
         case r.state is
 

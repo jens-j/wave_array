@@ -5,6 +5,11 @@ use IEEE.numeric_std.all;
 library wave;
 use wave.wave_array_pkg.all;
 
+library midi;
+use midi.midi_pkg.all;
+
+library uart;
+
 
 entity tb_wave_array is
 end entity;
@@ -58,7 +63,7 @@ begin
 
    
 
-    uart_tester : entity wave.uart_tester
+    uart_tester : entity uart.uart_tester
     generic map (
         FILENAME                => SIM_FILE_PATH & "uart.txt"
     )
@@ -69,7 +74,7 @@ begin
         uart_tx                 => uart_rx
     );
 
-    midi_tester : entity wave.midi_tester
+    midi_tester : entity midi.midi_tester
     generic map (
         FILENAME                => SIM_FILE_PATH & "four_notes.txt"
     )

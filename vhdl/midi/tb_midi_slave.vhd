@@ -4,7 +4,12 @@ use IEEE.numeric_std.all;
 
 library wave;
 use wave.wave_array_pkg.all;
-use wave.midi_pkg.all;
+
+library midi;
+use midi.midi_pkg.all;
+
+library oscillator;
+library i2s;
 
 
 entity tb_midi_slave is
@@ -33,14 +38,14 @@ begin
     sample_in_s(0) <= sample_s;
     sample_in_s(1) <= sample_s;
 
-    tester : entity wave.midi_tester
+    tester : entity midi.midi_tester
     port map (
         clk                     => clk_s,
         reset                   => reset_ah_s,
         uart_tx                 => uart_s
     );
 
-    slave : entity wave.midi_slave
+    slave : entity midi.midi_slave
     generic map (
         n_voices                => 1
     )
@@ -52,7 +57,7 @@ begin
         voices                  => voices_s
     );
 
-    oscillator : entity wave.oscillator
+    oscillator : entity oscillator.oscillator
     port map (
         clk                     => clk_s,
         reset                   => reset_ah_s,
@@ -61,7 +66,7 @@ begin
         sample                  => sample_s
     );
 
-    i2s_interface : entity wave.i2s_interface
+    i2s_interface : entity i2s.i2s_interface
     port map(
         clk                     => clk_s,
         reset                   => reset_ah_s,

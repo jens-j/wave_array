@@ -3,12 +3,13 @@ use ieee.std_logic_1164.all;
 use ieee.numeric_std.all;
 use ieee.math_real.all;
 
-library xil_defaultlib;
-
 library wave;
 use wave.wave_array_pkg.all;
-use wave.uart_pkg.all;
 
+library uart;
+use uart.uart_pkg.all;
+
+library xil_defaultlib;
 
 
 entity uart_packet_engine is

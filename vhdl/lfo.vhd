@@ -15,8 +15,8 @@ entity lfo is
     port (
         clk                     : in  std_logic;
         reset                   : in  std_logic;
+        config                  : in  t_config;
         next_sample             : in  std_logic;
-        velocity                : in  t_ctrl_value_array(0 to N_OUTPUTS - 1);
         sine_out                : out t_ctrl_value_array(0 to N_OUTPUTS - 1);
         square_out              : out t_ctrl_value_array(0 to N_OUTPUTS - 1);
         saw_out                 : out t_ctrl_value_array(0 to N_OUTPUTS - 1)
@@ -96,7 +96,7 @@ begin
     square_out <= r.square_out;
     saw_out <= r.saw_out;
 
-    combinatorial : process (r, next_sample, velocity, s_dout_tvalid, s_dout_tdata)
+    combinatorial : process (r, next_sample, config, s_dout_tvalid, s_dout_tdata)
         variable v_phase_mul    : unsigned(CTRL_SIZE + LFO_PHASE_SIZE - 1 downto 0);
         variable v_phase_delta  : unsigned(LFO_PHASE_SIZE - 1 downto 0);
         variable v_phase_raw    : signed(LFO_PHASE_SIZE - 1 downto 0);
@@ -121,7 +121,7 @@ begin
             for i in 0 to N_OUTPUTS - 1 loop
 
                 -- Calculate the phase increase.
-                v_phase_mul := velocity(i) * LFO_VELOCITY_STEP;
+                v_phase_mul := config.lfo_velocity * LFO_VELOCITY_STEP;
                 v_phase_delta := LFO_MIN_VELOCITY + v_phase_mul(LFO_PHASE_SIZE - 1 downto 0);
                 v_phase_raw := r.phase(i) + signed(v_phase_delta);
 

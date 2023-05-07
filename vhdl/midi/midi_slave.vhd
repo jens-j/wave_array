@@ -4,7 +4,9 @@ use ieee.numeric_std.all;
 
 library wave;
 use wave.wave_array_pkg.all;
-use wave.midi_pkg.all;
+
+library midi;
+use midi.midi_pkg.all;
 
 
 entity midi_slave is
@@ -58,7 +60,7 @@ architecture arch of midi_slave is
 
 begin
 
-    midi_receiver : entity wave.midi_receiver
+    midi_receiver : entity midi.midi_receiver
     port map (
         clk                     => clk,
         reset                   => reset,

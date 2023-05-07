@@ -6,6 +6,7 @@ library wave;
 use wave.wave_array_pkg.all;
 
 library xil_defaultlib;
+library sdram;
 
 
 entity tb_sdram is
@@ -97,7 +98,7 @@ begin
         locked                  => s_locked
     );
 
-    arbiter : entity wave.sdram_arbiter
+    arbiter : entity adram.sdram_arbiter
     generic map (
         N_CLIENTS               => 2
     )
