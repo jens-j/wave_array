@@ -103,8 +103,16 @@ begin
             if sdram_output.read_valid = '1' then
 
                 r_in.wave_mem_wea <= "1";
-                r_in.wave_mem_dina <= sdram_output.read_data;
                 r_in.wave_mem_addra <= r.wavetable_address;
+
+                -- Filter out X signals to avoid issues with simulating IIR filters downstream.
+                if SIMULATION then 
+                    for i in 0 to SDRAM_WIDTH - 1 loop 
+                        r_in.wave_mem_dina(i) <= '0' when sdram_output.read_data(i) = 'X' else sdram_output.read_data(i);
+                    end loop;
+                else 
+                    r_in.wave_mem_dina <= sdram_output.read_data;
+                end if;
 
                 if sdram_output.done = '1' then
                     r_in.state <= idle;

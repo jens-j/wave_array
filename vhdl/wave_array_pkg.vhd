@@ -123,6 +123,9 @@ package wave_array_pkg is
 
     constant REG_LFO_VELOCITY       : unsigned := x"0000500"; -- rw 16 bit | LFO velocity control value. 
 
+    constant REG_FILTER_CUTOFF      : unsigned := x"0000600"; -- rw 16 bit | Filter cutoff control value. 
+    constant REG_FILTER_RESONANCE   : unsigned := x"0000601"; -- rw 16 bit | Filter resonance control value. 
+
     -- fault register (sticky-)bit indices.
     constant FAULT_UART_TIMEOUT     : integer := 0; -- UART packet engine timout.
     constant FAULT_REG_ADDRESS      : integer := 1; -- Register address undefined.
@@ -168,6 +171,8 @@ package wave_array_pkg is
     type t_config is record
         led                     : std_logic;
         lfo_velocity            : t_ctrl_value;
+        filter_cutoff           : t_ctrl_value;
+        filter_resonance        : t_ctrl_value;
         dma_new_table           : std_logic; -- Pulse indicating a new table should be loaded.
         dma_base_address        : unsigned(SDRAM_DEPTH_LOG2 - 1 downto 0); -- SDRAM base address of current mipmap table.
         dma_n_frames_log2       : integer range 0 to WAVE_MAX_FRAMES_LOG2; -- Log2 of number of frames in the wavetable - 1.
@@ -260,6 +265,8 @@ package wave_array_pkg is
     constant CONFIG_INIT : t_config := (
         led                     => '0',
         lfo_velocity            => (others => '0'),
+        filter_cutoff           => (others => '0'),
+        filter_resonance        => (others => '0'),
         dma_new_table           => '0',
         dma_base_address        => (others => '0'),
         dma_n_frames_log2       => 0

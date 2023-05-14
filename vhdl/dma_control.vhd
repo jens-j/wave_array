@@ -38,7 +38,7 @@ architecture arch of dma_control is
     end record;
 
     constant REG_INIT : t_dma_ctrl_reg := (
-        state                   => init_0,
+        state                   => idle,
         next_state              => idle,
         ctrl2dma                => CTRL2DMA_INIT,
         buffer_index            => "00",

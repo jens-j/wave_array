@@ -61,8 +61,6 @@ architecture arch of tb_wave_array is
 
 begin
 
-   
-
     uart_tester : entity uart.uart_tester
     generic map (
         FILENAME                => SIM_FILE_PATH & "uart.txt"
