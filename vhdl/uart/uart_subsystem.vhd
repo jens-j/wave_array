@@ -4,7 +4,7 @@ use IEEE.std_logic_1164.all;
 library wave;
 use wave.wave_array_pkg.all;
 
-library xilinx;
+library xil_defaultlib;
 library uart;
 
 -- This entity receives packets over the UART interface and handles the protocol to perform
@@ -93,7 +93,7 @@ begin
     );
 
 
-    rx_fifo : entity xilinx.uart_fifo_gen
+    rx_fifo : entity xil_defaultlib.uart_fifo_gen
     port map (
         clk                     => clk,
         srst                    => reset,
@@ -121,7 +121,7 @@ begin
     );
 
 
-    tx_fifo : entity xilinx.uart_fifo_gen
+    tx_fifo : entity xil_defaultlib.uart_fifo_gen
     port map (
         clk                     => clk,
         srst                    => reset,

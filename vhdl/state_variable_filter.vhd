@@ -5,7 +5,7 @@ use ieee.numeric_std.all;
 library wave;
 use wave.wave_array_pkg.all;
 
-library xilinx;
+library xil_defaultlib;
 
 -- This entity calculates one sample of a state variable filter for each channel every next_sample pulse. 
 -- Each filter step consists of a five stages. Each stage is calculated for every channel before continuing with 
@@ -116,7 +116,7 @@ architecture arch of state_variable_filter is
 
 begin
 
-    macc : entity xilinx.svf_macc_gen
+    macc : entity xil_defaultlib.svf_macc_gen
     port map (
         CLK                     => clk,
         SEL                     => s_macc_sel,

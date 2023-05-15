@@ -5,7 +5,7 @@ use ieee.numeric_std.all;
 library wave;
 use wave.wave_array_pkg.all;
 
-library xilinx;
+library xil_defaultlib;
 library uart;
 
 
@@ -77,7 +77,7 @@ begin
         i_RX_Serial             => uart_rx
     );
 
-    rx_fifo : entity xilinx.uart_fifo_gen
+    rx_fifo : entity xil_defaultlib.uart_fifo_gen
     port map (
         clk                     => clk,
         srst                    => reset,
@@ -103,7 +103,7 @@ begin
         o_TX_Done               => s_tx_done
     );
 
-    tx_fifo : entity xilinx.uart_fifo_gen
+    tx_fifo : entity xil_defaultlib.uart_fifo_gen
     port map (
         clk                     => clk,
         srst                    => reset,

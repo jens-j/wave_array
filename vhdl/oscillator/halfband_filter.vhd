@@ -5,7 +5,7 @@ use ieee.numeric_std.all;
 library wave;
 use wave.wave_array_pkg.all;
 
-library xilinx;
+library xil_defaultlib;
 
 
 entity halfband_filter is
@@ -59,7 +59,7 @@ architecture arch of halfband_filter is
 
 begin
 
-    macc : entity xilinx.halfband_macc_gen
+    macc : entity xil_defaultlib.halfband_macc_gen
     port map (
         CLK                     => clk,
         SEL                     => s_macc_sel,

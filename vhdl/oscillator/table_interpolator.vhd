@@ -5,7 +5,7 @@ use ieee.numeric_std.all;
 library wave;
 use wave.wave_array_pkg.all;
 
-library xilinx;
+library xil_defaultlib;
 library osc;
 
 
@@ -159,7 +159,7 @@ begin
     --     read_data               => s_wave_mem_doutb
     -- );
 
-    wave_mem : entity xilinx.wave_mem_gen
+    wave_mem : entity xil_defaultlib.wave_mem_gen
     port map (
         clka                    => clk,
         wea                     => dma2table.wave_mem_wea,
@@ -194,7 +194,7 @@ begin
 
     -- DSP slice configured to perform linear interpolation of two frames (samples).
     -- Implements (A - D) * B + C = P.
-    frame_interp: entity xilinx.osc_interpolation_gen
+    frame_interp: entity xil_defaultlib.osc_interpolation_gen
     port map (
         CLK                     => clk,
         A                       => s_frame_interp_a,
@@ -206,7 +206,7 @@ begin
 
     -- DSP slice configured to perform linear interpolation of filter phases (coefficients).
     -- Implements (A - D) * B + C = P.
-    coeff_interp: entity xilinx.osc_interpolation_gen
+    coeff_interp: entity xil_defaultlib.osc_interpolation_gen
     port map (
         CLK                     => clk,
         A                       => s_coeff_interp_a,
@@ -219,7 +219,7 @@ begin
     -- DSP slice configured as polyphase filter multiply-accumulate.
     -- sel: 0 -> A * B + P = P
     -- sel: 1 -> A * B = P
-    filter_macc: entity xilinx.osc_macc_gen
+    filter_macc: entity xil_defaultlib.osc_macc_gen
     port map (
         CLK                     => clk,
         SEL                     => s_macc_sel,

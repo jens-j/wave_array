@@ -265,8 +265,8 @@ package wave_array_pkg is
     constant CONFIG_INIT : t_config := (
         led                     => '0',
         lfo_velocity            => (others => '0'),
-        filter_cutoff           => (others => '0'),
-        filter_resonance        => (others => '0'),
+        filter_cutoff           => x"4000", -- 0.5
+        filter_resonance        => x"FFFF", -- 2.0
         dma_new_table           => '0',
         dma_base_address        => (others => '0'),
         dma_n_frames_log2       => 0

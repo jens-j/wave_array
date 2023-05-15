@@ -91,15 +91,6 @@ begin
                 r_in.register_output.read_data <= 
                     std_logic_vector(to_unsigned(r.config.dma_n_frames_log2, REGISTER_WIDTH));
 
-            elsif register_input.address = REG_LFO_VELOCITY then
-                r_in.register_output.read_data <= std_logic_vector(r.config.lfo_velocity);
-
-            elsif register_input.address = REG_FILTER_CUTOFF then
-                r_in.register_output.read_data <= std_logic_vector(r.config.filter_cutoff);
-            
-            elsif register_input.address = REG_FILTER_RESONANCE then
-                r_in.register_output.read_data <= std_logic_vector(r.config.filter_resonance);
-
             elsif register_input.address = REG_FRAME_INDEX then
                 r_in.register_output.read_data <= std_logic_vector(to_unsigned(status.frame_index, REGISTER_WIDTH));
 
@@ -114,6 +105,15 @@ begin
 
             elsif register_input.address = REG_LFO_VELOCITY then
                 r_in.register_output.read_data <= std_logic_vector(r.config.lfo_velocity);
+
+            elsif register_input.address = REG_LFO_VELOCITY then
+                r_in.register_output.read_data <= std_logic_vector(r.config.lfo_velocity);
+
+            elsif register_input.address = REG_FILTER_CUTOFF then
+                r_in.register_output.read_data <= std_logic_vector(r.config.filter_cutoff);
+
+            elsif register_input.address = REG_FILTER_RESONANCE then
+                r_in.register_output.read_data <= std_logic_vector(r.config.filter_resonance);
 
             else
                 r_in.register_output.fault <= '1';
