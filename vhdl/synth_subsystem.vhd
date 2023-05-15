@@ -123,7 +123,7 @@ begin
     port map(
         clk                     => clk,
         reset                   => reset,
-        sample_in               => s_osc_samples,
+        sample_in               => s_lowpss_samples,
         next_sample             => next_sample,
         sample_out              => s_mixer_sample_out
     );
