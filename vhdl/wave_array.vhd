@@ -101,13 +101,10 @@ begin
     s_reset_al <= BTN_RESET;
 
     -- Connect outputs.
-    gen_voice_led: for i in 0 to N_VOICES - 1 generate
+    gen_voice_led: for i in 0 to minimum(4, N_VOICES - 1) generate
         LEDS(15 - i) <= s_voices(i).enable;
     end generate;
 
-    LEDS(15 - N_VOICES downto 8) <= (others => '0');
-    -- LEDS(7 downto 0) <= s_midi_status_byte;
-    LEDS(7 downto 1) <= (others => '0');
     LEDS(0) <= s_config.led;
 
     -- SDRAM_CLK <= s_system_clk;

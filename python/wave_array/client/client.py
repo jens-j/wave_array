@@ -49,24 +49,24 @@ class WaveArray:
     def read_filter_cutoff(self, convert=False):
         raw_value = self.read(self.REG_FILTER_CUTOFF)
         print(f"read filter cutoff: 0x{raw_value:04X}")
-        return raw_value / 0x8000 if convert else raw_value
+        return min(1.0, raw_value / 0x6000) if convert else raw_value
 
-    # Filter control value in [0 - 1] using 16.16 fixed point format. 
+    # Filter control value in [0 - 1] ([0 - 0.75]) using 16.16 fixed point format. 
     # The register holds bits 1 to 16.
     def write_filter_cutoff(self, value, convert=False):
-        raw_value = np.uint16(value * 0x8000) if convert else value 
+        raw_value = np.uint16(value * 0x6000) if convert else value 
         print(f"write filter cutoff: 0x{raw_value:04X}")
         self.write(self.REG_FILTER_CUTOFF, raw_value) 
 
     def read_filter_resonance(self, convert=False):
         raw_value = np.uint16(self.read(self.REG_FILTER_RESONANCE))
         print(f"read filter resonance: 0x{raw_value:04X}")
-        return 1.0 - raw_value / 0xFFFF if convert else raw_value
+        return 1.0 - min(1.0, raw_value / 0xDFFF) if convert else raw_value
 
-    # Filter control value in [2 - 0] using 16.16 fixed point format. 
+    # Filter control value in [2 - 0] ([2 - 0.125]) using 16.16 fixed point format. 
     # The register holds bits 1 to 16.
     def write_filter_resonance(self, value, convert=False):
-        raw_value = np.uint16(0xFFFF - value * 0xFFFF) if convert else value 
+        raw_value = np.uint16(0xFFFF - value * 0xDFFF) if convert else value 
         print(f"write filter resonance: 0x{raw_value:04X}")
         self.write(self.REG_FILTER_RESONANCE, raw_value) 
 

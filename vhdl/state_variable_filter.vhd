@@ -61,18 +61,22 @@ architecture arch of state_variable_filter is
     constant MACC_INSTRUCTION : t_instruction_array := ("00", "01", "11", "00", "10");
 
     type t_index_array is array (natural range <>) of integer;
-    type t_state is (idle, running);
+    type t_state is (idle, shift, running);
 
     type t_svf_reg is record
         state                   : t_state;
         lowpass_out             : t_mono_sample_array(0 to N_INPUTS - 1);
-        lowpass_buffer          : t_mono_sample_array(0 to N_INPUTS - 1);
+        lowpass_r               : t_mono_sample_array(0 to N_INPUTS - 1);
+        lowpass_r2              : t_mono_sample_array(0 to N_INPUTS - 1);
         highpass_out            : t_mono_sample_array(0 to N_INPUTS - 1);
-        highpass_buffer         : t_mono_sample_array(0 to N_INPUTS - 1);
+        highpass_r              : t_mono_sample_array(0 to N_INPUTS - 1);
+        highpass_r2             : t_mono_sample_array(0 to N_INPUTS - 1);
         bandpass_out            : t_mono_sample_array(0 to N_INPUTS - 1);
-        bandpass_buffer         : t_mono_sample_array(0 to N_INPUTS - 1);
+        bandpass_r              : t_mono_sample_array(0 to N_INPUTS - 1);
+        bandpass_r2             : t_mono_sample_array(0 to N_INPUTS - 1);
         notch_out               : t_mono_sample_array(0 to N_INPUTS - 1);
-        notch_buffer            : t_mono_sample_array(0 to N_INPUTS - 1);
+        notch_r                 : t_mono_sample_array(0 to N_INPUTS - 1);
+        notch_r2                : t_mono_sample_array(0 to N_INPUTS - 1);
         highpass_temp           : t_mono_sample_array(0 to N_INPUTS - 1);
         stage_count_in          : integer range 0 to N_STAGES - 1; -- Count pipeline stages.
         sample_count_in         : integer range 0 to N_INPUTS - 1; -- Count input samples to the MACC.
@@ -82,18 +86,23 @@ architecture arch of state_variable_filter is
         pipeline_valid          : std_logic_vector(PIPE_SUM_WB - 1 downto 0); -- shift signals valid data in pipeline for each stage.
         saturation_buffer       : std_logic_vector(2 * SAMPLE_SIZE - 1 downto 0);
         overflow                : std_logic;
+        second_pass             : std_logic;
     end record;
 
     constant REG_INIT : t_svf_reg := (
         state                   => idle,
         lowpass_out             => (others => (others => '0')),
-        lowpass_buffer          => (others => (others => '0')),
+        lowpass_r               => (others => (others => '0')),
+        lowpass_r2              => (others => (others => '0')),
         highpass_out            => (others => (others => '0')),
-        highpass_buffer         => (others => (others => '0')),
+        highpass_r              => (others => (others => '0')),
+        highpass_r2             => (others => (others => '0')),
         bandpass_out            => (others => (others => '0')),
-        bandpass_buffer         => (others => (others => '0')),
+        bandpass_r              => (others => (others => '0')),
+        bandpass_r2             => (others => (others => '0')),
         notch_out               => (others => (others => '0')),
-        notch_buffer            => (others => (others => '0')),
+        notch_r                 => (others => (others => '0')),
+        notch_r2                => (others => (others => '0')),
         highpass_temp           => (others => (others => '0')),
         stage_count_in          => 0,
         sample_count_in         => 0,
@@ -102,7 +111,8 @@ architecture arch of state_variable_filter is
         sample_count_array      => (others => 0),
         pipeline_valid          => (others => '0'),
         saturation_buffer       => (others => '0'),
-        overflow                => '0'
+        overflow                => '0',
+        second_pass             => '0'
     );
 
     signal r, r_in              : t_svf_reg;
@@ -149,48 +159,56 @@ begin
         -- Update output buffers and calculate new samples.
         if r.state = idle then 
 
-            r_in.stage_count_in         <= 0;
-            r_in.sample_count_in        <= 0;
-            r_in.empty_count_in         <= 0;
-            r_in.pipeline_valid(0)      <= '0';
+            r_in.stage_count_in    <= 0;
+            r_in.sample_count_in   <= 0;
+            r_in.empty_count_in    <= 0;
+            r_in.pipeline_valid(0) <= '0';
+            r_in.second_pass       <= '0';
 
             if next_sample = '1' then 
-                r_in.lowpass_out        <= r.lowpass_buffer;
-                r_in.highpass_out       <= r.highpass_buffer;
-                r_in.bandpass_out       <= r.bandpass_buffer;
-                r_in.notch_out          <= r.notch_buffer; 
-                r_in.state              <= running;
+                r_in.lowpass_out  <= r.lowpass_r2;
+                r_in.highpass_out <= r.highpass_r2;
+                r_in.bandpass_out <= r.bandpass_r2;
+                r_in.notch_out    <= r.notch_r2; 
+                r_in.state        <= shift;
             end if;
-        end if;
 
-        if r.state = running then          
+        -- Shift datapath registers.
+        elsif r.state = shift then    
+            r_in.lowpass_r2  <= r.lowpass_r;
+            r_in.highpass_r2 <= r.highpass_r;
+            r_in.bandpass_r2 <= r.bandpass_r;
+            r_in.notch_r2    <= r.notch_r; 
+            r_in.state       <= running;
+
+        elsif r.state = running then          
 
             r_in.pipeline_valid(0) <= '1' when r.empty_count_in = 0 else '0';   
             
             -- Don't input data on empty pipeline slots added to avoid RAW pipeline hazards. 
             case (r.stage_count_in) is 
             when 0 => -- A * B + C
-                s_macc_a <= std_logic_vector(r.bandpass_out(r.sample_count_in));
+                s_macc_a <= std_logic_vector(r.bandpass_r2(r.sample_count_in));
                 s_macc_b <= std_logic_vector('0' & config.filter_cutoff & '0'); -- 2.16 fixed point in [0 - 2).
-                s_macc_c <= std_logic_vector(resize(r.lowpass_out(r.sample_count_in) & (15 downto 0 => '0'), 32));
+                s_macc_c <= std_logic_vector(resize(r.lowpass_r2(r.sample_count_in) & (15 downto 0 => '0'), 32));
 
             when 1 => -- C - A * B
-                s_macc_a <= std_logic_vector(r.bandpass_out(r.sample_count_in));
+                s_macc_a <= std_logic_vector(r.bandpass_r2(r.sample_count_in));
                 s_macc_b <= std_logic_vector('0' & config.filter_resonance & '0'); -- 2.16 fixed point in [0 - 2).
                 s_macc_c <= std_logic_vector(resize(sample_in(r.sample_count_in) & (15 downto 0 => '0'), 32));
 
             when 2 => -- D - A
-                s_macc_a <= std_logic_vector(r.lowpass_buffer(r.sample_count_in));
+                s_macc_a <= std_logic_vector(r.lowpass_r(r.sample_count_in));
                 s_macc_d <= std_logic_vector(r.highpass_temp(r.sample_count_in)); 
                 
             when 3 => -- A * B + C
-                s_macc_a <= std_logic_vector(r.highpass_buffer(r.sample_count_in));
+                s_macc_a <= std_logic_vector(r.highpass_r(r.sample_count_in));
                 s_macc_b <= std_logic_vector('0' & config.filter_cutoff & '0'); -- 2.16 fixed point in [0 - 2).
-                s_macc_c <= std_logic_vector(resize(r.bandpass_out(r.sample_count_in) & (15 downto 0 => '0'), 32));
+                s_macc_c <= std_logic_vector(resize(r.bandpass_r2(r.sample_count_in) & (15 downto 0 => '0'), 32));
 
             when 4 => -- D + A
-                s_macc_a <= std_logic_vector(r.lowpass_buffer(r.sample_count_in)); 
-                s_macc_d <= std_logic_vector(r.highpass_buffer(r.sample_count_in));
+                s_macc_a <= std_logic_vector(r.lowpass_r(r.sample_count_in)); 
+                s_macc_d <= std_logic_vector(r.highpass_r(r.sample_count_in));
             end case;
             
             -- Update input counters and de-assert valid if counting empty cycles.
@@ -205,7 +223,12 @@ begin
                     r_in.stage_count_in <= r.stage_count_in + 1;
                 else 
                     r_in.stage_count_in <= 0;
-                    r_in.state <= idle;
+                    if r.second_pass = '1' then 
+                        r_in.state <= idle;
+                    else 
+                        r_in.second_pass <= '1';
+                        r_in.state <= shift;
+                    end if;
                 end if;
             end if;
 
@@ -262,7 +285,7 @@ begin
             case (r.stage_count_array(PIPE_SUM_SAT - 1)) is 
 
             when 0 => 
-                r_in.lowpass_buffer(r.sample_count_array(PIPE_SUM_SAT - 1)) <= 
+                r_in.lowpass_r(r.sample_count_array(PIPE_SUM_SAT - 1)) <= 
                     signed(r.saturation_buffer(2 * SAMPLE_SIZE - 1 downto SAMPLE_SIZE));
 
             when 1 =>
@@ -270,15 +293,15 @@ begin
                     signed(r.saturation_buffer(2 * SAMPLE_SIZE - 1 downto SAMPLE_SIZE));
 
             when 2 => 
-                r_in.highpass_buffer(r.sample_count_array(PIPE_SUM_SAT - 1)) <= 
+                r_in.highpass_r(r.sample_count_array(PIPE_SUM_SAT - 1)) <= 
                     signed(r.saturation_buffer(SAMPLE_SIZE - 1 downto 0));
 
             when 3 => 
-                r_in.bandpass_buffer(r.sample_count_array(PIPE_SUM_SAT - 1)) <= 
+                r_in.bandpass_r(r.sample_count_array(PIPE_SUM_SAT - 1)) <= 
                     signed(r.saturation_buffer(2 * SAMPLE_SIZE - 1 downto SAMPLE_SIZE));
 
             when 4 => 
-                r_in.notch_buffer(r.sample_count_array(PIPE_SUM_SAT - 1)) <= 
+                r_in.notch_r(r.sample_count_array(PIPE_SUM_SAT - 1)) <= 
                     signed(r.saturation_buffer(SAMPLE_SIZE - 1 downto 0));
                 
             -- Don't write back on empty pipeline slots added to avoid RAW pipeline hazards. 
