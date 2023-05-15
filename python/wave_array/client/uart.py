@@ -3,6 +3,8 @@ import serial
 import struct
 from time import sleep
 
+import numpy as np
+
 class UartException(Exception):
     pass
 
@@ -37,7 +39,7 @@ class UartDevice:
 
 
     def write(self, address, data):
-        request = struct.pack('>BIh', UartType.WRITE_REQ, address, data)
+        request = struct.pack('>BIh', UartType.WRITE_REQ, address, np.int16(data))
         reply = self.command(request, 1)
         opcode, = struct.unpack('>B', reply)
         if opcode != UartType.WRITE_REP:

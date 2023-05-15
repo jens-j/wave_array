@@ -26,8 +26,10 @@ class WaveArray:
     REG_POTOENTIOMETER          = 0x00000400
 
     REG_LFO_VELOCITY            = 0x00000500
-    
-     
+
+    REG_FILTER_CUTOFF           = 0x00000600
+    REG_FILTER_RESONANCE        = 0x00000601
+         
 
     def __init__(self, port='COM4'):
         self.dev = UartDevice(port, 1000000)
@@ -43,6 +45,36 @@ class WaveArray:
 
     def read_faults(self):
         return self.dev.read(self.REG_ADDR_FAULT)
+
+    def read_filter_cutoff(self, convert=False):
+        raw_value = self.read(self.REG_FILTER_CUTOFF)
+        print(f"read filter cutoff: 0x{raw_value:04X}")
+        return raw_value / 0x8000 if convert else raw_value
+
+    # Filter control value in [0 - 1] using 16.16 fixed point format. 
+    # The register holds bits 1 to 16.
+    def write_filter_cutoff(self, value, convert=False):
+        raw_value = np.uint16(value * 0x8000) if convert else value 
+        print(f"write filter cutoff: 0x{raw_value:04X}")
+        self.write(self.REG_FILTER_CUTOFF, raw_value) 
+
+    def read_filter_resonance(self, convert=False):
+        raw_value = np.uint16(self.read(self.REG_FILTER_RESONANCE))
+        print(f"read filter resonance: 0x{raw_value:04X}")
+        return 1.0 - raw_value / 0xFFFF if convert else raw_value
+
+    # Filter control value in [2 - 0] using 16.16 fixed point format. 
+    # The register holds bits 1 to 16.
+    def write_filter_resonance(self, value, convert=False):
+        raw_value = np.uint16(0xFFFF - value * 0xFFFF) if convert else value 
+        print(f"write filter resonance: 0x{raw_value:04X}")
+        self.write(self.REG_FILTER_RESONANCE, raw_value) 
+
+    def write(self, address, data):
+        self.dev.write(address, data) 
+
+    def read(self, address):
+        return self.dev.read(address)
 
     def write_sdram(self, address, data):
 
@@ -77,35 +109,8 @@ def main():
     wave_array.set_led(True)
     wave_array.get_led()
 
-    wave_array.write_sdram(0, list(range(256)))
-
-    try:
-        read_data = wave_array.read_sdram(0, 256)
-        print(read_data)
-    except Exception as e:
-        log.error(e)
-
-    print(wave_array.dev.read(WaveArray.REG_FRAME_INDEX))
-    print(wave_array.dev.read(WaveArray.REG_FRAME_POSITION))
-    print(wave_array.dev.read(WaveArray.REG_FRAME_BANK))
-
-    # with open('basic_table.data') as f:
-    #     string_table = f.read().split('\n')
-    #     string_table = list(filter(lambda x: x != '', string_table))
-    #     table = np.array([int(x, 16) for x in string_table]).astype('int16')
-
-    # print(table)
-
-    # wave_array.write_sdram(0, table)
-
-    # wave_array.dev.write(WaveArray.REG_TABLE_FRAMES, 4)
-    # wave_array.dev.write(WaveArray.REG_TABLE_NEW, 1)
-
-    # led_state = True
-    # while True:
-    #     wave_array.set_led(led_state)
-    #     led_state = not led_state
-    #     time.sleep(0.5)
+    wave_array.write(WaveArray.REG_FILTER_CUTOFF, 0x2000)
+    wave_array.write(WaveArray.REG_FILTER_RESONANCE, 0x4000)
 
 
 if __name__ == '__main__':
