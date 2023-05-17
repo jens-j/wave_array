@@ -23,12 +23,13 @@ class WaveArray:
     REG_FRAME_POSITION          = 0x00000301
     REG_FRAME_BANK              = 0x00000302
 
-    REG_POTOENTIOMETER          = 0x00000400
+    REG_POTENTIOMETER           = 0x00000400
 
     REG_LFO_VELOCITY            = 0x00000500
 
     REG_FILTER_CUTOFF           = 0x00000600
     REG_FILTER_RESONANCE        = 0x00000601
+    REG_FILTER_SELECT           = 0x00000602 # Filter output select. 0 = LP, 1 = HP, 2 = BP, 3 = BS, 4 = bypass.
          
 
     def __init__(self, port='COM4'):
@@ -47,34 +48,35 @@ class WaveArray:
         return self.dev.read(self.REG_ADDR_FAULT)
 
     def read_filter_cutoff(self, convert=False):
-        raw_value = self.read(self.REG_FILTER_CUTOFF)
-        print(f"read filter cutoff: 0x{raw_value:04X}")
-        return min(1.0, raw_value / 0x6000) if convert else raw_value
+        raw_value = np.uint16(self.read(self.REG_FILTER_CUTOFF))
+        return np.sqrt(raw_value / 0xFFFF) if convert else raw_value
 
     # Filter control value in [0 - 1] ([0 - 0.75]) using 16.16 fixed point format. 
     # The register holds bits 1 to 16.
     def write_filter_cutoff(self, value, convert=False):
-        raw_value = np.uint16(value * 0x6000) if convert else value 
-        print(f"write filter cutoff: 0x{raw_value:04X}")
+        raw_value = np.uint16(value**2 * 0xFFFF) if convert else value 
+        # print(f"write filter cutoff: 0x{raw_value:04X}")
         self.write(self.REG_FILTER_CUTOFF, raw_value) 
 
     def read_filter_resonance(self, convert=False):
         raw_value = np.uint16(self.read(self.REG_FILTER_RESONANCE))
-        print(f"read filter resonance: 0x{raw_value:04X}")
-        return 1.0 - min(1.0, raw_value / 0xDFFF) if convert else raw_value
+        # print(f"read filter resonance: 0x{raw_value:04X}")
+        return np.sqrt(raw_value / 0xFFFF) if convert else raw_value
 
     # Filter control value in [2 - 0] ([2 - 0.125]) using 16.16 fixed point format. 
     # The register holds bits 1 to 16.
     def write_filter_resonance(self, value, convert=False):
-        raw_value = np.uint16(0xFFFF - value * 0xDFFF) if convert else value 
-        print(f"write filter resonance: 0x{raw_value:04X}")
+        raw_value = np.uint16(value**2 * 0xFFFF) if convert else value 
         self.write(self.REG_FILTER_RESONANCE, raw_value) 
 
     def write(self, address, data):
+        print(f'[{address:08X}] <= {data:04X}')
         self.dev.write(address, data) 
 
     def read(self, address):
-        return self.dev.read(address)
+        data = self.dev.read(address)
+        # print(f'read [{address:08X}] = {data:04X}')
+        return data
 
     def write_sdram(self, address, data):
 
@@ -82,7 +84,11 @@ class WaveArray:
 
         for i in range(len(data) // 128):
             burst_data = data[i * 128:(i + 1) * 128]
-            print(f'[{burst_address:08X}] = {burst_data}')
+
+            print(f'[{burst_address:08X}] <=',
+                f'{burst_data[0] & 0xFFFF:04X}, {burst_data[1] & 0xFFFF:04X}, {burst_data[2] & 0xFFFF:04X}, ...', 
+                f'{burst_data[-3] & 0xFFFF:04X}, {burst_data[-2] & 0xFFFF:04X}, {burst_data[-1] & 0xFFFF:04X}')
+
             self.dev.write_block(burst_address, burst_data)
             burst_address += 128
 

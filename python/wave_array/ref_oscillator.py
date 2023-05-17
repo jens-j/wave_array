@@ -28,7 +28,7 @@ def get_coeffs(pp_filter, m0, d):
 
 SAMPLE_RATE             = 96000
 FREQUENCY               = 880
-OUTPUT_LENGTH           = 0.1 # s
+OUTPUT_LENGTH           = 0.001 # s
 SAMPLE_SIZE             = 16
 TABLE_SIZE_L0_LOG2      = 11
 TABLE_SIZE_L0           = 1 << TABLE_SIZE_L0_LOG2
@@ -115,9 +115,6 @@ for i in range(int(OUTPUT_LENGTH * 2 * SAMPLE_RATE)):
     for i in range(POLY_N):
         sum = (sum + x[i] * np.flip(c)[i]) & 0xFFFFFFFF
         # print(f"{i:2d} {x[i] & 0xFFFF:04X} * {np.flip(c)[i] & 0xFFFF:04X} sum = {sum:08X}")
-
-    # exit()
-    # print(np.sum(x * c[::-1]))
 
     # Calculate output sample.
     output_samples[i] = np.sum(x * c[::-1]) >> (POLY_COEFF_SIZE - 1)

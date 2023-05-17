@@ -127,15 +127,17 @@ class Mipmap:
 
         counter = 0
         mode = 'a' if filename else 'w'
-        filename = filename if filename else f"{self.name}_mipmap.data"
+        filename = filename if filename else f"{self.name}_mipmap.coe"
         with open(filename, mode) as f:
+            f.write("memory_initialization_radix=16;\n")
+            f.write("memory_initialization_vector=\n")
             for subtable in self.subtables:
                 print(subtable)
                 for value in subtable:
                     # f.write(f"{value & 0xFFFF:04X}")
                     # f.write(f"{value & 0xFFFF:04X}")
                     # f.write(f"{value & 0xFFFF:04X}")
-                    f.write(f"{value & 0xFFFF:04X}\n")
+                    f.write(f"{value & 0xFFFF:04X},\n")
                     counter += 1
 
             for i in range(4096 - counter):
@@ -154,7 +156,7 @@ def main():
     square = waveforms.square()
     acid = waveforms.acid()
 
-    mm = Mipmap('sine', acid, prefilter=True)
+    mm = Mipmap('square', square, prefilter=True)
     mm.plot()
     mm.write_table()
 

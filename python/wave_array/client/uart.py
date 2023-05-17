@@ -35,7 +35,7 @@ class UartDevice:
         if opcode != UartType.READ_REP:
             raise UartException(f'received {opcode} instead of {UartType.READ_REP}')
 
-        return data
+        return np.uint16(data)
 
 
     def write(self, address, data):

@@ -1,22 +1,28 @@
 write  00000002     0001                        # enable LED
 read   00000002                                 # read back LED
 write  00000500     4000                        # write LFO frequency (64 Hz?)
-write  00000600     4000                        # write filter cutoff
+write  00000600     0000                        # write filter cutoff
+write  00000601     0000                        # write filter resonance
+wait   100
+write  00000600     FFFF                        # write filter cutoff
 write  00000601     FFFF                        # write filter resonance
+wait   100
+write  00000600     4000                        # write filter cutoff
+write  00000601     2000                        # write filter resonance
 
-#wait   1                                       
+#wait   1000                                     
 #writeb 00000000 00000004 0001000200030004       # write [1,2,3,4] to SDRAM address 0x00000000
 #readb  00000000 00000004                        # read back SDRAM
 #read   00000100                                 # read uart count
 
-#wait   1
+#wait   1000
 writef 00000000 00002000                        # write wavetable to the SDRAM at address 0x0
 write  00000200     0000                        # Write low half of table base address 
 write  00000201     0000                        # Write high half of table base address
 write  00000202     0000                        # write n_frames_log2
 write  00000203     0001                        # initialize wavetable RAM
 
-wait   1 
+wait   1000 
 read   00000300                                 # read frame index 
 read   00000301                                 # read frame position       
 read   00000302                                 # read wave memory bank index
