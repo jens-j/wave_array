@@ -140,8 +140,8 @@ begin
             if v_command = "wait  " then
                 -- Read wait time in ms from line
                 read(v_line_in, v_wait_time, v_hread_success);
-                report "wait " & integer'image(v_wait_time) & " ms";
-                wait for v_wait_time * 1 ms;
+                report "wait " & integer'image(v_wait_time) & " us";
+                wait for v_wait_time * 1 us;
 
             -- Read a register.
             elsif v_command = "read  " then

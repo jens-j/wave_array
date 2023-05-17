@@ -33,10 +33,7 @@ architecture arch of synth_subsystem is
 
     signal s_osc_inputs         : t_osc_input_array(0 to N_VOICES - 1);
     signal s_osc_samples        : t_mono_sample_array(N_VOICES - 1 downto 0);
-    signal s_lowpss_samples     : t_mono_sample_array(N_VOICES - 1 downto 0);
-    signal s_highpass_samples   : t_mono_sample_array(N_VOICES - 1 downto 0);
-    signal s_bandpas_samples    : t_mono_sample_array(N_VOICES - 1 downto 0);
-    signal s_notch_samples      : t_mono_sample_array(N_VOICES - 1 downto 0);
+    signal s_filter_samples     : t_mono_sample_array(N_VOICES - 1 downto 0);
     signal s_mixer_sample_out   : t_mono_sample;
     signal s_dma2table          : t_dma2table_array(0 to N_TABLES - 1);
     signal s_lfo_sine           : t_ctrl_value_array(0 to 0);
@@ -123,7 +120,7 @@ begin
     port map(
         clk                     => clk,
         reset                   => reset,
-        sample_in               => s_lowpss_samples,
+        sample_in               => s_filter_samples,
         next_sample             => next_sample,
         sample_out              => s_mixer_sample_out
     );
@@ -138,10 +135,7 @@ begin
         config                  => config,
         next_sample             => next_sample,
         sample_in               => s_osc_samples,
-        lowpass_out             => s_lowpss_samples,
-        highpass_out            => s_highpass_samples,
-        bandpass_out            => s_bandpas_samples,
-        notch_out               => s_notch_samples
+        sample_out              => s_filter_samples
     );
 
     frame_dma : entity wave.frame_dma

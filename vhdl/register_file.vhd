@@ -114,6 +114,9 @@ begin
 
             elsif register_input.address = REG_FILTER_RESONANCE then
                 r_in.register_output.read_data <= std_logic_vector(r.config.filter_resonance);
+            
+            elsif register_input.address = REG_FILTER_SELECT then
+                r_in.register_output.read_data(2 downto 0) <= std_logic_vector(to_unsigned(r.config.filter_select, 3));
 
             else
                 r_in.register_output.fault <= '1';
@@ -153,6 +156,13 @@ begin
 
             elsif register_input.address = REG_FILTER_RESONANCE then
                 r_in.config.filter_resonance <= unsigned(register_input.write_data);
+
+            elsif register_input.address = REG_FILTER_SELECT then
+                if unsigned(register_input.write_data) < 4 then 
+                    r_in.config.filter_select <= to_integer(unsigned(register_input.write_data));
+                else 
+                    r_in.config.filter_select <= 4;
+                end if;
                 
             else
                 r_in.register_output.fault <= '1';
