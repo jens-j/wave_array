@@ -1,12 +1,12 @@
 write  00000002     0001                        # enable LED
 read   00000002                                 # read back LED
 write  00000500     4000                        # write LFO frequency (64 Hz?)
-write  00000600     0000                        # write filter cutoff
-write  00000601     0000                        # write filter resonance
-wait   100
-write  00000600     FFFF                        # write filter cutoff
-write  00000601     FFFF                        # write filter resonance
-wait   100
+
+write  00000700     0800                        # write envelope attack
+write  00000701     4000                        # write envelope decay
+write  00000702     8000                        # write envelope sustain
+write  00000703     6000                        # write envelope release
+
 write  00000600     4000                        # write filter cutoff
 write  00000601     2000                        # write filter resonance
 
