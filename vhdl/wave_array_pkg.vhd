@@ -27,7 +27,12 @@ package wave_array_pkg is
     constant UART_MAX_BURST         : integer := 2**UART_MAX_BURST_LOG2;
 
     constant N_TABLES               : positive := 1; -- Number of parallel wave tables.
-    constant N_VOICES               : positive := 16; -- Number of parallel oscillators per table.
+    constant N_VOICES               : positive := 16 -- Number of parallel oscillators per table.
+    --pragma synthesis_off
+                                      / 4
+    --pragma synthesis_on
+    ;
+
     constant N_OSCILLATORS          : positive := N_TABLES * N_VOICES; -- Total number of oscillators.
 
     -- Audio sample constants.
@@ -78,6 +83,13 @@ package wave_array_pkg is
     -- constant LFO_VELOCITY_STEP      : unsigned(LFO_PHASE_SIZE - 1 downto 0) := resize(x"56b2d", LFO_PHASE_SIZE);-- Velocity increase for every bit of the LFO input control value.
     constant LFO_VELOCITY_STEP      : unsigned(LFO_PHASE_SIZE - 1 downto 0) := resize(x"5756b2", LFO_PHASE_SIZE);-- Velocity increase for every bit of the LFO input control value.
 
+    constant ENV_MIN_ATTACK_T       : real := 1.0 / real(2**10); -- In seconds.
+    constant ENV_MAX_ATTACK_T       : real := real(2**3);   
+    constant ENV_MIN_DECAY_T        : real := 1.0 / real(2**10); 
+    constant ENV_MAX_DECAY_T        : real := real(2**3);   
+    constant ENV_MIN_RELEASE_T      : real := 1.0 / real(2**10);
+    constant ENV_MAX_RELEASE_T      : real := real(2**3);   
+
     -- Oscillator downsample halfband filter constants.
     -- The odd phase (m = 1) is all zeroes except c(0) = 1.
     -- The even phase is symmetric so only half of the coefficients for m = 0 are stored.
@@ -127,6 +139,12 @@ package wave_array_pkg is
     constant REG_FILTER_RESONANCE   : unsigned := x"0000601"; -- rw 16 bit | Filter resonance control value. 
     constant REG_FILTER_SELECT      : unsigned := x"0000602"; -- rw 3  bit | Filter output select. 1 = LP, 2 = HP, 3 = BP, 4 = BS, 5 = bypass.
 
+    constant REG_ENVELOPE_ATTACK    : unsigned := x"0000700"; -- rw 16 bit | Envelope attack time control value.
+    constant REG_ENVELOPE_DECAY     : unsigned := x"0000701"; -- rw 16 bit | Envelope decay time control value.
+    constant REG_ENVELOPE_SUSTAIN   : unsigned := x"0000702"; -- rw 16 bit | Envelope sustain level control value.
+    constant REG_ENVELOPE_RELEASE   : unsigned := x"0000703"; -- rw 16 bit | Envelope release time control value.
+    
+
     -- fault register (sticky-)bit indices.
     constant FAULT_UART_TIMEOUT     : integer := 0; -- UART packet engine timout.
     constant FAULT_REG_ADDRESS      : integer := 1; -- Register address undefined.
@@ -175,6 +193,10 @@ package wave_array_pkg is
         filter_cutoff           : t_ctrl_value;
         filter_resonance        : t_ctrl_value;
         filter_select           : integer range 0 to 4;
+        envelope_attack         : t_ctrl_value;
+        envelope_decay          : t_ctrl_value;
+        envelope_sustain        : t_ctrl_value;
+        envelope_release        : t_ctrl_value;
         dma_new_table           : std_logic; -- Pulse indicating a new table should be loaded.
         dma_base_address        : unsigned(SDRAM_DEPTH_LOG2 - 1 downto 0); -- SDRAM base address of current mipmap table.
         dma_n_frames_log2       : integer range 0 to WAVE_MAX_FRAMES_LOG2; -- Log2 of number of frames in the wavetable - 1.
@@ -267,10 +289,13 @@ package wave_array_pkg is
     constant CONFIG_INIT : t_config := (
         led                     => '0',
         lfo_velocity            => (others => '0'),
-        -- filter_cutoff           => x"4000", -- 0.5
         filter_cutoff           => x"FFFF", -- 0.75
         filter_resonance        => x"FFFF", -- 2.0
         filter_select           => 0, -- Lowpass
+        envelope_attack         => x"0010",
+        envelope_decay          => x"0020",
+        envelope_sustain        => x"8000",
+        envelope_release        => x"0100",
         dma_new_table           => '0',
         dma_base_address        => (others => '0'),
         dma_n_frames_log2       => 0

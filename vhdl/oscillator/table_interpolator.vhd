@@ -448,7 +448,7 @@ begin
                     & s_coeff_even_douta & (0 to OSC_COEFF_FRAC - 1 => '0');
             end if;
 
-            s_coeff_interp_b <= '0'& std_logic_vector(r.phase_position(PIPE_LEN_MEM - 1));
+            s_coeff_interp_b <= '0' & std_logic_vector(r.phase_position(PIPE_LEN_MEM - 1));
 
             -- Pipeline stage 5: Connect linear interpolator outputs to the MACC.
             if r.zero_coeff(PIPE_SUM_INTP) = '0' then
@@ -457,7 +457,7 @@ begin
             s_macc_a <= s_frame_interp_p(SAMPLE_SIZE - 1 downto 0);
             s_macc_sel <= "1" when r.coeff_counter = PIPE_SUM_INTP else "0";
 
-            -- Pipeline stage 0-5: zero coefficient pipeline registers.
+            -- Pipeline stage 0-5: Zero coefficient pipeline registers.
             for i in PIPE_SUM_INTP downto 1 loop
                 r_in.zero_coeff(i) <= r.zero_coeff(i - 1);
             end loop;
@@ -469,16 +469,19 @@ begin
                 r_in.writeback(i) <= r.writeback(i - 1);
             end loop;
 
-            -- Pipeline stage 9: Store output sample (store zero if oscillator is disabled).
+            -- Pipeline stage 9: Store output sample.
             if r.writeback(PIPE_LEN_TOTAL) = '1' then
-                if addrgen_input(r.osc_counter(PIPE_LEN_TOTAL)).enable = '1' then
-                    r_in.sample_buffers(r.osc_counter(PIPE_LEN_TOTAL))
-                        (r.sample_counter(PIPE_LEN_TOTAL)) <= t_mono_sample(
-                            s_macc_p(SAMPLE_SIZE + POLY_COEFF_SIZE - 2 downto POLY_COEFF_SIZE - 1)); -- Shift by 15 because signed.
-                else
-                    r_in.sample_buffers(r.osc_counter(PIPE_LEN_TOTAL))
-                        (r.sample_counter(PIPE_LEN_TOTAL)) <= (others => '0');
-                end if;
+                -- if addrgen_input(r.osc_counter(PIPE_LEN_TOTAL)).enable = '1' then
+
+                -- Shift by 15 because coefficient is 16 bit signed (+2 extra, not sure why necessary).
+                r_in.sample_buffers(r.osc_counter(PIPE_LEN_TOTAL))(r.sample_counter(PIPE_LEN_TOTAL)) 
+                    <= t_mono_sample(
+                        s_macc_p(SAMPLE_SIZE + POLY_COEFF_SIZE - 4 downto POLY_COEFF_SIZE - 3)); 
+                
+                -- else
+                --     r_in.sample_buffers(r.osc_counter(PIPE_LEN_TOTAL))
+                --         (r.sample_counter(PIPE_LEN_TOTAL)) <= (others => '0');
+                -- end if;
             end if;
         end if;
 

@@ -17,6 +17,9 @@ library xil_defaultlib;
 -- 3) HP = HP_temp - LP
 -- 4) BP = F * HP + BP-1
 -- 5) N = HP + LP
+--
+-- The input sample is shifted right by one bit to create some headroom for resonance peaks.\
+-- The MACC output is checked for overflow and saturated.  
 entity state_variable_filter is 
     generic (
         N_INPUTS                : integer
@@ -225,7 +228,7 @@ begin
             when 1 => -- C - A * B
                 s_macc_a <= std_logic_vector(resize(r.bandpass_r2(r.sample_count_in), 17));
                 s_macc_b <= std_logic_vector(r.resonance_coeff);
-                s_macc_c <= std_logic_vector(resize(sample_in(r.sample_count_in) & (15 downto 0 => '0'), 32));
+                s_macc_c <= std_logic_vector(resize(sample_in(r.sample_count_in) & (14 downto 0 => '0'), 32)); -- Halve input sample to create some headroom.
 
             when 2 => -- D - A
                 s_macc_a <= std_logic_vector(resize(r.lowpass_r(r.sample_count_in), 17));
@@ -273,15 +276,13 @@ begin
                 if s_macc_p(2 * SAMPLE_SIZE) = '0' and s_macc_p(2 * SAMPLE_SIZE - 1) = '1' then 
 
                     r_in.overflow <= '1';
-                    r_in.saturation_buffer <= 
-                        (2 * SAMPLE_SIZE - 1 downto 2 * SAMPLE_SIZE - 2 => '0', others => '1'); -- 0x7FFFFFFF
+                    r_in.saturation_buffer <= (2 * SAMPLE_SIZE - 1 => '0', others => '1'); -- 0x7FFFFFFF
 
                 -- If <= 0xF7FFFFFF
                 elsif s_macc_p(2 * SAMPLE_SIZE) = '1' and s_macc_p(2 * SAMPLE_SIZE - 1) = '0' then 
 
                     r_in.overflow <= '1';
-                    r_in.saturation_buffer <= 
-                        (2 * SAMPLE_SIZE - 1 downto 2 * SAMPLE_SIZE - 2 => '1', others => '0'); -- 0x80000000
+                    r_in.saturation_buffer <= (2 * SAMPLE_SIZE - 1 => '1', others => '0'); -- 0x80000000
                 else 
                     r_in.saturation_buffer <= s_macc_p(2 * SAMPLE_SIZE - 1 downto 0);
                 end if;

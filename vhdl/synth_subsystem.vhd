@@ -39,6 +39,7 @@ architecture arch of synth_subsystem is
     signal s_lfo_sine           : t_ctrl_value_array(0 to 0);
     signal s_lfo_square         : t_ctrl_value_array(0 to 0);
     signal s_lfo_saw            : t_ctrl_value_array(0 to 0);
+    signal s_envelope_ctrl      : t_ctrl_value_array(0 to N_VOICES - 1);
 
     signal s_frame_index        : integer range 0 to WAVE_MAX_FRAMES - 1;
     signal s_frame_position     : t_osc_position;
@@ -115,7 +116,7 @@ begin
 
     mixer : entity wave.mixer
     generic map(
-        N_INPUTS                => N_OSCILLATORS
+        N_INPUTS                => N_VOICES
     )
     port map(
         clk                     => clk,
@@ -127,7 +128,7 @@ begin
 
     filter : entity wave.state_variable_filter
     generic map(
-        N_INPUTS                => N_OSCILLATORS
+        N_INPUTS                => N_VOICES
     )
     port map(
         clk                     => clk,
@@ -136,6 +137,19 @@ begin
         next_sample             => next_sample,
         sample_in               => s_osc_samples,
         sample_out              => s_filter_samples
+    );
+
+    envelope : entity wave.envelope 
+    generic map(
+        N_INPUTS                => N_VOICES
+    )
+    port map (
+        clk                     => clk,
+        reset                   => reset,
+        config                  => config,
+        next_sample             => next_sample,
+        osc_inputs              => s_osc_inputs,
+        ctrl_out                => s_envelope_ctrl
     );
 
     frame_dma : entity wave.frame_dma

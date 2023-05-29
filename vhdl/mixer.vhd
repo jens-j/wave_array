@@ -9,7 +9,7 @@ use wave.wave_array_pkg.all;
 
 entity mixer is
     generic (
-        N_INPUTS                : natural
+        N_INPUTS                : positive
     );
     port (
         clk                     : in  std_logic;
@@ -64,7 +64,7 @@ begin
             end if;
         else
 
-            r_in.mix_buffer <= resize(signed(r.mix_buffer), t_mono_sample'length + N_INPUTS_LOG2)
+            r_in.mix_buffer <= r.mix_buffer 
                 + resize(signed(sample_in(r.counter)), t_mono_sample'length + N_INPUTS_LOG2);
 
             if r.counter = N_INPUTS - 1 then

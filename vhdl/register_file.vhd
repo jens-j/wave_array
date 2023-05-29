@@ -118,6 +118,18 @@ begin
             elsif register_input.address = REG_FILTER_SELECT then
                 r_in.register_output.read_data(2 downto 0) <= std_logic_vector(to_unsigned(r.config.filter_select, 3));
 
+            elsif register_input.address = REG_ENVELOPE_ATTACK then
+                r_in.register_output.read_data <= std_logic_vector(r.config.envelope_attack);
+
+            elsif register_input.address = REG_ENVELOPE_DECAY then
+                r_in.register_output.read_data <= std_logic_vector(r.config.envelope_decay);
+
+            elsif register_input.address = REG_ENVELOPE_SUSTAIN then
+                r_in.register_output.read_data <= std_logic_vector(r.config.envelope_sustain);
+
+            elsif register_input.address = REG_ENVELOPE_RELEASE then
+                r_in.register_output.read_data <= std_logic_vector(r.config.envelope_release);
+
             else
                 r_in.register_output.fault <= '1';
                 r_in.faults(FAULT_REG_ADDRESS) <= '1';
@@ -163,6 +175,18 @@ begin
                 else 
                     r_in.config.filter_select <= 4;
                 end if;
+            
+            elsif register_input.address = REG_ENVELOPE_ATTACK then
+                r_in.config.envelope_attack <= unsigned(register_input.write_data); 
+
+            elsif register_input.address = REG_ENVELOPE_DECAY then
+                r_in.config.envelope_decay <= unsigned(register_input.write_data); 
+
+            elsif register_input.address = REG_ENVELOPE_SUSTAIN then
+                r_in.config.envelope_sustain <= unsigned(register_input.write_data); 
+
+            elsif register_input.address = REG_ENVELOPE_RELEASE then
+                r_in.config.envelope_release <= unsigned(register_input.write_data); 
                 
             else
                 r_in.register_output.fault <= '1';
