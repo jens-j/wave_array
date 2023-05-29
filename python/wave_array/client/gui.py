@@ -40,7 +40,7 @@ class WaveArrayGui(QtWidgets.QMainWindow):
         self.ui.action_load_config.triggered.connect(self.load_config)
         self.ui.slider_filter_cutoff.sliderMoved.connect(self.filter_cutoff_changed)
         self.ui.slider_filter_resonance.sliderMoved.connect(self.filter_resonance_changed)
-        self.ui.box_filter_select.valueChanged.connect(self.filter_select_changed)
+        self.ui.box_filter_select.currentIndexChanged.connect(self.filter_select_changed)
 
         # Status refresh timer.
         self.timer = QTimer(self)
@@ -114,10 +114,10 @@ class WaveArrayGui(QtWidgets.QMainWindow):
 
         self.client.write_filter_resonance(control_value / self.CONTROL_MAX, convert=True)
 
+
     def filter_select_changed(self, index):
 
-        control_value = np.uint16(index)
-        self.client.write(WaveArray.REG_FILTER_SELECT, control_value)
+        self.client.write(WaveArray.REG_FILTER_SELECT, np.uint16(index))
 
     # def envelope_attack_changed(self, control_value):
         

@@ -238,31 +238,38 @@
             </spacer>
            </item>
            <item>
-            <widget class="QSpinBox" name="box_filter_select">
-             <property name="minimumSize">
-              <size>
-               <width>70</width>
-               <height>0</height>
-              </size>
+            <widget class="QComboBox" name="box_filter_select">
+             <property name="font">
+              <font>
+               <weight>50</weight>
+               <bold>false</bold>
+              </font>
              </property>
-             <property name="maximumSize">
-              <size>
-               <width>70</width>
-               <height>16777215</height>
-              </size>
-             </property>
-             <property name="layoutDirection">
-              <enum>Qt::RightToLeft</enum>
-             </property>
-             <property name="alignment">
-              <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
-             </property>
-             <property name="showGroupSeparator" stdset="0">
-              <bool>false</bool>
-             </property>
-             <property name="maximum">
-              <number>4</number>
-             </property>
+             <item>
+              <property name="text">
+               <string>lowpass</string>
+              </property>
+             </item>
+             <item>
+              <property name="text">
+               <string>highpass</string>
+              </property>
+             </item>
+             <item>
+              <property name="text">
+               <string>bandpass</string>
+              </property>
+             </item>
+             <item>
+              <property name="text">
+               <string>notch</string>
+              </property>
+             </item>
+             <item>
+              <property name="text">
+               <string>bypass</string>
+              </property>
+             </item>
             </widget>
            </item>
           </layout>
