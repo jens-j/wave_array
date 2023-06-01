@@ -36,30 +36,29 @@ architecture linear of envelope is
     constant PIPE_SUM_MULT      : integer := PIPE_SUM_CORDIC + PIPE_LEN_MULT;
 
     -- Calculate minimum and maximum velocity.
-    constant ATTACK_MIN         : real := 1.0 / (ENV_MAX_ATTACK_T * SAMPLE_RATE); 
-    constant ATTACK_MAX         : real := 1.0 / (ENV_MIN_ATTACK_T * SAMPLE_RATE);      
+    constant ATTACK_MIN         : real := 1.0 / (ENV_MAX_ATTACK_T * real(SAMPLE_RATE)); 
+    constant ATTACK_MAX         : real := 1.0 / (ENV_MIN_ATTACK_T * real(SAMPLE_RATE));      
     constant ATTACK_A           : std_logic_vector := std_logic_vector(to_unsigned(
-        integer((ATTACK_MAX - ATTACK_MIN) * 2**CTRL_SIZE), 16));
+        integer((ATTACK_MAX - ATTACK_MIN) * real(2**CTRL_SIZE)), 16));
     constant ATTACK_C           : std_logic_vector := std_logic_vector(to_unsigned(
-        integer((ATTACK_MIN) * 2**(2 * CTRL_SIZE)), 32));
+        integer(ATTACK_MIN * real(2**(2 * CTRL_SIZE))), 32));
 
-    constant DECAY_MIN          : real := 1.0 / real(ENV_MAX_DECAY_T * SAMPLE_RATE); 
-    constant DECAY_MAX          : real := 1.0 / real(ENV_MIN_DECAY_T * SAMPLE_RATE);      
+    constant DECAY_MIN          : real := 1.0 / real(ENV_MAX_DECAY_T * real(SAMPLE_RATE)); 
+    constant DECAY_MAX          : real := 1.0 / real(ENV_MIN_DECAY_T * real(SAMPLE_RATE));      
     constant DECAY_A            : std_logic_vector := std_logic_vector(to_unsigned(
-        integer((DECAY_MAX - DECAY_MIN) * 2**CTRL_SIZE), 16));
+        integer((DECAY_MAX - DECAY_MIN) * real(2**CTRL_SIZE)), 16));
     constant DECAY_C            : std_logic_vector := std_logic_vector(to_unsigned(
-        integer((DECAY_MIN) * 2**(2 * CTRL_SIZE)), 32));
+        integer(DECAY_MIN * real(2**(2 * CTRL_SIZE))), 32));
 
-    constant RELEASE_MIN        : real := 1.0 / real(ENV_MAX_RELEASE_T * SAMPLE_RATE); 
-    constant RELEASE_MAX        : real := 1.0 / real(ENV_MIN_RELEASE_T * SAMPLE_RATE);      
+    constant RELEASE_MIN        : real := 1.0 / real(ENV_MAX_RELEASE_T * real(SAMPLE_RATE)); 
+    constant RELEASE_MAX        : real := 1.0 / real(ENV_MIN_RELEASE_T * real(SAMPLE_RATE));      
     constant RELEASE_A          : std_logic_vector := std_logic_vector(to_unsigned(
-        integer((RELEASE_MAX - RELEASE_MIN) * 2**CTRL_SIZE), 16));
+        integer((RELEASE_MAX - RELEASE_MIN) * real(2**CTRL_SIZE)), 16));
     constant RELEASE_C          : std_logic_vector := std_logic_vector(to_unsigned(
-        integer((ATTACK_MIN) * 2**(2 * CTRL_SIZE)), 32));
+        integer(ATTACK_MIN * real(2**(2 * CTRL_SIZE))), 32));
 
 
-    type t_state is (idle, square_decay, square_release, wait_latency, map_attack, map_decay, map_release, 
-        wb_attack, wb_decay, wb_release, running);
+    type t_state is (idle, wait_valid, map_attack, map_decay, map_release, running);
 
     type t_adsr_state is (attack, 
         decay, 
@@ -81,10 +80,8 @@ architecture linear of envelope is
         velocity_decay          : unsigned(31 downto 0);
         velocity_release        : unsigned(31 downto 0);
         phase                   : t_phase_array; -- Cordic phase inputs in [0 - 1].
-        envelope                : t_ctrl_value_array(0 to N_INPUTS - 1); 
         index_array             : t_index_array;
         valid_array             : std_logic_vector(0 to PIPE_SUM_MULT);
-        last                    : std_logic; -- Used to give one extra valid cycle in the pipeline.
         release_amp             : t_ctrl_value_array(0 to N_INPUTS - 1); -- Amplitude at start of release. Normally equal to sustain except when the note is released early.
     end record;
 
@@ -99,10 +96,8 @@ architecture linear of envelope is
         velocity_decay          => (others => '0'),
         velocity_release        => (others => '0'),        
         phase                   => (others => (others => '0')),
-        envelope                => (others => (others => '0')),
         index_array             => (others => 0),
         valid_array             => (others => '0'),
-        last                    => '0',
         release_amp             => (others => (others => '0'))
     ); 
 
@@ -122,6 +117,11 @@ architecture linear of envelope is
 
     signal s_cordic_sin         : signed(16 downto 0); -- 1.16 fixed point.
     signal s_cordic_cos         : signed(16 downto 0);
+
+    signal s_data_in_valid      : std_logic;
+    signal s_data_in            : t_ctrl_value;
+    signal s_data_out_valid     : std_logic;
+    signal s_data_out           : unsigned(31 downto 0);
 
     -- Increment phase with a velocity based on the adsr state.
     procedure increment_phase(signal r          : in  t_envelope_reg;
@@ -157,6 +157,19 @@ architecture linear of envelope is
 
 begin
 
+    lin2log : entity wave.lin2log 
+    generic map (
+        init_file => GET_INPUT_FILE_PATH & "log.hex"
+    )
+    port map (
+        clk                     => clk,
+        reset                   => reset,
+        data_in_valid           => s_data_in_valid,
+        data_in                 => s_data_in,
+        data_out_valid          => s_data_out_valid,
+        data_out                => s_data_out
+    );
+
     mult : entity xil_defaultlib.envelope_mult_gen 
     port map (
         clk                     => clk,
@@ -177,10 +190,7 @@ begin
     );
 
     combinatorial : process (r, next_sample, config, osc_inputs, s_mult_p, s_dout_tvalid, s_dout_tdata, 
-            s_cordic_cos, s_cordic_sin)
-
-        variable v_valid : std_logic;
-        variable v_ctrl_reversed : std_logic_vector(15 downto 0);
+            s_cordic_cos, s_cordic_sin, s_data_out_valid, s_data_out)
     begin
 
         -- Default register input.
@@ -202,7 +212,7 @@ begin
         s_cordic_cos <= signed(s_dout_tdata(16 downto 0));
         s_cordic_sin <= signed(s_dout_tdata(40 downto 24));
 
-        v_valid := '0';
+        s_data_in_valid <= '0';
 
         case r.state is 
         when idle => 
@@ -212,81 +222,40 @@ begin
 
             if next_sample = '1' then 
                 r_in.ctrl_out <= r.ctrl_buffer;
-                
-                -- Input attack squaring operands.
-                s_mult_sel <= "1";
-                v_ctrl_reversed := std_logic_vector(x"FFFF" - config.envelope_attack);
-                s_mult_a <= '0' & v_ctrl_reversed;
-                s_mult_b <= '0' & v_ctrl_reversed;
-
-                r_in.last <= '0';
-                r_in.state <= square_decay;
+                r_in.state <= map_attack;
             end if;
 
-        -- Input decay squaring operands.
-        when square_decay => 
-            s_mult_sel <= "1";
-            v_ctrl_reversed := std_logic_vector(x"FFFF" - config.envelope_decay);
-            s_mult_a <= '0' & v_ctrl_reversed;
-            s_mult_b <= '0' & v_ctrl_reversed;
+        when map_attack =>
 
-            r_in.state <= square_release;
-
-        -- Input release squaring operands.
-        when square_release => 
-            s_mult_sel <= "1";
-            v_ctrl_reversed := std_logic_vector(x"FFFF" - config.envelope_release);
-            s_mult_a <= '0' & v_ctrl_reversed;
-            s_mult_b <= '0' & v_ctrl_reversed;
-
-            r_in.latency_count <= 0;
-            r_in.next_state <= map_attack;
-            r_in.state <= wait_latency;
-
-        -- Wait for the multiplier to output valid data.
-        when wait_latency =>
-            if r.latency_count >= PIPE_LEN_MULT - 4 then 
-                r_in.state <= r.next_state;
-            else 
-                r_in.latency_count <= r.latency_count + 1;
-            end if;
-
-        -- Take mult output and map to attack coefficient range.
-        when map_attack => 
-            s_mult_a <= '0' & ATTACK_A;
-            s_mult_b <= '0' & s_mult_p(31 downto 16);
-            s_mult_c <= '0' & ATTACK_C;
-
+            s_data_in_valid <= '1';
+            s_data_in <= config.envelope_attack;
             r_in.state <= map_decay;
 
-        when map_decay => 
-            s_mult_a <= '0' & DECAY_A;
-            s_mult_b <= '0' & s_mult_p(31 downto 16);
-            s_mult_c <= '0' & DECAY_C;
+        when map_decay =>
 
-            r_in.state <= map_release;
+            if s_data_out_valid = '1' then 
+                r_in.velocity_attack <= s_data_out;
+                s_data_in_valid <= '1';
+                s_data_in <= config.envelope_decay;
+                r_in.state <= map_release;
+            end if;
 
-        when map_release => 
-            s_mult_a <= '0' & RELEASE_A;
-            s_mult_b <= '0' & s_mult_p(31 downto 16);
-            s_mult_c <= '0' & RELEASE_C;
+        when map_release =>
 
-            r_in.latency_count <= 0;
-            r_in.next_state <= wb_attack;
-            r_in.state <= wait_latency;
+            if s_data_out_valid = '1' then 
+                r_in.velocity_decay <= s_data_out;
+                s_data_in_valid <= '1';
+                s_data_in <= config.envelope_release;
+                r_in.state <= wait_valid;
+            end if;
+            
+    	when wait_valid => 
 
-        when wb_attack => 
-            r_in.velocity_attack <= unsigned(s_mult_p(31 downto 0));
-            r_in.state <= wb_decay;
-
-        when wb_decay => 
-            r_in.velocity_decay <= unsigned(s_mult_p(31 downto 0));
-            r_in.state <= wb_release;
-
-        when wb_release => 
-            r_in.velocity_release <= unsigned(s_mult_p(31 downto 0));
-            r_in.valid_array(0) <= '1';
-            r_in.state <= running;
+            if s_data_out_valid = '1' then 
+                r_in.velocity_release <= unsigned(s_data_out);
+                r_in.valid_array(0) <= '1';
+                r_in.state <= running;
+            end if;
 
         -- Run ADSR calculation pipeline.
         when running => 
@@ -323,6 +292,11 @@ begin
 
                     when state_release => 
                         increment_phase(r, r_in, r.velocity_release, closed);
+
+                        -- Note is re-triggered during release. Start attack from current evelope level.
+                        if osc_inputs(r.index_array(0)).enable = '1' then 
+                            r_in.adsr_state(r.index_array(0)) <= attack;
+                        end if;
 
                 end case;
             end if;

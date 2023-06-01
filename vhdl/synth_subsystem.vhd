@@ -122,6 +122,7 @@ begin
         clk                     => clk,
         reset                   => reset,
         sample_in               => s_filter_samples,
+        ctrl_in                 => s_envelope_ctrl,
         next_sample             => next_sample,
         sample_out              => s_mixer_sample_out
     );

@@ -103,7 +103,7 @@ begin
             r_in.phases_buffer <= (others => (others => '0'));
             r_in.state <= init;
 
-        -- Regiater signals from the osc_controller.
+        -- Register signals from the osc_controller.
         elsif r.state = init then
 
             for i in 0 to N_VOICES - 1 loop
@@ -158,12 +158,8 @@ begin
             -- Buffer old phase so it can be output to the table interpolator.
             r_in.phases_buffer(v_index) <= r.table_phases(r.osc_counter);
 
-            if osc_inputs(r.osc_counter).enable = '1' then
-                r_in.table_phases(r.osc_counter) <=
-                    r.table_phases(r.osc_counter) + osc_inputs(r.osc_counter).velocity;
-            else
-                r_in.table_phases(r.osc_counter) <= (others => '0');
-            end if;
+            -- Oscillators run also when not enabled.
+            r_in.table_phases(r.osc_counter) <= r.table_phases(r.osc_counter) + osc_inputs(r.osc_counter).velocity;
 
             if r.sample_counter = 0 then
                 r_in.sample_counter <= 1;

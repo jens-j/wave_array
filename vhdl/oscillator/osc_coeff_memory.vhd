@@ -11,11 +11,11 @@ use wave.wave_array_pkg.all;
 
 entity osc_coeff_memory is
     generic (
-        init_file               : string := "osc_coeff_memory_even.coe"
+        init_file               : string
     );
     port (
         clk                     : in  std_logic;
-        address                : in  std_logic_vector(POLY_M_LOG2 + POLY_N_LOG2 - 2 downto 0);
+        address                 : in  std_logic_vector(POLY_M_LOG2 + POLY_N_LOG2 - 2 downto 0);
         data                    : out std_logic_vector(POLY_COEFF_SIZE - 1 downto 0)
     );
 end entity;

@@ -27,11 +27,7 @@ package wave_array_pkg is
     constant UART_MAX_BURST         : integer := 2**UART_MAX_BURST_LOG2;
 
     constant N_TABLES               : positive := 1; -- Number of parallel wave tables.
-    constant N_VOICES               : positive := 16 -- Number of parallel oscillators per table.
-    --pragma synthesis_off
-                                      / 4
-    --pragma synthesis_on
-    ;
+    constant N_VOICES               : positive := 4; -- Number of parallel oscillators per table.
 
     constant N_OSCILLATORS          : positive := N_TABLES * N_VOICES; -- Total number of oscillators.
 

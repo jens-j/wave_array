@@ -15,6 +15,7 @@ entity mixer is
         clk                     : in  std_logic;
         reset                   : in  std_logic;
         sample_in               : in  t_mono_sample_array(0 to N_INPUTS - 1);
+        ctrl_in                 : in  t_ctrl_value_array(0 to N_INPUTS - 1);
         next_sample             : in  std_logic;
         sample_out              : out t_mono_sample
     );
@@ -47,7 +48,7 @@ architecture arch of mixer is
 begin
 
     combinatorial : process (r, sample_in, next_sample)
-        variable v_extended_sample : t_mix_buffer;
+        variable v_sample_mult : signed(SAMPLE_SIZE + CTRL_SIZE downto 0);
     begin
 
         r_in <= r;
@@ -64,8 +65,13 @@ begin
             end if;
         else
 
+            -- Multipy sample with control value.
+            v_sample_mult := signed(sample_in(r.counter)) * signed('0' & ctrl_in(r.counter));
+
+            -- Slice 16 bit output and extend to accumulator size.
             r_in.mix_buffer <= r.mix_buffer 
-                + resize(signed(sample_in(r.counter)), t_mono_sample'length + N_INPUTS_LOG2);
+                + resize(v_sample_mult(SAMPLE_SIZE + CTRL_SIZE - 1 downto SAMPLE_SIZE), 
+                         t_mono_sample'length + N_INPUTS_LOG2);
 
             if r.counter = N_INPUTS - 1 then
                 r_in.state <= idle;

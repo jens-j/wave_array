@@ -418,7 +418,7 @@ begin
             -- interpolator. Interpolation is performed in a single DSP slice (4 stage pipeline).
             -- (D - A) * B + C = (sampleB - sampleA) * frac(position) + sampleA.
             -- The input samples are also shifted right by one bit to leave some headroom to
-            -- aavoid overflow in the filter.
+            -- avoid overflow in the filter.
             s_frame_interp_a <= s_wave_mem_doutb((r.frame_0_index + 1) * SAMPLE_SIZE - 1
                                     downto r.frame_0_index * SAMPLE_SIZE);
 
