@@ -41,6 +41,11 @@ class WaveArrayGui(QtWidgets.QMainWindow):
         self.ui.slider_filter_cutoff.sliderMoved.connect(self.filter_cutoff_changed)
         self.ui.slider_filter_resonance.sliderMoved.connect(self.filter_resonance_changed)
         self.ui.box_filter_select.currentIndexChanged.connect(self.filter_select_changed)
+        self.ui.slider_envelope_attack.sliderMoved.connect(self.envelope_attack_changed)
+        self.ui.slider_envelope_decay.sliderMoved.connect(self.envelope_decay_changed)
+        self.ui.slider_envelope_sustain.sliderMoved.connect(self.envelope_sustain_changed)
+        self.ui.slider_envelope_release.sliderMoved.connect(self.envelope_release_changed)
+        
 
         # Status refresh timer.
         self.timer = QTimer(self)
@@ -56,18 +61,30 @@ class WaveArrayGui(QtWidgets.QMainWindow):
         potentiometer = self.client.read(WaveArray.REG_POTENTIOMETER)
         self.ui.lbl_potentiometer.setText(f"0x{potentiometer:03X}")
 
-    
+    # Read device settings and update GUI elements accordingly.
     def load_config(self):
 
-        cutoff = self.client.read_filter_cutoff(convert=True)
+        cutoff = self.client.read(WaveArray.REG_FILTER_CUTOFF, convert=True)
         self.ui.slider_filter_cutoff.setValue(int(cutoff * self.CONTROL_MAX))
 
-        resonance = self.client.read_filter_resonance(convert=True)
+        resonance = self.client.read(WaveArray.REG_FILTER_RESONANCE, convert=True)
         self.ui.slider_filter_resonance.setValue(int(resonance * self.CONTROL_MAX))
 
-        select = self.client.read(WaveArray.REG_FILTER_SELECT)
-        self.ui.box_filter_select.setValue(select)
-        
+        index = self.client.read(WaveArray.REG_FILTER_SELECT)
+        self.ui.box_filter_select.setCurrentIndex(index)
+
+        attack = self.client.read(WaveArray.REG_ENVELOPE_ATTACK, convert=True)
+        self.ui.slider_envelope_attack.setValue(int(attack * self.CONTROL_MAX))
+
+        decay = self.client.read(WaveArray.REG_ENVELOPE_DECAY, convert=True)
+        self.ui.slider_envelope_decay.setValue(int(decay * self.CONTROL_MAX))
+
+        sustain = self.client.read(WaveArray.REG_ENVELOPE_SUSTAIN, convert=True)
+        self.ui.slider_envelope_sustain.setValue(int(sustain * self.CONTROL_MAX))
+
+        release = self.client.read(WaveArray.REG_ENVELOPE_RELEASE, convert=True)
+        self.ui.slider_envelope_release.setValue(int(release * self.CONTROL_MAX))  
+
 
     def show(self):
         """ Re-implemented from QMainWindow. """
@@ -107,25 +124,37 @@ class WaveArrayGui(QtWidgets.QMainWindow):
 
     def filter_cutoff_changed(self, control_value):
 
-        self.client.write_filter_cutoff(control_value / self.CONTROL_MAX, convert=True)
+        self.client.write(WaveArray.REG_FILTER_CUTOFF, control_value / self.CONTROL_MAX, convert=True)
         
 
     def filter_resonance_changed(self, control_value):
 
-        self.client.write_filter_resonance(control_value / self.CONTROL_MAX, convert=True)
+        self.client.write(WaveArray.REG_FILTER_RESONANCE, control_value / self.CONTROL_MAX, convert=True)
 
 
     def filter_select_changed(self, index):
 
-        self.client.write(WaveArray.REG_FILTER_SELECT, np.uint16(index))
+        self.client.write(WaveArray.REG_FILTER_SELECT, index)
 
-    # def envelope_attack_changed(self, control_value):
+
+    def envelope_attack_changed(self, control_value):
+
+        self.client.write(WaveArray.REG_ENVELOPE_ATTACK, control_value / self.CONTROL_MAX, convert=True)
+
         
-    # def envelope_delay_changed(self, control_value):
+    def envelope_decay_changed(self, control_value):
+
+        self.client.write(WaveArray.REG_ENVELOPE_DECAY, control_value / self.CONTROL_MAX, convert=True)
         
-    # def envelope_sustain_changed(self, control_value):
+
+    def envelope_sustain_changed(self, control_value):
+
+        self.client.write(WaveArray.REG_ENVELOPE_SUSTAIN, control_value / self.CONTROL_MAX, convert=True)
         
-    # def envelope_release_changed(self, control_value):
+
+    def envelope_release_changed(self, control_value):
+
+        self.client.write(WaveArray.REG_ENVELOPE_RELEASE, control_value / self.CONTROL_MAX, convert=True)
         
     
 def main():
