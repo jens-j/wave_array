@@ -28,6 +28,7 @@ architecture arch of lfo is
     type t_lfo_phase_array is array (0 to N_OUTPUTS - 1) of signed(LFO_PHASE_SIZE - 1 downto 0);
 
     type t_mixer_reg is record
+        lfo_velocity            : unsigned(CTRL_SIZE - 1 downto 0);
         phase                   : t_lfo_phase_array;
         sine_out                : t_ctrl_value_array(0 to N_OUTPUTS - 1);
         square_out              : t_ctrl_value_array(0 to N_OUTPUTS - 1);
@@ -44,6 +45,7 @@ architecture arch of lfo is
         -- -- Initialize phase to -1 in 3.45 format.
         -- phase                   => (others => (LFO_PHASE_SIZE - 1 downto LFO_PHASE_FRAC => '1',
         --                                        LFO_PHASE_FRAC - 1 downto 0 => '0')),
+        lfo_velocity            => (others => '0'),
         phase                   => (others => (others => '0')),
         sine_out                => (others => (others => '0')),
         square_out              => (others => (others => '0')),
@@ -59,14 +61,14 @@ architecture arch of lfo is
     -- Clip the cordic output.
     -- The msb is dropped because it is only used for the single highest and lowest values.
     function clip_sine (raw : std_logic_vector(16 downto 0))
-        return unsigned is
+        return signed is
     begin
         if raw = 17x"08000" then
             return x"7FFF";
         elsif raw = 17x"18000" then
             return x"8001";
         else
-            return unsigned(raw(15 downto 0));
+            return signed(raw(15 downto 0));
         end if;
     end function;
 
@@ -100,15 +102,14 @@ begin
         variable v_phase_mul    : unsigned(CTRL_SIZE + LFO_PHASE_SIZE - 1 downto 0);
         variable v_phase_delta  : unsigned(LFO_PHASE_SIZE - 1 downto 0);
         variable v_phase_raw    : signed(LFO_PHASE_SIZE - 1 downto 0);
-        variable v_sine         : unsigned(CTRL_SIZE - 1 downto 0);
-        variable v_cosine       : unsigned(CTRL_SIZE - 1 downto 0);
-        variable v_offset       : unsigned(CTRL_SIZE - 1 downto 0) :=
-            to_unsigned(2**(CTRL_SIZE - 1), CTRL_SIZE);
     begin
 
         r_in <= r;
         s_phase_tvalid <= '0';
         s_phase_tdata <= (others => '0');
+
+        -- Clip ctrl value to positive only.
+        r_in.lfo_velocity <= unsigned(maximum(x"0000", config.lfo_velocity));
 
         if next_sample = '1' then
 
@@ -121,7 +122,7 @@ begin
             for i in 0 to N_OUTPUTS - 1 loop
 
                 -- Calculate the phase increase.
-                v_phase_mul := config.lfo_velocity * LFO_VELOCITY_STEP;
+                v_phase_mul := unsigned(r.lfo_velocity) * LFO_VELOCITY_STEP;
                 v_phase_delta := LFO_MIN_VELOCITY + v_phase_mul(LFO_PHASE_SIZE - 1 downto 0);
                 v_phase_raw := r.phase(i) + signed(v_phase_delta);
 
@@ -151,20 +152,16 @@ begin
         if r.read_counter < N_OUTPUTS and s_dout_tvalid = '1' then
 
             -- Take sine and cosine sample from the cordic output.
-            -- Also add 1/2 max value to make the waveform unsigned.
-            v_sine := clip_sine(s_dout_tdata(40 downto 24));
-            r_in.sine_buffer(r.read_counter) <= v_sine + v_offset;
-
-            v_cosine := clip_sine(s_dout_tdata(16 downto 0));
-            r_in.cosine_buffer(r.read_counter) <= v_cosine + v_offset;
+            r_in.sine_buffer(r.read_counter) <= clip_sine(s_dout_tdata(40 downto 24));
+            r_in.cosine_buffer(r.read_counter) <= clip_sine(s_dout_tdata(16 downto 0));
 
             -- Trunctate the phase to get the saw output.
-            r_in.saw_buffer(r.read_counter) <= unsigned(
-                r.phase(r.read_counter)(LFO_PHASE_FRAC downto LFO_PHASE_FRAC - CTRL_SIZE + 1));
+            r_in.saw_buffer(r.read_counter) <=
+                r.phase(r.read_counter)(LFO_PHASE_FRAC downto LFO_PHASE_FRAC - CTRL_SIZE + 1);
 
             -- Generate square output.
-            r_in.square_buffer(r.read_counter) <= (others => '1')
-                when r.phase(r.read_counter) >= 0 else (others => '0');
+            r_in.square_buffer(r.read_counter) <= (CTRL_SIZE - 1 => '0', CTRL_SIZE - 2 downto 0 => '1')
+                when r.phase(r.read_counter) >= 0 else (CTRL_SIZE - 1 => '1', CTRL_SIZE - 2 downto 0 => '0');
 
             r_in.read_counter <= r.read_counter + 1;
 

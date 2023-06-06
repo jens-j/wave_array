@@ -18,7 +18,7 @@ library xil_defaultlib;
 -- 4) BP = F * HP + BP-1
 -- 5) N = HP + LP
 --
--- The input sample is shifted right by one bit to create some headroom for resonance peaks.\
+-- The input sample is shifted right by one bit to create some headroom for resonance peaks.
 -- The MACC output is checked for overflow and saturated.  
 entity state_variable_filter is 
     generic (
@@ -174,7 +174,7 @@ begin
                 
                 -- Map cutoff coeffient to [0 - 0.75].
                 s_macc_sel <= "00"; 
-                s_macc_a <= '0' & std_logic_vector(config.filter_cutoff);
+                s_macc_a <= std_logic_vector('0' & maximum(x"0000", config.filter_cutoff));
                 s_macc_b <= 18x"06000";
 
                 r_in.state <= calc_resonance;
@@ -185,7 +185,7 @@ begin
 
             -- Map resonance coefficient to [2 - 0.25]
             s_macc_sel <= "01"; 
-            s_macc_a <= '0' & std_logic_vector(config.filter_resonance);
+            s_macc_a <= std_logic_vector('0' & maximum(x"0000", config.filter_resonance));
             s_macc_b <= 18x"0EFFF";
             s_macc_c <= x"FFFFFFFF";
 

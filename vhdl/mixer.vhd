@@ -31,13 +31,17 @@ architecture arch of mixer is
 
     type t_mixer_reg is record
         state                   : t_state;
+        ctrl_clipped            : t_ctrl_value;
+        sample_mult             : signed(SAMPLE_SIZE + CTRL_SIZE downto 0);
         mix_buffer              : signed(t_mix_buffer'length - 1 downto 0);
         sample_out              : t_mono_sample;
-        counter                 : integer range 0 to N_INPUTS - 1;
+        counter                 : integer range 0 to N_INPUTS + 1;
     end record;
 
     constant REG_INIT : t_mixer_reg := (
         state                   => idle,
+        ctrl_clipped            => (others => '0'),
+        sample_mult             => (others => '0'),
         mix_buffer              => (others => '0'),
         sample_out              => (others => '0'),
         counter                 => 0
@@ -65,15 +69,24 @@ begin
             end if;
         else
 
-            -- Multipy sample with control value.
-            v_sample_mult := signed(sample_in(r.counter)) * signed('0' & ctrl_in(r.counter));
+            -- Ppeline stage 0: clip control value to positive only.
+            if r.counter < N_INPUTS then 
+                r_in.ctrl_clipped <= maximum(x"0000", ctrl_in(r.counter));
+            end if;
 
-            -- Slice 16 bit output and extend to accumulator size.
-            r_in.mix_buffer <= r.mix_buffer 
-                + resize(v_sample_mult(SAMPLE_SIZE + CTRL_SIZE - 1 downto SAMPLE_SIZE), 
-                         t_mono_sample'length + N_INPUTS_LOG2);
+            -- Ppeline stage 1: multipy sample with control value.
+            if r.counter > 0 and r.counter < N_INPUTS + 1 then 
+                r_in.sample_mult <= signed(sample_in(r.counter - 1)) * signed('0' & r.ctrl_clipped);
+            end if;
 
-            if r.counter = N_INPUTS - 1 then
+            -- Ppeline stage 2: slice 16 bit output and extend to accumulator size.
+            if r.counter > 1 then  
+                r_in.mix_buffer <= r.mix_buffer + resize(
+                    r.sample_mult(SAMPLE_SIZE + CTRL_SIZE - 2 downto SAMPLE_SIZE - 1), 
+                    t_mono_sample'length + N_INPUTS_LOG2);
+            end if;
+
+            if r.counter = N_INPUTS + 1 then
                 r_in.state <= idle;
             else
                 r_in.counter <= r.counter + 1;

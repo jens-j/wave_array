@@ -19,7 +19,8 @@ entity envelope is
         next_sample             : in  std_logic;
         config                  : in  t_config;
         osc_inputs              : in  t_osc_input_array(0 to N_INPUTS - 1);
-        ctrl_out                : out t_ctrl_value_array
+        ctrl_out                : out t_ctrl_value_array;
+        envelope_active         : out std_logic_vector(N_VOICES - 1 downto 0)
     );
 end entity;
 
@@ -60,11 +61,7 @@ architecture linear of envelope is
 
     type t_state is (idle, wait_valid, map_attack, map_decay, map_release, running);
 
-    type t_adsr_state is (attack, 
-        decay, 
-        sustain, 
-        state_release, 
-        closed);
+    type t_adsr_state is (attack, decay, sustain, state_release, closed);
     type t_adsr_state_array is array (0 to N_INPUTS - 1) of t_adsr_state;
     type t_phase_array is array (0 to N_INPUTS - 1) of unsigned(31 downto 0);
     type t_index_array is array (0 to PIPE_SUM_MULT) of integer range 0 to N_INPUTS - 1;
@@ -198,6 +195,9 @@ begin
 
         -- Connect outputs.
         ctrl_out <= r.ctrl_out;
+        for i in 0 to N_INPUTS - 1 loop 
+            envelope_active(i) <= '0' when r.adsr_state(i) = closed else '1';
+        end loop;
 
         -- Default multiplier inputs.
         s_mult_a <= (others => '0');
@@ -228,7 +228,7 @@ begin
         when map_attack =>
 
             s_data_in_valid <= '1';
-            s_data_in <= config.envelope_attack;
+            s_data_in <= maximum(x"0000", config.envelope_attack);
             r_in.state <= map_decay;
 
         when map_decay =>
@@ -236,7 +236,7 @@ begin
             if s_data_out_valid = '1' then 
                 r_in.velocity_attack <= s_data_out;
                 s_data_in_valid <= '1';
-                s_data_in <= config.envelope_decay;
+                s_data_in <= maximum(x"0000", config.envelope_decay);
                 r_in.state <= map_release;
             end if;
 
@@ -245,7 +245,7 @@ begin
             if s_data_out_valid = '1' then 
                 r_in.velocity_decay <= s_data_out;
                 s_data_in_valid <= '1';
-                s_data_in <= config.envelope_release;
+                s_data_in <= maximum(x"0000", config.envelope_release);
                 r_in.state <= wait_valid;
             end if;
             
@@ -293,8 +293,9 @@ begin
                     when state_release => 
                         increment_phase(r, r_in, r.velocity_release, closed);
 
-                        -- Note is re-triggered during release. Start attack from current evelope level.
+                        -- Note is re-triggered during release.
                         if osc_inputs(r.index_array(0)).enable = '1' then 
+                            r_in.phase(r.index_array(0)) <= (others => '0');
                             r_in.adsr_state(r.index_array(0)) <= attack;
                         end if;
 
@@ -315,17 +316,17 @@ begin
                 -- This state does not use the cordic.
                 -- envelope = phase
                 when attack => 
-                    s_mult_c <= '0' & std_logic_vector(r.phase(r.index_array(PIPE_SUM_CORDIC)));
+                    s_mult_c <= "00" & std_logic_vector(r.phase(r.index_array(PIPE_SUM_CORDIC))(31 downto 1));
 
                 -- envelope = 1 + (1 - sustain) * cordic_output
                 when decay => 
                     s_mult_a <= std_logic_vector(s_cordic_cos);
-                    s_mult_b <= std_logic_vector(17x"0_FFFF" - resize(config.envelope_sustain, 17));
-                    s_mult_c <= 33x"0_FFFF_FFFF";
+                    s_mult_b <= std_logic_vector(17x"0_7FFF" - resize(config.envelope_sustain, 17));
+                    s_mult_c <= 33x"0_7FFF_FFFF";
 
                 -- envelope = sustain
                 when sustain =>
-                    s_mult_c <= '0' & std_logic_vector(config.envelope_sustain) & x"0000";
+                    s_mult_c <= '0' & std_logic_vector(maximum(x"0000", config.envelope_sustain)) & x"0000";
 
                 -- envelope = release_amp + release_amp * cordic_output
                 when state_release => 
@@ -339,7 +340,7 @@ begin
 
             -- Pipeline stage 25: writeback.
             if r.valid_array(PIPE_SUM_MULT) = '1' then 
-                r_in.ctrl_buffer(r.index_array(PIPE_SUM_MULT)) <= unsigned(s_mult_p(31 downto 16));
+                r_in.ctrl_buffer(r.index_array(PIPE_SUM_MULT)) <= signed(s_mult_p(31 downto 16));
             end if;
 
             -- Update shift registers.

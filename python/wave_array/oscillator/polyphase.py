@@ -34,17 +34,21 @@ class PolyphaseFilter:
 
         # Create the interleaved sync filter
         self.sinc_x = (np.array(range(self.L)) - self.L // 2) * 2 * self.fc / self.M
-
         self.sinc = 2 * self.fc * np.sinc(self.sinc_x)
         self.sinc[0] = 0 # set first index to zero even though the window will already make it zero.
-        # self.remez = signal.remez(self.L, [0, 0.35, 0.45, 0.5], [1, 0])
+
+        print(sum(self.sinc))
 
         # Split the phases into individual filters of length N.
         for i, phase in enumerate(list(range(self.M))):
-            self.offsets.append(self.sinc_x[i::self.M])
 
+            self.offsets.append(self.sinc_x[i::self.M])
             self.filterbank.append(self.sinc[i::self.M] * self.window[i::self.M])
-            # self.filterbank.append(self.remez[i::self.M])
+
+            print(sum(self.filterbank[-1]), self.filterbank[-1])
+
+        
+
 
 
     def interpolate(self, data, phase):

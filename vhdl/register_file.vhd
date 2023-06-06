@@ -161,13 +161,13 @@ begin
                 r_in.config.dma_new_table <= '1';
 
             elsif register_input.address = REG_LFO_VELOCITY then
-                r_in.config.lfo_velocity <= unsigned(register_input.write_data);
+                r_in.config.lfo_velocity <= signed(register_input.write_data);
 
             elsif register_input.address = REG_FILTER_CUTOFF then
-                r_in.config.filter_cutoff <= unsigned(register_input.write_data);
+                r_in.config.filter_cutoff <= signed(register_input.write_data);
 
             elsif register_input.address = REG_FILTER_RESONANCE then
-                r_in.config.filter_resonance <= unsigned(register_input.write_data);
+                r_in.config.filter_resonance <= signed(register_input.write_data);
 
             elsif register_input.address = REG_FILTER_SELECT then
                 if unsigned(register_input.write_data) < 4 then 
@@ -177,16 +177,16 @@ begin
                 end if;
             
             elsif register_input.address = REG_ENVELOPE_ATTACK then
-                r_in.config.envelope_attack <= unsigned(register_input.write_data); 
+                r_in.config.envelope_attack <= signed(register_input.write_data); 
 
             elsif register_input.address = REG_ENVELOPE_DECAY then
-                r_in.config.envelope_decay <= unsigned(register_input.write_data); 
+                r_in.config.envelope_decay <= signed(register_input.write_data); 
 
             elsif register_input.address = REG_ENVELOPE_SUSTAIN then
-                r_in.config.envelope_sustain <= unsigned(register_input.write_data); 
+                r_in.config.envelope_sustain <= signed(register_input.write_data); 
 
             elsif register_input.address = REG_ENVELOPE_RELEASE then
-                r_in.config.envelope_release <= unsigned(register_input.write_data); 
+                r_in.config.envelope_release <= signed(register_input.write_data); 
                 
             else
                 r_in.register_output.fault <= '1';

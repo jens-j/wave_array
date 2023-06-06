@@ -7,7 +7,7 @@ use wave.wave_array_pkg.all;
 
 library xil_defaultlib;
 
--- Convert a linear 16 bit control value to a 32-bit logaritmic mapping. 
+-- Convert a linear 15 bit control value to a 32-bit logaritmic mapping. 
 -- A 1024 entry LUT is used with linear interpolation based on the remaining 6 lsb.
 -- Interpolation is performed by adding shifted values of B - A to A.
 entity lin2log is
@@ -36,9 +36,9 @@ architecture arch of lin2log is
     type t_envelope_reg is record 
         state                   : t_state;
         address_b               : unsigned(9 downto 0);
-        value_d                 : signed(6 downto 0);
+        value_d                 : signed(5 downto 0);
         diff_ab                 : signed(32 downto 0); 
-        accumulator             : signed(38 downto 0);
+        accumulator             : signed(37 downto 0);
         counter                 : integer range 0 to 5;
         data_out_valid          : std_logic;
         data_out                : unsigned(31 downto 0);
@@ -89,7 +89,7 @@ begin
         when idle => 
             if data_in_valid = '1' then 
 
-                v_address := data_in(15 downto 6);
+                v_address := unsigned(data_in(14 downto 5));
 
                 -- Read A.
                 s_rom_address <= std_logic_vector(v_address);
@@ -98,7 +98,7 @@ begin
                 r_in.address_b <= v_address when v_address = 10x"3FF" else v_address + 1;
 
                 -- Store msb part for interpolation.
-                r_in.value_d <= signed('0' & data_in(5 downto 0));
+                r_in.value_d <= signed('0' & data_in(4 downto 0));
 
                 r_in.state <= store_a;
             end if;
@@ -106,7 +106,7 @@ begin
         when store_a => 
 
             -- Store A.
-            r_in.accumulator <= "0" & signed(s_rom_data) & 6x"00";
+            r_in.accumulator <= "0" & signed(s_rom_data) & 5x"00";
 
             -- Read B.
             s_rom_address <= std_logic_vector(r.address_b);
@@ -117,7 +117,7 @@ begin
         when store_b => 
 
             -- Store B - A.
-            r_in.diff_ab <= signed('0' & s_rom_data) - r.accumulator(38 downto 6);
+            r_in.diff_ab <= signed('0' & s_rom_data) - r.accumulator(37 downto 5);
 
             r_in.counter <= 0;
             r_in.state <= interpolate;
@@ -126,10 +126,10 @@ begin
         when interpolate => 
 
             if r.diff_ab(r.counter) = '1' then 
-                r_in.accumulator <= r.accumulator + resize(shift_left(r.diff_ab, r.counter), 38);
+                r_in.accumulator <= r.accumulator + resize(shift_left(r.diff_ab, r.counter), 37);
             end if;
 
-            if r.counter < 5 then 
+            if r.counter < 4 then 
                 r_in.counter <= r.counter + 1;
             else 
                 r_in.state <= finalize;
@@ -138,7 +138,7 @@ begin
         when finalize => 
 
             r_in.data_out_valid <= '1';
-            r_in.data_out <= unsigned(r.accumulator(37 downto 6));
+            r_in.data_out <= unsigned(r.accumulator(36 downto 5));
             r_in.state <= idle;
 
         end case;

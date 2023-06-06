@@ -25,7 +25,8 @@ entity synth_subsystem is
         sdram_inputs            : out t_sdram_input_array(0 to N_TABLES - 1);
         frame_index             : out integer range 0 to WAVE_MAX_FRAMES - 1;
         frame_position          : out t_osc_position;
-        frame_bank              : out integer range 0 to 3
+        frame_bank              : out integer range 0 to 3;
+        envelope_active         : out std_logic_vector(N_VOICES - 1 downto 0)
     );
 end entity;
 
@@ -40,7 +41,6 @@ architecture arch of synth_subsystem is
     signal s_lfo_square         : t_ctrl_value_array(0 to 0);
     signal s_lfo_saw            : t_ctrl_value_array(0 to 0);
     signal s_envelope_ctrl      : t_ctrl_value_array(0 to N_VOICES - 1);
-
     signal s_frame_index        : integer range 0 to WAVE_MAX_FRAMES - 1;
     signal s_frame_position     : t_osc_position;
 
@@ -58,21 +58,33 @@ begin
         variable v_frame_control : t_ctrl_value;
     begin
 
+        -- Use LFO for frame control during simulation.
         if SIMULATION then 
-            v_frame_control := s_lfo_sine(0);
-        else 
+
+            -- Offset LFO signal to create positive only frame_control. 
+            if s_lfo_sine(0) = x"8000" then 
+                v_frame_control := x"0000";
+            else 
+                v_frame_control := signed('0' & s_lfo_sine(0)(CTRL_SIZE - 1 downto 1)) + x"4000";
+            end if;
+
+        -- Use only positive values of control value to control the frame index and position.
+        elsif frame_control > x"0000" then 
             v_frame_control := frame_control;
+        else 
+            v_frame_control := x"0000";
         end if;
 
+        -- Drop the msb to make the control value unsigned.
         if config.dma_n_frames_log2 = 0 then 
             s_frame_index <= 0;
-            s_frame_position <= unsigned(v_frame_control(CTRL_SIZE - 1 downto CTRL_SIZE - OSC_SAMPLE_FRAC));
+            s_frame_position <= unsigned(v_frame_control(CTRL_SIZE - 2 downto CTRL_SIZE - OSC_SAMPLE_FRAC - 1)); 
         else
             s_frame_index <= to_integer( 
-                v_frame_control(CTRL_SIZE - 1 downto CTRL_SIZE - config.dma_n_frames_log2));
+                v_frame_control(CTRL_SIZE - 2 downto CTRL_SIZE - config.dma_n_frames_log2 - 1)); 
 
-            s_frame_position <= unsigned(v_frame_control(CTRL_SIZE - config.dma_n_frames_log2 - 1 
-                downto CTRL_SIZE - config.dma_n_frames_log2 - OSC_SAMPLE_FRAC));
+            s_frame_position <= unsigned(v_frame_control(CTRL_SIZE - config.dma_n_frames_log2 - 2 
+                downto CTRL_SIZE - config.dma_n_frames_log2 - OSC_SAMPLE_FRAC - 1)); 
         end if;
 
     end process;
@@ -150,7 +162,8 @@ begin
         config                  => config,
         next_sample             => next_sample,
         osc_inputs              => s_osc_inputs,
-        ctrl_out                => s_envelope_ctrl
+        ctrl_out                => s_envelope_ctrl,
+        envelope_active         => envelope_active
     );
 
     frame_dma : entity wave.frame_dma
