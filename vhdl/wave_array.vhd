@@ -69,7 +69,7 @@ architecture arch of wave_array is
     signal s_sdram_clk_enable   : std_logic;
 
     signal s_next_sample        : std_logic;
-    signal s_voices             : t_voice_array(N_VOICES - 1 downto 0);
+    signal s_voices             : t_voice_array(0 to N_VOICES - 1);
     signal s_midi_status_byte   : t_byte;
     signal s_pot_value          : std_logic_vector(ADC_SAMPLE_SIZE - 1 downto 0);
     signal s_sample             : t_stereo_sample;
@@ -93,6 +93,10 @@ architecture arch of wave_array is
     signal s_frame_index        : integer range 0 to WAVE_MAX_FRAMES - 1;
     signal s_frame_position     : t_osc_position;
     signal s_frame_bank         : integer range 0 to 3;
+    signal s_pot_value_ext      : std_logic_vector(15 downto 0);
+
+    
+    signal s_envelope_active    : std_logic_vector(N_VOICES - 1 downto 0); 
 
 begin
 
@@ -101,13 +105,12 @@ begin
     s_reset_al <= BTN_RESET;
 
     -- Connect outputs.
-    gen_voice_led: for i in 0 to minimum(4, N_VOICES - 1) generate
+    gen_voice_led : for i in 0 to minimum(4, N_VOICES - 1) generate
         LEDS(15 - i) <= s_voices(i).enable;
     end generate;
 
     LEDS(0) <= s_config.led;
 
-    -- SDRAM_CLK <= s_system_clk;
     I2S_SCLK <= s_i2s_clk;
     SDRAM_CLK <= s_sdram_clk;
 
@@ -119,7 +122,8 @@ begin
         & std_logic_vector(to_unsigned(s_addgen_output(0).mipmap_level, 8)) -- 2 char mipmap level
         & (0 to 16 - ADC_SAMPLE_SIZE - 1 => '0') & s_pot_value;             -- 4 char potentiometer value
 
-    s_frame_control <= unsigned(s_pot_value) & (0 to CTRL_SIZE - ADC_SAMPLE_SIZE - 1 => '0');
+    s_pot_value_ext <= "0" & s_pot_value & (0 to CTRL_SIZE - ADC_SAMPLE_SIZE - 2 => '0');
+    s_frame_control <= signed(s_pot_value_ext);
 
     s_status.pot_value          <= s_pot_value;
     s_status.frame_index        <= s_frame_index;
@@ -129,6 +133,11 @@ begin
     s_status.uart_state         <= s_uart_state;
     s_status.uart_count         <= s_uart_count;
     s_status.uart_fifo_count    <= s_uart_fifo_count;
+
+    status_gen : for i in 0 to N_VOICES - 1 generate 
+        s_status.voice_enabled(i) <= s_voices(i).enable;
+        s_status.voice_active(i)  <= s_envelope_active(i);
+    end generate;
 
     clk_subsys : entity wave.clk_subsystem
     port map (
@@ -147,6 +156,7 @@ begin
         reset                   => s_reset_ah,
         uart_rx                 => MIDI_RX,
         midi_channel            => SWITCHES(3 downto 0),
+        envelope_active         => s_envelope_active,
         voices                  => s_voices,
         status_byte             => s_midi_status_byte
     );
@@ -191,7 +201,8 @@ begin
         sdram_outputs           => s_sdram_outputs(1 to N_TABLES),
         frame_index             => s_frame_index,
         frame_position          => s_frame_position,
-        frame_bank              => s_frame_bank
+        frame_bank              => s_frame_bank,
+        envelope_active         => s_envelope_active
     );
 
     i2s_interface : entity i2s.i2s_interface

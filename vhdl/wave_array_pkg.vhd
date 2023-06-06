@@ -152,7 +152,7 @@ package wave_array_pkg is
     type t_mono_sample_array is array (natural range <>) of t_mono_sample;
     type t_stereo_sample_array is array (natural range <>) of t_stereo_sample;
 
-    subtype t_ctrl_value is unsigned(CTRL_SIZE - 1 downto 0);
+    subtype t_ctrl_value is signed(CTRL_SIZE - 1 downto 0);
     type t_ctrl_value_array is array (natural range <>) of t_ctrl_value;
 
     -- Address in the oscillator coefficient memory. It consists of two memories that each hold
@@ -200,6 +200,8 @@ package wave_array_pkg is
 
     -- Register file inputs.
     type t_status is record
+        voice_enabled           : std_logic_vector(N_VOICES - 1 downto 0); -- Notes actively playing.
+        voice_active            : std_logic_vector(N_VOICES - 1 downto 0); -- Envelopes active.
         pot_value               : std_logic_vector(ADC_SAMPLE_SIZE - 1 downto 0);
         frame_index             : integer range 0 to WAVE_MAX_FRAMES - 1;
         frame_position          : t_osc_position;
@@ -285,12 +287,12 @@ package wave_array_pkg is
     constant CONFIG_INIT : t_config := (
         led                     => '0',
         lfo_velocity            => (others => '0'),
-        filter_cutoff           => x"FFFF", -- 0.75
-        filter_resonance        => x"FFFF", -- 2.0
+        filter_cutoff           => x"4000", -- 0.75
+        filter_resonance        => x"0400", -- 2.0
         filter_select           => 0, -- Lowpass
         envelope_attack         => x"0010",
         envelope_decay          => x"0020",
-        envelope_sustain        => x"8000",
+        envelope_sustain        => x"4000",
         envelope_release        => x"0100",
         dma_new_table           => '0',
         dma_base_address        => (others => '0'),
