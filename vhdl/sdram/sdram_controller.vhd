@@ -172,7 +172,7 @@ begin
                     -- - wait asserted before delay
                     -- - wait active high
                     -- - 7 cycle accress latency (code 6)
-                    -- - fixed access latency
+                    -- - fixed access latency (would not work otherwise)
                     -- - synchronous mode
                     r_in.sdram_a <= 23x"08751F"; 
                 end if;

@@ -45,11 +45,17 @@ begin
     config                      <= r.config;
 
     comb_process : process (r, register_input, status)
+        variable v_rel_address : unsigned(ADDR_DEPTH_LOG2 - 1 downto 0);
+        variable v_mod_dest : integer range 0 to MODD_LEN - 1;
+        variable v_mod_source : integer range 0 to MODS_LEN - 1;
     begin
 
         r_in <= r;
         r_in.register_output <= ('0', '0', (others => '0'));
-        r_in.config.dma_new_table <= '0'; 
+
+        for i in 0 to N_TABLES - 1 loop 
+            r_in.config.dma_input(i).new_table <= '0'; 
+        end loop;
 
         -- Register fault sticky bits.
         if status.uart_timeout = '1' then
@@ -81,24 +87,18 @@ begin
 
             elsif register_input.address = REG_TABLE_BASE_L then
                 r_in.register_output.read_data <=
-                    std_logic_vector(r.config.dma_base_address(REGISTER_WIDTH - 1 downto 0));
+                    std_logic_vector(r.config.dma_input(0).base_address(REGISTER_WIDTH - 1 downto 0));
 
             elsif register_input.address = REG_TABLE_BASE_H then
                 r_in.register_output.read_data(SDRAM_DEPTH_LOG2 - REGISTER_WIDTH - 1 downto 0) <=
-                    std_logic_vector(r.config.dma_base_address(SDRAM_DEPTH_LOG2 - 1 downto REGISTER_WIDTH));
+                    std_logic_vector(r.config.dma_input(0).base_address(SDRAM_DEPTH_LOG2 - 1 downto REGISTER_WIDTH));
 
             elsif register_input.address = REG_TABLE_FRAMES then
                 r_in.register_output.read_data <= 
-                    std_logic_vector(to_unsigned(r.config.dma_n_frames_log2, REGISTER_WIDTH));
+                    std_logic_vector(to_unsigned(r.config.dma_input(0).frames_log2, REGISTER_WIDTH));
 
-            elsif register_input.address = REG_FRAME_INDEX then
-                r_in.register_output.read_data <= std_logic_vector(to_unsigned(status.frame_index, REGISTER_WIDTH));
-
-            elsif register_input.address = REG_FRAME_POSITION then
-                r_in.register_output.read_data(OSC_SAMPLE_FRAC - 1 downto 0) <= std_logic_vector(status.frame_position);
-
-            elsif register_input.address = REG_FRAME_BANK then
-                r_in.register_output.read_data <= std_logic_vector(to_unsigned(status.frame_bank, REGISTER_WIDTH));
+            elsif register_input.address = REG_FRAME_CTRL then
+                r_in.register_output.read_data <= std_logic_vector(r.config.base_ctrl(2));
 
             elsif register_input.address = REG_POTENTIOMETER then
                 r_in.register_output.read_data(ADC_SAMPLE_SIZE - 1 downto 0) <= status.pot_value;
@@ -110,10 +110,10 @@ begin
                 r_in.register_output.read_data <= std_logic_vector(r.config.lfo_velocity);
 
             elsif register_input.address = REG_FILTER_CUTOFF then
-                r_in.register_output.read_data <= std_logic_vector(r.config.filter_cutoff);
+                r_in.register_output.read_data <= std_logic_vector(r.config.base_ctrl(0));
 
             elsif register_input.address = REG_FILTER_RESONANCE then
-                r_in.register_output.read_data <= std_logic_vector(r.config.filter_resonance);
+                r_in.register_output.read_data <= std_logic_vector(r.config.base_ctrl(1));
             
             elsif register_input.address = REG_FILTER_SELECT then
                 r_in.register_output.read_data(2 downto 0) <= std_logic_vector(to_unsigned(r.config.filter_select, 3));
@@ -129,6 +129,28 @@ begin
 
             elsif register_input.address = REG_ENVELOPE_RELEASE then
                 r_in.register_output.read_data <= std_logic_vector(r.config.envelope_release);
+
+            elsif register_input.address = REG_MIXER_CTRL then
+                r_in.register_output.read_data <= std_logic_vector(r.config.base_ctrl(3));
+               
+            elsif register_input.address >= REG_MOD_MAP_BASE 
+                    and register_input.address < REG_MOD_MAP_BASE + MODD_LEN * MAX_MOD_SOURCES * 2 then
+
+                v_rel_address := register_input.address - REG_MOD_MAP_BASE;
+
+                -- Slice source and destination indices from the address.
+                v_mod_dest := to_integer(shift_right(v_rel_address, MAX_MOD_SOURCES_LOG2 + 1));
+                v_mod_source := to_integer(v_rel_address(MAX_MOD_SOURCES_LOG2 downto 1));
+
+                -- Differentiate between source_index and amount using the lsb.
+                if v_rel_address(0) = '0' then 
+
+                    r_in.register_output.read_data <= std_logic_vector(to_unsigned(
+                        r.config.mod_mapping(v_mod_dest)(v_mod_source).source, REGISTER_WIDTH));
+                else 
+                    r_in.register_output.read_data <= std_logic_vector(
+                        r.config.mod_mapping(v_mod_dest)(v_mod_source).amount);
+                end if;
 
             else
                 r_in.register_output.fault <= '1';
@@ -147,27 +169,30 @@ begin
                 r_in.faults <= (others => '0');
 
             elsif register_input.address = REG_TABLE_BASE_L then
-                r_in.config.dma_base_address(REGISTER_WIDTH - 1 downto 0) <= unsigned(register_input.write_data);
+                r_in.config.dma_input(0).base_address(REGISTER_WIDTH - 1 downto 0) <= unsigned(register_input.write_data);
 
             elsif register_input.address = REG_TABLE_BASE_H then
-                r_in.config.dma_base_address(SDRAM_DEPTH_LOG2 - 1 downto REGISTER_WIDTH) <= unsigned(
+                r_in.config.dma_input(0).base_address(SDRAM_DEPTH_LOG2 - 1 downto REGISTER_WIDTH) <= unsigned(
                     register_input.write_data(SDRAM_DEPTH_LOG2 - REGISTER_WIDTH - 1 downto 0));
 
             elsif register_input.address = REG_TABLE_FRAMES then
-                r_in.config.dma_n_frames_log2 <= to_integer(unsigned(
-                    register_input.write_data(WAVE_MAX_FRAMES_LOG2_LOG2 - 1 downto 0)));
+                r_in.config.dma_input(0).frames_log2 <= to_integer(unsigned(
+                    register_input.write_data(FRAMES_MAX_LOG2_LOG2 - 1 downto 0)));
 
             elsif register_input.address = REG_TABLE_NEW then
-                r_in.config.dma_new_table <= '1';
+                r_in.config.dma_input(0).new_table <= '1';
+
+            elsif register_input.address = REG_FRAME_CTRL then
+                r_in.config.base_ctrl(MODD_OSC_FRAME) <= signed(register_input.write_data);
 
             elsif register_input.address = REG_LFO_VELOCITY then
                 r_in.config.lfo_velocity <= signed(register_input.write_data);
 
             elsif register_input.address = REG_FILTER_CUTOFF then
-                r_in.config.filter_cutoff <= signed(register_input.write_data);
+                r_in.config.base_ctrl(MODD_FILTER_CUTOFF) <= signed(register_input.write_data);
 
             elsif register_input.address = REG_FILTER_RESONANCE then
-                r_in.config.filter_resonance <= signed(register_input.write_data);
+                r_in.config.base_ctrl(MODD_FILTER_RESONANCE) <= signed(register_input.write_data);
 
             elsif register_input.address = REG_FILTER_SELECT then
                 if unsigned(register_input.write_data) < 4 then 
@@ -187,7 +212,29 @@ begin
 
             elsif register_input.address = REG_ENVELOPE_RELEASE then
                 r_in.config.envelope_release <= signed(register_input.write_data); 
+
+            elsif register_input.address = REG_MIXER_CTRL then
+                r_in.config.base_ctrl(MODD_MIXER) <= signed(register_input.write_data); 
+
+            -- Mod matrix registers. 
+            -- Each mod destination holds a list length MAX_MOD_SOURCES containing a (source_index, amount) pair.
+            elsif register_input.address >= REG_MOD_MAP_BASE 
+                    and register_input.address < REG_MOD_MAP_BASE + MODD_LEN * MAX_MOD_SOURCES * 2 then
+
+                v_rel_address := register_input.address - REG_MOD_MAP_BASE;
+
+                -- Slice source and destination indices from the address.
+                v_mod_dest := to_integer(shift_right(v_rel_address, MAX_MOD_SOURCES_LOG2 + 1));
+                v_mod_source := to_integer(v_rel_address(MAX_MOD_SOURCES_LOG2 downto 1));
                 
+                -- Differentiate between source_index and amount using the lsb.
+                if v_rel_address(0) = '0' then 
+                    r_in.config.mod_mapping(v_mod_dest)(v_mod_source).source
+                        <= minimum(MODS_LEN - 1, to_integer(unsigned(register_input.write_data))); 
+                else 
+                    r_in.config.mod_mapping(v_mod_dest)(v_mod_source).amount <= signed(register_input.write_data); 
+                end if;
+
             else
                 r_in.register_output.fault <= '1';
                 r_in.faults(FAULT_REG_ADDRESS) <= '1';

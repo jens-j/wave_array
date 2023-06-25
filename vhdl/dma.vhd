@@ -21,9 +21,9 @@ entity dma is
         sdram_output            : in  t_sdram_output;
         sdram_input             : out t_sdram_input;
 
-        wave_mem_wea            : out std_logic_vector(0 downto 0);
-        wave_mem_addra          : out std_logic_vector(MIPMAP_TABLE_SIZE_LOG2 + 1 downto 0);
-        wave_mem_dina           : out std_logic_vector(SAMPLE_SIZE - 1 downto 0)
+        write_enable            : out std_logic_vector(0 downto 0);
+        write_address           : out std_logic_vector(MIPMAP_TABLE_SIZE_LOG2 + 1 downto 0);
+        write_data              : out std_logic_vector(SAMPLE_SIZE - 1 downto 0)
     );
 end entity;
 
@@ -35,9 +35,9 @@ architecture arch of dma is
         state                   : t_state;
         busy                    : std_logic;
         sdram_input             : t_sdram_input;
-        wave_mem_wea            : std_logic_vector(0 downto 0);
-        wave_mem_addra          : std_logic_vector(MIPMAP_TABLE_SIZE_LOG2 + 1 downto 0);
-        wave_mem_dina           : std_logic_vector(SAMPLE_SIZE - 1 downto 0);
+        write_enable            : std_logic_vector(0 downto 0);
+        write_address           : std_logic_vector(MIPMAP_TABLE_SIZE_LOG2 + 1 downto 0);
+        write_data              : std_logic_vector(SAMPLE_SIZE - 1 downto 0);
         sdram_address           : unsigned(SDRAM_DEPTH_LOG2 - 1 downto 0);
         wavetable_address       : std_logic_vector(MIPMAP_TABLE_SIZE_LOG2 + 1 downto 0);
     end record;
@@ -46,9 +46,9 @@ architecture arch of dma is
         state                   => idle,
         busy                    => '0',
         sdram_input             => SDRAM_INPUT_INIT,
-        wave_mem_wea            => (others => '0'),
-        wave_mem_addra          => (others => '0'),
-        wave_mem_dina           => (others => '0'),
+        write_enable            => (others => '0'),
+        write_address           => (others => '0'),
+        write_data              => (others => '0'),
         sdram_address           => (others => '0'),
         wavetable_address       => (others => '0')
     );
@@ -60,18 +60,18 @@ begin
     -- Connect output registers.
     dma2ctrl.busy <= r.busy;
     sdram_input <= r.sdram_input;
-    wave_mem_wea <= r.wave_mem_wea;
-    wave_mem_addra <= r.wave_mem_addra;
-    wave_mem_dina <= r.wave_mem_dina;
+    write_enable <= r.write_enable;
+    write_address <= r.write_address;
+    write_data <= r.write_data;
 
     comb_process : process (r, ctrl2dma, sdram_output)
     begin
 
         r_in <= r;
         r_in.sdram_input <= SDRAM_INPUT_INIT;
-        r_in.wave_mem_wea <= "0";
-        r_in.wave_mem_addra <= (others => '0');
-        r_in.wave_mem_dina <= (others => '0');
+        r_in.write_enable <= "0";
+        r_in.write_address <= (others => '0');
+        r_in.write_data <= (others => '0');
 
         if r.state = idle then
             if ctrl2dma.start = '1' then
@@ -102,16 +102,16 @@ begin
 
             if sdram_output.read_valid = '1' then
 
-                r_in.wave_mem_wea <= "1";
-                r_in.wave_mem_addra <= r.wavetable_address;
+                r_in.write_enable <= "1";
+                r_in.write_address <= r.wavetable_address;
 
                 -- Filter out X signals to avoid issues with simulating IIR filters downstream.
                 if SIMULATION then 
                     for i in 0 to SDRAM_WIDTH - 1 loop 
-                        r_in.wave_mem_dina(i) <= '0' when sdram_output.read_data(i) = 'X' else sdram_output.read_data(i);
+                        r_in.write_data(i) <= '0' when sdram_output.read_data(i) = 'X' else sdram_output.read_data(i);
                     end loop;
                 else 
-                    r_in.wave_mem_dina <= sdram_output.read_data;
+                    r_in.write_data <= sdram_output.read_data;
                 end if;
 
                 if sdram_output.done = '1' then

@@ -16,7 +16,7 @@ package wave_array_pkg is
 
     constant SYS_FREQ               : integer := 100_000_000;
     constant SDRAM_FREQ             : integer := 100_000_000;
-
+ 
     constant UART_BAUD              : integer := 1_000_000 -- 115_200;
     --pragma synthesis_off
                                       * 50
@@ -37,19 +37,20 @@ package wave_array_pkg is
     constant SAMPLE_MIN             : integer := -2**(SAMPLE_SIZE - 1);
     constant SAMPLE_RATE            : integer := 48_000;
 
-    -- Constants related to wavetables.
-    constant WAVE_SIZE_LOG2         : integer := 11;
-    constant WAVE_SIZE              : integer := 2**WAVE_SIZE_LOG2; -- Number of samples per wave table.
-    constant WAVE_MAX_FRAMES_LOG2   : integer := 8;
-    constant WAVE_MAX_FRAMES_LOG2_LOG2 : integer := integer(ceil(log2(real(WAVE_MAX_FRAMES_LOG2)))); -- Needed for register width.
-    constant WAVE_MAX_FRAMES        : integer := 2**WAVE_MAX_FRAMES_LOG2;
+    constant FRAMES_MAX_LOG2        : integer := 4;
+    constant FRAMES_MAX_LOG2_LOG2   : integer := integer(ceil(log2(real(FRAMES_MAX_LOG2)))); -- Needed for register width.
+    constant FRAMES_MAX             : integer := 2**FRAMES_MAX_LOG2;
 
-    -- Constants relating to complete mipmap table of a single frame.
+    -- Constants relating to mipmap table of a single frame.
     constant MIPMAP_LEVELS          : integer := 10; -- 1 per octave for octaves 0 - 9. This covers the entire midi range except octave -1 which is inaudible.
     constant MIPMAP_L0_SIZE_LOG2    : integer := 11;
     constant MIPMAP_L0_SIZE         : integer := 2**MIPMAP_L0_SIZE_LOG2;
     constant MIPMAP_TABLE_SIZE_LOG2 : integer := MIPMAP_L0_SIZE_LOG2 + 1;
     constant MIPMAP_TABLE_SIZE      : integer := 2**MIPMAP_TABLE_SIZE_LOG2;
+
+    -- Constants related to complete wavetables consisting of one or multiple frames..
+    constant WAVETABLE_SIZE_LOG2    : integer := MIPMAP_TABLE_SIZE_LOG2 + FRAMES_MAX_LOG2;
+    constant WAVETABLE_SIZE         : integer := 2**WAVETABLE_SIZE_LOG2;
 
     -- Oscillator constants.
     constant OSC_SAMPLE_FRAC        : integer := 8; -- Fractional bits used for sample interpolation
@@ -67,15 +68,16 @@ package wave_array_pkg is
 
     -- LFO contants.
     constant LFO_PHASE_SIZE         : integer := 48; -- Phase accumulator bit width.
-    constant LFO_PHASE_INT          : integer := 3; -- Integer bit width of phase.
+    constant LFO_PHASE_INT          : integer := 3;  -- Integer bit width of phase.
     constant LFO_PHASE_FRAC         : integer := LFO_PHASE_SIZE - LFO_PHASE_INT; -- Fractional bit width of phase.
-    constant LFO_MIN_RATE           : real := 0.125;
+    constant LFO_MIN_RATE           : real := 0.125; -- in Hz.
     constant LFO_MAX_RATE           : real := 256.0;
 
     -- Some of these constants are to big to pre calculate using 32 bit integers.
     constant LFO_MIN_VELOCITY       : unsigned(LFO_PHASE_SIZE - 1 downto 0) := resize(x"aec33e1", LFO_PHASE_SIZE); -- 0.125 Hz
+    constant LFO_MAX_VELOCITY       : unsigned(LFO_PHASE_SIZE - 1 downto 0) := resize(x"15d867c3e", LFO_PHASE_SIZE); -- 4 Hz:
     -- constant LFO_MAX_VELOCITY       : unsigned(LFO_PHASE_SIZE - 1 downto 0) := resize(x"57619f0fb", LFO_PHASE_SIZE); -- 16 Hz
-    constant LFO_MAX_VELOCITY       : unsigned(LFO_PHASE_SIZE - 1 downto 0) := resize(x"57619f0fb3", LFO_PHASE_SIZE); -- 256 Hz:
+    -- constant LFO_MAX_VELOCITY       : unsigned(LFO_PHASE_SIZE - 1 downto 0) := resize(x"57619f0fb3", LFO_PHASE_SIZE); -- 256 Hz:
     -- constant LFO_VELOCITY_STEP      : unsigned(LFO_PHASE_SIZE - 1 downto 0) := resize(x"56b2d", LFO_PHASE_SIZE);-- Velocity increase for every bit of the LFO input control value.
     constant LFO_VELOCITY_STEP      : unsigned(LFO_PHASE_SIZE - 1 downto 0) := resize(x"5756b2", LFO_PHASE_SIZE);-- Velocity increase for every bit of the LFO input control value.
 
@@ -110,36 +112,42 @@ package wave_array_pkg is
     -- Register file constants.
     constant REGISTER_WIDTH         : integer := 16;
 
-    constant REG_RESET              : unsigned := x"0000000"; -- wo 1 bit  | Soft reset.
-    constant REG_FAULT              : unsigned := x"0000001"; -- rw 16 bit | Fault flags.
-    constant REG_LED                : unsigned := x"0000002"; -- rw 1 bit  | On-board led register.
+    -- Mod matrix constants.
+    constant MAX_MOD_SOURCES_LOG2   : integer := 2; -- Maximum simulataneous mod sources for a mod destination.
+    constant MAX_MOD_SOURCES        : integer := 2**MAX_MOD_SOURCES_LOG2; -- Maximum simulataneous mod sources for a mod destination.
 
-    constant REG_DBG_UART_COUNT     : unsigned := x"0000100"; -- ro 16 bit | UART burst read byte count.
-    constant REG_DBG_UART_FIFO      : unsigned := x"0000101"; -- ro 16 bit | SDRAM to UART fifo count.
-    constant REG_DBG_UART_STATE     : unsigned := x"0000102"; -- ro 16 bit | UART packet engine state.
+    -- Register addresses.
+    constant REG_RESET              : unsigned := x"0000000"; -- wo 1 bit           | Soft reset.
+    constant REG_FAULT              : unsigned := x"0000001"; -- rw 16 bit          | Fault flags.
+    constant REG_LED                : unsigned := x"0000002"; -- rw 1 bit           | On-board led register.
 
-    constant REG_TABLE_BASE_L       : unsigned := x"0000200"; -- rw 16 bit | Bit 15 downto 0 of the wavetable base SDRAM address.
-    constant REG_TABLE_BASE_H       : unsigned := x"0000201"; -- rw 7 bit  | Bit 22 downto 16 of the wavetable base SDRAM address.
-    constant REG_TABLE_FRAMES       : unsigned := x"0000202"; -- rw 4 bit  | Log2 of the number of frames in the wavetable. Cannot be > WAVE_MAX_FRAMES_LOG2.
-    constant REG_TABLE_NEW          : unsigned := x"0000203"; -- wo 1 bit  | Writing to this register triggers initialization of the wavetable BRAMS.
+    constant REG_DBG_UART_COUNT     : unsigned := x"0000100"; -- ro 16 bit unsigned | UART burst read byte count.
+    constant REG_DBG_UART_FIFO      : unsigned := x"0000101"; -- ro 16 bit unsigned | SDRAM to UART fifo count.
+    constant REG_DBG_UART_STATE     : unsigned := x"0000102"; -- ro 16 bit          | UART packet engine state.
 
-    constant REG_FRAME_INDEX        : unsigned := x"0000300"; -- ro 16 bit | UART burst read byte count.
-    constant REG_FRAME_POSITION     : unsigned := x"0000301"; -- ro 16 bit | SDRAM to UART fifo count.
-    constant REG_FRAME_BANK         : unsigned := x"0000302"; -- ro 16 bit | UART packet engine state. 
+    constant REG_TABLE_BASE_L       : unsigned := x"0000200"; -- rw 16 bit unsigned | Bit 15 downto 0 of the wavetable base SDRAM address.
+    constant REG_TABLE_BASE_H       : unsigned := x"0000201"; -- rw 7 bit  unsigned | Bit 22 downto 16 of the wavetable base SDRAM address.
+    constant REG_TABLE_FRAMES       : unsigned := x"0000202"; -- rw 4 bit  unsigned | Log2 of the number of frames in the wavetable. Cannot be > WAVE_MAX_FRAMES_LOG2.
+    constant REG_TABLE_NEW          : unsigned := x"0000203"; -- wo 1 bit           | Writing to this register triggers initialization of the wavetable BRAMS.
 
-    constant REG_POTENTIOMETER      : unsigned := x"0000400"; -- ro 12 bit | potentiometer value. 
+    constant REG_FRAME_CTRL         : unsigned := x"0000300"; -- wo 15 bit unsigned | Frame control base value.   
 
-    constant REG_LFO_VELOCITY       : unsigned := x"0000500"; -- rw 16 bit | LFO velocity control value. 
+    constant REG_POTENTIOMETER      : unsigned := x"0000400"; -- ro 12 bit unsigned | potentiometer value. 
 
-    constant REG_FILTER_CUTOFF      : unsigned := x"0000600"; -- rw 16 bit | Filter cutoff control value. 
-    constant REG_FILTER_RESONANCE   : unsigned := x"0000601"; -- rw 16 bit | Filter resonance control value. 
-    constant REG_FILTER_SELECT      : unsigned := x"0000602"; -- rw 3  bit | Filter output select. 1 = LP, 2 = HP, 3 = BP, 4 = BS, 5 = bypass.
+    constant REG_LFO_VELOCITY       : unsigned := x"0000500"; -- rw 15 bit unsigned | LFO velocity control value. 
 
-    constant REG_ENVELOPE_ATTACK    : unsigned := x"0000700"; -- rw 16 bit | Envelope attack time control value.
-    constant REG_ENVELOPE_DECAY     : unsigned := x"0000701"; -- rw 16 bit | Envelope decay time control value.
-    constant REG_ENVELOPE_SUSTAIN   : unsigned := x"0000702"; -- rw 16 bit | Envelope sustain level control value.
-    constant REG_ENVELOPE_RELEASE   : unsigned := x"0000703"; -- rw 16 bit | Envelope release time control value.
-    
+    constant REG_FILTER_CUTOFF      : unsigned := x"0000600"; -- rw 15 bit unsigned | Filter cutoff control value. 
+    constant REG_FILTER_RESONANCE   : unsigned := x"0000601"; -- rw 15 bit unsigned | Filter resonance control value. 
+    constant REG_FILTER_SELECT      : unsigned := x"0000602"; -- rw 3  bit          | Filter output select. 1 = LP, 2 = HP, 3 = BP, 4 = BS, 5 = bypass.
+
+    constant REG_ENVELOPE_ATTACK    : unsigned := x"0000700"; -- rw 15 bit unsigned | Envelope attack time control value.
+    constant REG_ENVELOPE_DECAY     : unsigned := x"0000701"; -- rw 15 bit unsigned | Envelope decay time control value.
+    constant REG_ENVELOPE_SUSTAIN   : unsigned := x"0000702"; -- rw 15 bit unsigned | Envelope sustain level control value.
+    constant REG_ENVELOPE_RELEASE   : unsigned := x"0000703"; -- rw 15 bit unsigned | Envelope release time control value.
+
+    constant REG_MIXER_CTRL         : unsigned := x"0000800"; -- rw 15 bit unsigned | Envelope attack time control value.
+
+    constant REG_MOD_MAP_BASE       : unsigned := x"0001000"; -- Mod mapping starts here. Ordered major to minor, [destination, source (address, value)]
 
     -- fault register (sticky-)bit indices.
     constant FAULT_UART_TIMEOUT     : integer := 0; -- UART packet engine timout.
@@ -154,6 +162,7 @@ package wave_array_pkg is
 
     subtype t_ctrl_value is signed(CTRL_SIZE - 1 downto 0);
     type t_ctrl_value_array is array (natural range <>) of t_ctrl_value;
+    type t_ctrl_value_2d_array is array (natural range <>) of t_ctrl_value_array;
 
     -- Address in the oscillator coefficient memory. It consists of two memories that each hold
     -- either the even or odd coefficients.
@@ -179,23 +188,77 @@ package wave_array_pkg is
     type t_halfband_coeff_array is array (0 to HALFBAND_N / 2 - 1) -- Half the odd phase coefficients (they are symmetric).
         of std_logic_vector(HALFBAND_COEFF_SIZE - 1 downto 0);
 
-    subtype t_osc_position is unsigned(OSC_SAMPLE_FRAC - 1 downto 0); -- Oscillator frame position (only fractional).
-    type t_osc_position_array is array (natural range <>) of t_osc_position;
+    subtype t_frame_position is unsigned(OSC_SAMPLE_FRAC - 1 downto 0); -- Oscillator frame position (only fractional).
+    type t_frame_position_array is array (natural range <>) of t_frame_position;
+
+
+    -- type MOD_DEST_ENUM is (
+    --     MODD_FILTER_CUTOFF,     -- 0
+    --     MODD_FILTER_RESONANCE,  -- 1
+    --     MODD_OSC_FRAME,         -- 2
+    --     MODD_MIXER              -- 3
+    --     -- MODD_OSC_FREQUENCY,     -- 3 (has no base control value but is controlled by midi)
+    -- );
+
+    -- type MOD_SOURCE_ENUM is (
+    --     MODS_NONE,              -- 0
+    --     MODS_POT,               -- 1
+    --     MODS_ENVELOPE,          -- 2
+    --     MODS_LFO                -- 3
+    -- );
+
+    -- type t_mod_source_enum_array is array (natural range <>) of MOD_SOURCE_ENUM;
+
+    -- constant MODS_LEN           : integer := MOD_SOURCE_ENUM'pos(MOD_SOURCE_ENUM'high) + 1;
+    -- constant MODD_LEN           : integer := MOD_DEST_ENUM'pos(MOD_DEST_ENUM'high) + 1;
+
+    
+
+    constant MODD_FILTER_CUTOFF : natural := 0; 
+    constant MODD_FILTER_RESONANCE : natural := 1; 
+    constant MODD_OSC_FRAME     : natural := 2;
+    constant MODD_MIXER         : natural := 3;
+
+    constant MODS_NONE          : natural := 0;
+    constant MODS_POT           : natural := 1;
+    constant MODS_ENVELOPE      : natural := 2;
+    constant MODS_LFO           : natural := 3;
+
+    constant MODS_LEN           : natural := 4;
+    constant MODD_LEN           : natural := 4;
+
+    
+
+    -- Record holding modulation mapping of all sources enabled for one destination.
+    type t_mod_mapping is record 
+        source                  : integer range 0 to MODS_LEN - 1;
+        amount                  : t_ctrl_value;
+    end record;
+
+    type t_mod_mapping_array is array (0 to MAX_MOD_SOURCES - 1) of t_mod_mapping;
+    type t_mod_mapping_2d_array is array (0 to MODD_LEN - 1) of t_mod_mapping_array;
+
+
+    type t_dma_input is record 
+        new_table               : std_logic;                               -- Pulse indicating a new table should be loaded.
+        base_address            : unsigned(SDRAM_DEPTH_LOG2 - 1 downto 0); -- SDRAM base address of current mipmap table.
+        frames_log2             : integer range 0 to FRAMES_MAX_LOG2; -- Log2 of number of frames in the wavetable - 1.
+    end record;
+
+    type t_dma_input_array is array (0 to N_TABLES - 1) of t_dma_input;
 
     -- Register file outputs.
     type t_config is record
         led                     : std_logic;
+        base_ctrl               : t_ctrl_value_array(0 to MODD_LEN - 1); -- Base value for modulation destinations.
+        mod_mapping             : t_mod_mapping_2d_array;
         lfo_velocity            : t_ctrl_value;
-        filter_cutoff           : t_ctrl_value;
-        filter_resonance        : t_ctrl_value;
         filter_select           : integer range 0 to 4;
         envelope_attack         : t_ctrl_value;
         envelope_decay          : t_ctrl_value;
         envelope_sustain        : t_ctrl_value;
         envelope_release        : t_ctrl_value;
-        dma_new_table           : std_logic; -- Pulse indicating a new table should be loaded.
-        dma_base_address        : unsigned(SDRAM_DEPTH_LOG2 - 1 downto 0); -- SDRAM base address of current mipmap table.
-        dma_n_frames_log2       : integer range 0 to WAVE_MAX_FRAMES_LOG2; -- Log2 of number of frames in the wavetable - 1.
+        dma_input               : t_dma_input_array;
     end record;
 
     -- Register file inputs.
@@ -203,9 +266,6 @@ package wave_array_pkg is
         voice_enabled           : std_logic_vector(N_VOICES - 1 downto 0); -- Notes actively playing.
         voice_active            : std_logic_vector(N_VOICES - 1 downto 0); -- Envelopes active.
         pot_value               : std_logic_vector(ADC_SAMPLE_SIZE - 1 downto 0);
-        frame_index             : integer range 0 to WAVE_MAX_FRAMES - 1;
-        frame_position          : t_osc_position;
-        frame_bank              : integer range 0 to 3;
         uart_timeout            : std_logic;
         uart_state              : integer;
         uart_count              : integer;
@@ -215,7 +275,6 @@ package wave_array_pkg is
     type t_osc_input is record
         enable                  : std_logic; -- Voice enable (outputs zero when not enabled).
         velocity                : t_osc_phase; -- Table velocity.
-        position                : t_osc_position; -- Frame position.
     end record;
 
     type t_addrgen2table is record
@@ -225,22 +284,17 @@ package wave_array_pkg is
         phase                   : t_osc_phase_array(0 to 1); -- Oscillator phase.
     end record;
 
-    type t_ctrl2dma is record
-        start                   : std_logic; -- Start DMA of frame.
-        address                 : unsigned(SDRAM_DEPTH_LOG2 - 1 downto 0); -- Base address of frame (source).
-        index                   : integer range 0 to 3; -- Table address (destination).
-    end record;
-
-    type t_dma2ctrl is record
-        busy                    : std_logic;
-    end record;
-
-
     type t_dma2table is record
-        buffer_index            : integer range 0 to 3; -- Lower table buffer index.
-        wave_mem_wea            : std_logic_vector(0 downto 0);
-        wave_mem_addra          : std_logic_vector(MIPMAP_TABLE_SIZE_LOG2 + 1 downto 0);
-        wave_mem_dina           : std_logic_vector(SAMPLE_SIZE - 1 downto 0);
+        req                     : std_logic; -- Request transfer. Remains high until ack.
+        done                    : std_logic; -- Signal last cycle of transfer.
+        write_enable            : std_logic;
+        write_address           : std_logic_vector(WAVETABLE_SIZE_LOG2 - 1 downto 0);
+        write_data              : std_logic_vector(SAMPLE_SIZE - 1 downto 0);
+        frames_log2             : integer range 0 to FRAMES_MAX_LOG2; -- Wavetable size is updated after writing a new table.
+    end record;
+
+    type t_table2dma is record 
+        ack                     : std_logic; -- Acknowledge transfer.
     end record;
 
     type t_sdram_input is record
@@ -277,26 +331,41 @@ package wave_array_pkg is
     type t_osc_input_array is array (natural range <>) of t_osc_input;
     type t_sdram_input_array is array (natural range <>) of t_sdram_input;
     type t_addrgen2table_array is array (natural range <>) of t_addrgen2table;
-    type t_ctrl2dma_array is array (natural range <>) of t_ctrl2dma;
-    type t_dma2ctrl_array is array (natural range <>) of t_dma2ctrl;
     type t_sdram_output_array is array (natural range <>) of t_sdram_output;
     type t_dma2table_array is array (natural range <>) of t_dma2table;
+    type t_table2dma_array is array (natural range <>) of t_table2dma;
     type t_register_input_array is array (natural range <>) of t_register_input;
     type t_register_output_array is array (natural range <>) of t_register_output;
 
+    type t_modd_array is array (0 to MODD_LEN - 1) of t_ctrl_value_array(0 to N_VOICES - 1);
+    type t_mods_array is array (0 to MODS_LEN - 1) of t_ctrl_value_array(0 to N_VOICES - 1);
+
+    constant MOD_MAPPING_INIT : t_mod_mapping := (
+        source                  => MODS_NONE,
+        amount                  => (others => '0')
+    );
+
+    constant DMA_INPUT_INIT : t_dma_input := (
+        new_table               => '0', -- Pulse indicating a new table should be loaded.
+        base_address            => (others => '0'), -- SDRAM base address of current mipmap table.
+        frames_log2             => 0 -- Log2 of number of frames in the wavetable.
+    );
+
     constant CONFIG_INIT : t_config := (
         led                     => '0',
+        base_ctrl               => (0 => x"4000",
+                                    1 => x"0400",
+                                    2 => x"0000",
+                                    3 => x"0000"),
+
+        mod_mapping             => (others => (others => MOD_MAPPING_INIT)),
         lfo_velocity            => (others => '0'),
-        filter_cutoff           => x"4000", -- 0.75
-        filter_resonance        => x"0400", -- 2.0
         filter_select           => 0, -- Lowpass
         envelope_attack         => x"0010",
         envelope_decay          => x"0020",
         envelope_sustain        => x"4000",
         envelope_release        => x"0100",
-        dma_new_table           => '0',
-        dma_base_address        => (others => '0'),
-        dma_n_frames_log2       => 0
+        dma_input               => (others => DMA_INPUT_INIT)
     );
 
     constant SDRAM_INPUT_INIT : t_sdram_input := (
@@ -316,16 +385,12 @@ package wave_array_pkg is
     );
 
     constant DMA2TABLE_INIT : t_dma2table := (
-        buffer_index            => 0,
-        wave_mem_wea            => (others => '0'),
-        wave_mem_addra          => (others => '0'),
-        wave_mem_dina           => (others => '0')
-    );
-
-    constant CTRL2DMA_INIT : t_ctrl2dma := (
-         start                  => '0',
-         address                => (others => '0'),
-         index                  => 0
+        req                     => '0',
+        done                    => '0',
+        write_enable            => '0',
+        write_address           => (others => '0'),
+        write_data              => (others => '0'),
+        frames_log2             => 0
     );
 
     constant MIPMAP_THRESHOLDS : t_osc_phase_array(0 to MIPMAP_LEVELS - 2) := (

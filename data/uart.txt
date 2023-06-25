@@ -10,6 +10,17 @@ write  00000703     0100                        # write envelope release
 write  00000600     4000                        # write filter cutoff
 write  00000601     2000                        # write filter resonance
 
+write  00000300     4000                        # Write frame base value 
+#write  00000000     4000                        # Write mixer base value 
+
+# Mod mapping 
+write  00001000     0002                        # Map envelope to filter cutoff 
+write  00001001     4000        
+write  00001010     0003                        # Map lfo to frame
+write  00001011     3FFF 
+write  00001018     0002                        # Map envelope to mixer
+write  00001019     7FFF             
+
 #wait   1000                                     
 #writeb 00000000 00000004 0001000200030004       # write [1,2,3,4] to SDRAM address 0x00000000
 #readb  00000000 00000004                        # read back SDRAM
@@ -19,7 +30,7 @@ write  00000601     2000                        # write filter resonance
 writef 00000000 00002000                        # write wavetable to the SDRAM at address 0x0
 write  00000200     0000                        # Write low half of table base address 
 write  00000201     0000                        # Write high half of table base address
-write  00000202     0000                        # write n_frames_log2
+write  00000202     0001                        # write frames_log2
 write  00000203     0001                        # initialize wavetable RAM
 
 wait   1000 

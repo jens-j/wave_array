@@ -12,9 +12,12 @@ entity oscillator is
     port (
         clk                     : in  std_logic;
         reset                   : in  std_logic;
+        config                  : in  t_config;
         next_sample             : in  std_logic; -- Next sample trigger.
         osc_inputs              : in  t_osc_input_array(0 to N_VOICES - 1);
         dma2table               : in  t_dma2table;
+        table2dma               : out t_table2dma;
+        frame_control           : in  t_ctrl_value_array(0 to N_VOICES - 1);
         output_samples          : out t_mono_sample_array(0 to N_VOICES - 1);
         addrgen_output          : out t_addrgen2table_array(0 to N_VOICES - 1) -- Debug output
     );
@@ -44,15 +47,15 @@ begin
     );
 
     table_interpolator : entity osc.table_interpolator
-    generic map (
-        N_VOICES                => N_VOICES
-    )
     port map (
         clk                     => clk,
         reset                   => reset,
+        config                  => config,
         next_sample             => next_sample,
         dma2table               => dma2table,
+        table2dma               => table2dma,
         osc_inputs              => osc_inputs,
+        frame_control           => frame_control,
         addrgen_input           => s_addrgen2table,
         output_samples          => s_intermediate_samples,
         overflow                => s_overflow,

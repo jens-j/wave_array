@@ -51,7 +51,7 @@ architecture arch of mixer is
 
 begin
 
-    combinatorial : process (r, sample_in, next_sample)
+    combinatorial : process (r, sample_in, next_sample, ctrl_in)
         variable v_sample_mult : signed(SAMPLE_SIZE + CTRL_SIZE downto 0);
     begin
 
@@ -71,7 +71,7 @@ begin
 
             -- Ppeline stage 0: clip control value to positive only.
             if r.counter < N_INPUTS then 
-                r_in.ctrl_clipped <= maximum(x"0000", ctrl_in(r.counter));
+                r_in.ctrl_clipped <= x"0000" when ctrl_in(r.counter) < 0 else ctrl_in(r.counter);
             end if;
 
             -- Ppeline stage 1: multipy sample with control value.

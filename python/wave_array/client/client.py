@@ -6,6 +6,23 @@ import numpy as np
 
 class WaveArray:
 
+    # Modulation destinations.
+    MODD = {
+        0: 'FILTER_CUTOFF',          
+        1: 'FILTER_RESONANCE',       
+        2: 'OSC_FRAME',              
+        3: 'VOLUME'
+    }                  
+
+    # Modulation sources.
+    MODS = {
+        0: 'NONE',                   
+        1: 'POT',                    
+        2: 'ENVELOPE',                
+        3: 'LFO'                    
+    }
+
+    # Register address map.
     REG_ADDR_RESET              = 0x00000000
     REG_ADDR_FAULT              = 0x00000001
     REG_ADDR_LED                = 0x00000002
@@ -19,9 +36,7 @@ class WaveArray:
     REG_TABLE_FRAMES            = 0x00000202
     REG_TABLE_NEW               = 0x00000203
 
-    REG_FRAME_INDEX             = 0x00000300
-    REG_FRAME_POSITION          = 0x00000301
-    REG_FRAME_BANK              = 0x00000302
+    REG_FRAME_CTRL              = 0x00000300
 
     REG_POTENTIOMETER           = 0x00000400
 
@@ -36,7 +51,9 @@ class WaveArray:
     REG_ENVELOPE_SUSTAIN        = 0x00000702
     REG_ENVELOPE_RELEASE        = 0x00000703
     
-         
+    REG_MIXER_CTRL              = 0x00000800
+
+    REG_MOD_MAP_BASE            = 0x00001000
 
     def __init__(self, port='COM4'):
         self.dev = UartDevice(port, 1000_000)
@@ -58,13 +75,35 @@ class WaveArray:
         print(f'[{address:08X}] <= {raw_value:04X}')
         self.dev.write(address, raw_value) 
 
-    def read(self, address, convert=False):
+    def read(self, address, convert=False, log=True):
         raw_value = np.uint16(self.dev.read(address))
-        #print(f'read [{address:08X}] = {raw_value:04X}')
+        if log: 
+            print(f'read [{address:08X}] = {raw_value:04X}')
         return raw_value / 0x7FFF if convert else raw_value
 
-    def write_sdram(self, address, data):
+    def read_mod_enable(self, destination, index):
+        address = self.REG_MOD_MAP_BASE + destination * 8 + index * 2
+        return self.read(address)
 
+    def mod_enable(self, destination, index, source):
+        
+        address = self.REG_MOD_MAP_BASE + destination * 8 + index * 2
+        print(f'mod enable {destination} {index} {source} {address:08X}')
+        self.write(address, source)
+
+    def mod_disable(self, destination, index):
+        address = self.REG_MOD_MAP_BASE + destination * 8 + index * 2
+        self.write(address, 0)
+
+    def read_mod_amount(self, destination, index):
+        address = self.REG_MOD_MAP_BASE + destination * 8 + index * 2 + 1
+        return self.read(address, convert=True)
+    
+    def write_mod_amount(self, destination, index, amount):
+        address = self.REG_MOD_MAP_BASE + destination * 8 + index * 2 + 1
+        self.write(address, amount, convert=True)
+
+    def write_sdram(self, address, data):
         burst_address = address
 
         for i in range(len(data) // 128):
@@ -78,7 +117,6 @@ class WaveArray:
             burst_address += 128
 
     def read_sdram(self, address, length):
-
         data = np.zeros(length).astype('int16')
         burst_address = address
 

@@ -81,7 +81,7 @@ begin
     );
 
 
-    combinatorial : process (r, message_valid_s, midi_message_s, s_voice_enable)
+    combinatorial : process (r, message_valid_s, midi_message_s, s_voice_enable, envelope_active)
         variable v_enable : std_logic;
     begin
 
@@ -201,7 +201,7 @@ begin
                     
                     r_in.state <= voice_on_1;
                 
-                elsif r_in.voice_select < N_VOICES then 
+                elsif r.voice_select < N_VOICES then 
                     r_in.voice_select <= r.voice_select + 1;
                 else 
                     r_in.state <= idle; -- This should never happen

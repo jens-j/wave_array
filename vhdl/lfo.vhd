@@ -109,7 +109,7 @@ begin
         s_phase_tdata <= (others => '0');
 
         -- Clip ctrl value to positive only.
-        r_in.lfo_velocity <= unsigned(maximum(x"0000", config.lfo_velocity));
+        r_in.lfo_velocity <= x"0000" when config.lfo_velocity < 0 else unsigned(config.lfo_velocity);
 
         if next_sample = '1' then
 

@@ -90,13 +90,12 @@ architecture arch of wave_array is
     signal s_uart_state         : integer;
     signal s_uart_count         : integer;
     signal s_uart_fifo_count    : integer;
-    signal s_frame_index        : integer range 0 to WAVE_MAX_FRAMES - 1;
-    signal s_frame_position     : t_osc_position;
-    signal s_frame_bank         : integer range 0 to 3;
     signal s_pot_value_ext      : std_logic_vector(15 downto 0);
 
-    
     signal s_envelope_active    : std_logic_vector(N_VOICES - 1 downto 0); 
+
+    signal s_mod_sources        : t_mods_array;
+    signal s_mod_destinations   : t_modd_array;
 
 begin
 
@@ -116,19 +115,18 @@ begin
 
     -- 7 segment display.
     s_display_data <=
-        std_logic_vector(to_unsigned(s_voices(0).note.octave, 4))           -- 1 char octave
-        & std_logic_vector(to_unsigned(s_voices(0).note.key, 4))            -- 1 char note
-        -- & "0" & s_voices(0).midi_velocity                                -- 2 char midi velocity
-        & std_logic_vector(to_unsigned(s_addgen_output(0).mipmap_level, 8)) -- 2 char mipmap level
-        & (0 to 16 - ADC_SAMPLE_SIZE - 1 => '0') & s_pot_value;             -- 4 char potentiometer value
+        std_logic_vector(s_mod_sources(MODS_POT)(0)) & std_logic_vector(s_mod_destinations(MODD_MIXER)(0));
+
+        -- std_logic_vector(to_unsigned(s_voices(0).note.octave, 4))           -- 1 char octave
+        -- & std_logic_vector(to_unsigned(s_voices(0).note.key, 4))            -- 1 char note
+        -- -- & "0" & s_voices(0).midi_velocity                                -- 2 char midi velocity
+        -- & std_logic_vector(to_unsigned(s_addgen_output(0).mipmap_level, 8)) -- 2 char mipmap level
+        -- & (0 to 16 - ADC_SAMPLE_SIZE - 1 => '0') & s_pot_value;             -- 4 char potentiometer value
 
     s_pot_value_ext <= "0" & s_pot_value & (0 to CTRL_SIZE - ADC_SAMPLE_SIZE - 2 => '0');
     s_frame_control <= signed(s_pot_value_ext);
 
     s_status.pot_value          <= s_pot_value;
-    s_status.frame_index        <= s_frame_index;
-    s_status.frame_position     <= s_frame_position;
-    s_status.frame_bank         <= s_frame_bank;
     s_status.uart_timeout       <= s_uart_timeout;
     s_status.uart_state         <= s_uart_state;
     s_status.uart_count         <= s_uart_count;
@@ -193,16 +191,15 @@ begin
         reset                   => s_reset_ah,
         config                  => s_config,
         next_sample             => s_next_sample,
-        frame_control           => s_frame_control,
+        pot_value               => s_pot_value,
         voices                  => s_voices,
         addrgen_output          => s_addgen_output,
         sample                  => s_sample,
-        sdram_inputs            => s_sdram_inputs(1 to N_TABLES),
-        sdram_outputs           => s_sdram_outputs(1 to N_TABLES),
-        frame_index             => s_frame_index,
-        frame_position          => s_frame_position,
-        frame_bank              => s_frame_bank,
-        envelope_active         => s_envelope_active
+        sdram_input             => s_sdram_inputs(1),
+        sdram_output            => s_sdram_outputs(1),
+        envelope_active         => s_envelope_active,
+        mod_sources             => s_mod_sources,
+        mod_destinations        => s_mod_destinations
     );
 
     i2s_interface : entity i2s.i2s_interface

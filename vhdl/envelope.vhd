@@ -213,6 +213,7 @@ begin
         s_cordic_sin <= signed(s_dout_tdata(40 downto 24));
 
         s_data_in_valid <= '0';
+        s_data_in <= (others => '0');
 
         case r.state is 
         when idle => 
@@ -228,7 +229,8 @@ begin
         when map_attack =>
 
             s_data_in_valid <= '1';
-            s_data_in <= maximum(x"0000", config.envelope_attack);
+            s_data_in <= x"0000" when config.envelope_attack < 0 else config.envelope_attack;
+
             r_in.state <= map_decay;
 
         when map_decay =>
@@ -236,7 +238,7 @@ begin
             if s_data_out_valid = '1' then 
                 r_in.velocity_attack <= s_data_out;
                 s_data_in_valid <= '1';
-                s_data_in <= maximum(x"0000", config.envelope_decay);
+                s_data_in <= x"0000" when config.envelope_decay < 0 else config.envelope_decay;
                 r_in.state <= map_release;
             end if;
 
@@ -245,7 +247,7 @@ begin
             if s_data_out_valid = '1' then 
                 r_in.velocity_decay <= s_data_out;
                 s_data_in_valid <= '1';
-                s_data_in <= maximum(x"0000", config.envelope_release);
+                s_data_in <= x"0000" when config.envelope_release < 0 else config.envelope_release;
                 r_in.state <= wait_valid;
             end if;
             
@@ -326,7 +328,8 @@ begin
 
                 -- envelope = sustain
                 when sustain =>
-                    s_mult_c <= '0' & std_logic_vector(maximum(x"0000", config.envelope_sustain)) & x"0000";
+                    s_mult_c <= 33x"000000000" when config.envelope_sustain < 0 
+                        else '0' & std_logic_vector(config.envelope_sustain) & x"0000";
 
                 -- envelope = release_amp + release_amp * cordic_output
                 when state_release => 

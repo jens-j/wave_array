@@ -29,6 +29,8 @@ entity state_variable_filter is
         reset                   : in  std_logic;
         config                  : in  t_config;
         next_sample             : in  std_logic;
+        cutoff_control          : in  t_ctrl_value_array(0 to N_VOICES - 1);
+        resonance_control       : in  t_ctrl_value_array(0 to N_VOICES - 1);
         sample_in               : in  t_mono_sample_array(0 to N_INPUTS - 1);
         sample_out              : out t_mono_sample_array(0 to N_INPUTS - 1) -- FIlter type is selected in config.
     );
@@ -60,7 +62,8 @@ architecture arch of state_variable_filter is
     constant MACC_INSTRUCTION : t_instruction_array := ("00", "01", "11", "00", "10");
 
     type t_index_array is array (natural range <>) of integer;
-    type t_state is (idle, calc_resonance, wait_latency, shift, running);
+    type t_state is (idle, map_cutoff, map_resonance, shift, running);
+    type t_coeff_array is array (0 to N_INPUTS - 1) of std_logic_vector(17 downto 0);
 
     type t_svf_reg is record
         state                   : t_state;
@@ -74,11 +77,12 @@ architecture arch of state_variable_filter is
         notch_r                 : t_mono_sample_array(0 to N_INPUTS - 1);
         notch_r2                : t_mono_sample_array(0 to N_INPUTS - 1);
         highpass_temp           : t_mono_sample_array(0 to N_INPUTS - 1);
-        cutoff_coeff            : std_logic_vector(17 downto 0);
-        resonance_coeff         : std_logic_vector(17 downto 0);
+        cutoff_coeff            : t_coeff_array;
+        resonance_coeff         : t_coeff_array;
         stage_count_in          : integer range 0 to N_STAGES - 1; -- Count pipeline stages.
         sample_count_in         : integer range 0 to N_INPUTS - 1; -- Count input samples to the MACC.
         empty_count_in          : integer range 0 to EMPTY_SLOTS; -- Insert empty pipeline slots to avoid RAW pipeline hazards. 
+        map_count               : integer range 0 to N_INPUTS + PIPE_LEN_MACC - 1;
         stage_count_array       : t_index_array(0 to PIPE_SUM_WB - 1);
         sample_count_array      : t_index_array(0 to PIPE_SUM_WB - 1);
         pipeline_valid          : std_logic_vector(PIPE_SUM_WB - 1 downto 0); -- shift signals valid data in pipeline for each stage.
@@ -100,11 +104,12 @@ architecture arch of state_variable_filter is
         notch_r                 => (others => (others => '0')),
         notch_r2                => (others => (others => '0')),
         highpass_temp           => (others => (others => '0')),
-        cutoff_coeff            => (others => '0'),
-        resonance_coeff         => (others => '0'),
+        cutoff_coeff            => (others => (others => '0')),
+        resonance_coeff         => (others => (others => '0')),
         stage_count_in          => 0,
         sample_count_in         => 0,
         empty_count_in          => 0,
+        map_count               => 0,
         stage_count_array       => (others => 0),
         sample_count_array      => (others => 0),
         pipeline_valid          => (others => '0'),
@@ -137,7 +142,8 @@ begin
         P                       => s_macc_p
     );
     
-    combinatorial : process (r, config, next_sample, sample_in, s_macc_a, s_macc_c, s_macc_d, s_macc_p)
+    combinatorial : process (r, config, next_sample, sample_in, cutoff_control, resonance_control,
+                             s_macc_a, s_macc_c, s_macc_d, s_macc_p)
     begin
 
         r_in <= r;
@@ -171,38 +177,53 @@ begin
                     when 3 => r_in.sample_out <= r.notch_r2;
                     when others => r_in.sample_out <= sample_in;
                 end case;
-                
-                -- Map cutoff coeffient to [0 - 0.75].
-                s_macc_sel <= "00"; 
-                s_macc_a <= std_logic_vector('0' & maximum(x"0000", config.filter_cutoff));
-                s_macc_b <= 18x"06000";
 
-                r_in.state <= calc_resonance;
+                r_in.map_count <= 0;
+                r_in.state <= map_cutoff;
             end if;
 
-        -- Input operands to MACC.
-        elsif r.state = calc_resonance then 
+        -- Map cutoff coeffient to [0 - 0.75].
+        elsif r.state = map_cutoff then 
+    
+            if r.map_count < N_INPUTS then 
+                s_macc_sel <= "00"; 
+                s_macc_b <= 18x"06000";
+                s_macc_a <= 17x"00000" when cutoff_control(r.map_count) < 0 
+                    else std_logic_vector('0' & cutoff_control(r.map_count));
 
-            -- Map resonance coefficient to [2 - 0.25]
-            s_macc_sel <= "01"; 
-            s_macc_a <= std_logic_vector('0' & maximum(x"0000", config.filter_resonance));
-            s_macc_b <= 18x"0EFFF";
-            s_macc_c <= x"FFFFFFFF";
+            end if;
 
-            r_in.latency_count <= PIPE_LEN_MACC - 1;
-            r_in.state <= wait_latency;
+            if r.map_count > PIPE_LEN_MACC - 1 then 
+                r_in.cutoff_coeff(r.map_count - PIPE_LEN_MACC) <= 
+                    "00" & s_macc_p(2 * SAMPLE_SIZE - 1 downto SAMPLE_SIZE);  -- 2.16 fixed point in [0 - 1).
+            end if;
 
-        -- Wait for the MACC to output the cutoff and resonance coefficients.
-        elsif r.state = wait_latency then 
+            if r.map_count < N_INPUTS + PIPE_LEN_MACC - 1 then 
+                r_in.map_count <= r.map_count + 1;
+            else 
+                r_in.map_count <= 0;
+                r_in.state <= map_resonance;
+            end if;
 
-            if r.latency_count > 0 then 
-                r_in.latency_count <= r.latency_count - 1;
-            end if; 
+        -- Map resonance coefficient to [2 - 0.25]
+        elsif r.state = map_resonance then 
 
-            if r.latency_count = 1 then 
-                r_in.cutoff_coeff <= "00" & s_macc_p(2 * SAMPLE_SIZE - 1 downto SAMPLE_SIZE);  -- 2.16 fixed point in [0 - 1).
-            elsif r.latency_count = 0 then 
-                r_in.resonance_coeff <= '0' & s_macc_p(2 * SAMPLE_SIZE - 1 downto SAMPLE_SIZE - 1);  -- 2.16 fixed point in [0 - 2).
+            if r.map_count < N_INPUTS then 
+                s_macc_sel <= "01"; 
+                s_macc_b <= 18x"0EFFF";
+                s_macc_c <= x"FFFFFFFF";
+                s_macc_a <= 17x"00000" when resonance_control(r.map_count) < 0 
+                    else std_logic_vector('0' & resonance_control(r.map_count));
+            end if;
+
+            if r.map_count > PIPE_LEN_MACC - 1 then 
+                r_in.resonance_coeff(r.map_count - PIPE_LEN_MACC) <= 
+                    "00" & s_macc_p(2 * SAMPLE_SIZE - 1 downto SAMPLE_SIZE);  -- 2.16 fixed point in [0 - 1).
+            end if;
+
+            if r.map_count < N_INPUTS + PIPE_LEN_MACC - 1 then 
+                r_in.map_count <= r.map_count + 1;
+            else 
                 r_in.state <= shift;
             end if;
 
@@ -222,12 +243,12 @@ begin
             case (r.stage_count_in) is 
             when 0 => -- A * B + C
                 s_macc_a <= std_logic_vector(resize(r.bandpass_r2(r.sample_count_in), 17));
-                s_macc_b <= std_logic_vector(r.cutoff_coeff);
+                s_macc_b <= std_logic_vector(r.cutoff_coeff(r.sample_count_in));
                 s_macc_c <= std_logic_vector(resize(r.lowpass_r2(r.sample_count_in) & (15 downto 0 => '0'), 32));
 
             when 1 => -- C - A * B
                 s_macc_a <= std_logic_vector(resize(r.bandpass_r2(r.sample_count_in), 17));
-                s_macc_b <= std_logic_vector(r.resonance_coeff);
+                s_macc_b <= std_logic_vector(r.resonance_coeff(r.sample_count_in));
                 s_macc_c <= std_logic_vector(resize(sample_in(r.sample_count_in) & (14 downto 0 => '0'), 32)); -- Halve input sample to create some headroom.
 
             when 2 => -- D - A
@@ -236,7 +257,7 @@ begin
                 
             when 3 => -- A * B + C
                 s_macc_a <= std_logic_vector(resize(r.highpass_r(r.sample_count_in), 17));
-                s_macc_b <= std_logic_vector(r.cutoff_coeff); -- 2.16 fixed point in [0 - 2).
+                s_macc_b <= std_logic_vector(r.cutoff_coeff(r.sample_count_in)); -- 2.16 fixed point in [0 - 2).
                 s_macc_c <= std_logic_vector(resize(r.bandpass_r2(r.sample_count_in) & (15 downto 0 => '0'), 32));
 
             when 4 => -- D + A

@@ -2,6 +2,7 @@
 
 import os
 import sys 
+from functools                import partial
 
 import numpy                  as np
 
@@ -26,6 +27,14 @@ class WaveArrayGui(QtWidgets.QMainWindow):
         # Create client object.
         self.client = WaveArray()
 
+        self.mod_source = None 
+        self.mod_destination = None
+        self.mod_index = None
+        self.mod_mapping = {}
+
+        for dest in self.client.MODD:
+            self.mod_mapping[dest] = []
+
         # Initialize the GUI.
         module_path = os.path.dirname(os.path.abspath(__file__))
         ui_path     = os.path.join(module_path, '../../../qt')
@@ -38,6 +47,8 @@ class WaveArrayGui(QtWidgets.QMainWindow):
         # Connect signals.
         self.ui.action_open_wavetable.triggered.connect(self.open_wavetable)
         self.ui.action_load_config.triggered.connect(self.load_config)
+        self.ui.slider_frame_position.sliderMoved.connect(self.frame_position_changed)
+        self.ui.slider_lfo_velocity.sliderMoved.connect(self.lfo_velocity_changed)
         self.ui.slider_filter_cutoff.sliderMoved.connect(self.filter_cutoff_changed)
         self.ui.slider_filter_resonance.sliderMoved.connect(self.filter_resonance_changed)
         self.ui.box_filter_select.currentIndexChanged.connect(self.filter_select_changed)
@@ -45,6 +56,12 @@ class WaveArrayGui(QtWidgets.QMainWindow):
         self.ui.slider_envelope_decay.sliderMoved.connect(self.envelope_decay_changed)
         self.ui.slider_envelope_sustain.sliderMoved.connect(self.envelope_sustain_changed)
         self.ui.slider_envelope_release.sliderMoved.connect(self.envelope_release_changed)
+        self.ui.slider_mod_amount.sliderMoved.connect(self.set_mod_amount)
+        
+        for d in self.client.MODD.keys():
+            for s in list(self.client.MODS.keys())[1:]: # Skip MODS_NONE.
+                button = getattr(self.ui, f'btn_mod_{d}_{s}')
+                button.stateChanged.connect(partial(self.mod_button_clicked, d, s))
         
 
         # Status refresh timer.
@@ -55,14 +72,22 @@ class WaveArrayGui(QtWidgets.QMainWindow):
     
     def load_status(self):
 
-        faults = self.client.read(WaveArray.REG_ADDR_FAULT)
+        faults = self.client.read(WaveArray.REG_ADDR_FAULT, log=False)
         self.ui.lbl_faults.setText(f"0x{faults:04X}")
 
-        potentiometer = self.client.read(WaveArray.REG_POTENTIOMETER)
+        potentiometer = self.client.read(WaveArray.REG_POTENTIOMETER, log=False)
         self.ui.lbl_potentiometer.setText(f"0x{potentiometer:03X}")
+
 
     # Read device settings and update GUI elements accordingly.
     def load_config(self):
+
+        # Initialize sliders.
+        position = self.client.read(WaveArray.REG_FRAME_CTRL, convert=True)
+        self.ui.slider_frame_position.setValue(int(position * self.CONTROL_MAX))
+
+        velocity = self.client.read(WaveArray.REG_FRAME_CTRL, convert=True)
+        self.ui.slider_lfo_velocity.setValue(int(velocity * self.CONTROL_MAX))
 
         cutoff = self.client.read(WaveArray.REG_FILTER_CUTOFF, convert=True)
         self.ui.slider_filter_cutoff.setValue(int(cutoff * self.CONTROL_MAX))
@@ -84,6 +109,18 @@ class WaveArrayGui(QtWidgets.QMainWindow):
 
         release = self.client.read(WaveArray.REG_ENVELOPE_RELEASE, convert=True)
         self.ui.slider_envelope_release.setValue(int(release * self.CONTROL_MAX))  
+
+        # Initialize mod matrix. 
+        for d in self.client.MODD.keys():
+            for i in range(4):
+
+                source = self.client.read_mod_enable(d, i)
+
+                if source > 0:
+                    button = getattr(self.ui, f'btn_mod_{d}_{source}')
+                    button.setChecked(True)
+
+                    self.mod_mapping[d].append(source)
 
 
     def show(self):
@@ -122,38 +159,70 @@ class WaveArrayGui(QtWidgets.QMainWindow):
         self.client.write(WaveArray.REG_TABLE_NEW, 0x0001)
 
 
-    def filter_cutoff_changed(self, control_value):
+    def mod_button_clicked(self, destination, source, state):
 
+        # Add new mod mapping.
+        if state:
+            assert source not in self.mod_mapping[destination]
+
+            index = len(self.mod_mapping[destination])
+            
+            if index < 4:
+                self.client.mod_enable(destination, index, source)
+                self.mod_mapping[destination].append(source)
+
+        # remove mod mapping.
+        else:
+            assert source in self.mod_mapping[destination]
+
+            index = self.mod_mapping[destination].index(source)
+
+            self.client.mod_disable(destination, index)
+            self.mod_mapping[destination].pop(index)
+
+        # Update amount slider and text.
+        amount = self.client.read_mod_amount(destination, index)
+        self.ui.slider_mod_amount.setValue(int(amount * self.CONTROL_MAX))  
+        self.ui.lbl_mod_select.setText(
+            f'{self.client.MODS[source]}\n->\n{self.client.MODD[destination]}')        
+
+        self.mod_source = source 
+        self.mod_destination = destination
+        self.mod_index = index
+
+
+    def set_mod_amount(self, control_value):
+
+        index = self.mod_mapping[self.mod_destination].index(self.mod_source)
+
+        self.client.write_mod_amount(self.mod_destination, index, control_value / self.CONTROL_MAX)
+
+
+    def lfo_velocity_changed(self, control_value):
+        self.client.write(WaveArray.REG_LFO_VELOCITY, control_value / self.CONTROL_MAX, convert=True)
+
+    def frame_position_changed(self, control_value):
+        self.client.write(WaveArray.REG_FRAME_CTRL, control_value / self.CONTROL_MAX, convert=True)
+
+    def filter_cutoff_changed(self, control_value):
         self.client.write(WaveArray.REG_FILTER_CUTOFF, control_value / self.CONTROL_MAX, convert=True)
         
-
     def filter_resonance_changed(self, control_value):
-
         self.client.write(WaveArray.REG_FILTER_RESONANCE, control_value / self.CONTROL_MAX, convert=True)
 
-
     def filter_select_changed(self, index):
-
         self.client.write(WaveArray.REG_FILTER_SELECT, index)
 
-
     def envelope_attack_changed(self, control_value):
-
         self.client.write(WaveArray.REG_ENVELOPE_ATTACK, control_value / self.CONTROL_MAX, convert=True)
-
         
     def envelope_decay_changed(self, control_value):
-
         self.client.write(WaveArray.REG_ENVELOPE_DECAY, control_value / self.CONTROL_MAX, convert=True)
-        
 
     def envelope_sustain_changed(self, control_value):
-
         self.client.write(WaveArray.REG_ENVELOPE_SUSTAIN, control_value / self.CONTROL_MAX, convert=True)
-        
 
     def envelope_release_changed(self, control_value):
-
         self.client.write(WaveArray.REG_ENVELOPE_RELEASE, control_value / self.CONTROL_MAX, convert=True)
         
     
