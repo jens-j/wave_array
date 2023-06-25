@@ -152,11 +152,14 @@ class WaveArrayGui(QtWidgets.QMainWindow):
         self.client.write_sdram(0, data)
 
         # Update table registers.
-        n_frames = np.uint16(np.log2(max(1, len(data) / 4096 - 1)))
+        n_frames = np.uint16(np.log2(len(data) / 4096))
         self.client.write(WaveArray.REG_TABLE_BASE_H, 0x0000)
         self.client.write(WaveArray.REG_TABLE_BASE_L, 0x0000)
         self.client.write(WaveArray.REG_TABLE_FRAMES, n_frames)
         self.client.write(WaveArray.REG_TABLE_NEW, 0x0001)
+
+        print(len(data))
+        print(np.log2(len(data)) / 4096)
 
 
     def mod_button_clicked(self, destination, source, state):

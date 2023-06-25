@@ -50,17 +50,27 @@ begin
     -- Connect output samples.
     sample(0) <= s_mixer_sample_out;
     sample(1) <= s_mixer_sample_out;
+    
     mod_destinations <= s_mod_destinations;
+    mod_sources <= s_mod_sources;
     
     -- Convert potentiometer value to a control_value.
     s_ctrl_pot <= '0' & signed(pot_value) & (CTRL_SIZE - ADC_SAMPLE_SIZE - 2 downto 0 => '0');
 
     -- Connect mod source array.
-    s_mod_sources(MODS_NONE)     <= (0 to N_VOICES - 1 => (others => '0'));
-    s_mod_sources(MODS_POT)      <= (0 to N_VOICES - 1 => s_ctrl_pot);
-    s_mod_sources(MODS_ENVELOPE) <= s_envelope_ctrl;
-    s_mod_sources(MODS_LFO)      <= (0 to N_VOICES - 1 => s_lfo_sine(0));
-    
+    mods_assigne : for i in 0 to N_VOICES - 1 generate
+        s_mod_sources(MODS_NONE)(i)     <= (others => '0');
+        s_mod_sources(MODS_POT)(i)      <= s_ctrl_pot;
+        s_mod_sources(MODS_ENVELOPE)(i) <= s_envelope_ctrl(i);
+        s_mod_sources(MODS_LFO)(i)      <= s_lfo_sine(0);
+    end generate;
+
+    -- This does not synthesize correctly.
+    -- s_mod_sources(MODS_NONE)     <= (0 to N_VOICES - 1 => (others => '0'));
+    -- s_mod_sources(MODS_POT)      <= (0 to N_VOICES - 1 => s_ctrl_pot);
+    -- s_mod_sources(MODS_ENVELOPE) <= s_envelope_ctrl;
+    -- s_mod_sources(MODS_LFO)      <= (0 to N_VOICES - 1 => s_lfo_sine(0));
+
     lfo : entity wave.lfo
     generic map (
         N_OUTPUTS               => 1

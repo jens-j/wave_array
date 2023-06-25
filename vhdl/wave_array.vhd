@@ -84,13 +84,10 @@ architecture arch of wave_array is
     signal s_sdram_inputs       : t_sdram_input_array(0 to N_TABLES); -- 1 for the UART and 1 for each wavetable.
     signal s_sdram_outputs      : t_sdram_output_array(0 to N_TABLES);
 
-    signal s_frame_control      : t_ctrl_value;
-
     signal s_uart_timeout       : std_logic;
     signal s_uart_state         : integer;
     signal s_uart_count         : integer;
     signal s_uart_fifo_count    : integer;
-    signal s_pot_value_ext      : std_logic_vector(15 downto 0);
 
     signal s_envelope_active    : std_logic_vector(N_VOICES - 1 downto 0); 
 
@@ -115,16 +112,13 @@ begin
 
     -- 7 segment display.
     s_display_data <=
-        std_logic_vector(s_mod_sources(MODS_POT)(0)) & std_logic_vector(s_mod_destinations(MODD_MIXER)(0));
+        (15 downto 0 => '0') & std_logic_vector(s_mod_destinations(MODD_OSC_FRAME)(0));
 
         -- std_logic_vector(to_unsigned(s_voices(0).note.octave, 4))           -- 1 char octave
         -- & std_logic_vector(to_unsigned(s_voices(0).note.key, 4))            -- 1 char note
         -- -- & "0" & s_voices(0).midi_velocity                                -- 2 char midi velocity
         -- & std_logic_vector(to_unsigned(s_addgen_output(0).mipmap_level, 8)) -- 2 char mipmap level
         -- & (0 to 16 - ADC_SAMPLE_SIZE - 1 => '0') & s_pot_value;             -- 4 char potentiometer value
-
-    s_pot_value_ext <= "0" & s_pot_value & (0 to CTRL_SIZE - ADC_SAMPLE_SIZE - 2 => '0');
-    s_frame_control <= signed(s_pot_value_ext);
 
     s_status.pot_value          <= s_pot_value;
     s_status.uart_timeout       <= s_uart_timeout;

@@ -142,6 +142,10 @@ architecture arch of table_interpolator is
     signal s_coeff_odd_addra    : std_logic_vector(POLY_N_LOG2 + POLY_M_LOG2 - 2 downto 0);
     signal s_coeff_odd_douta    : std_logic_vector(POLY_COEFF_SIZE - 1 downto 0);
 
+    signal s_frame_index_a      : t_frame_index_array;
+    signal s_frame_index_b      : t_frame_index_array;
+    signal s_frame_position     : t_frame_position_array(0 to N_VOICES - 1);
+
 begin
 
     -- wave_mem : entity osc.osc_wave_memory
@@ -240,7 +244,8 @@ begin
 
     combinatorial : process (r, osc_inputs, addrgen_input, next_sample, dma2table, frame_control,
                              s_frame_interp_p, s_coeff_interp_p, s_macc_p,
-                             s_wave_read_data_a, s_wave_read_data_b, s_coeff_even_douta, s_coeff_odd_douta)
+                             s_wave_read_data_a, s_wave_read_data_b, s_coeff_even_douta, s_coeff_odd_douta,
+                             s_frame_index_a, s_frame_index_b, s_frame_position)
 
         variable v_level : t_mipmap_level;
         variable v_odd_phase_0 : std_logic;
@@ -248,11 +253,10 @@ begin
         variable v_frame_interp_c : std_logic_vector(SAMPLE_SIZE + OSC_SAMPLE_FRAC downto 0);
         variable v_frame_interp_d : std_logic_vector(SAMPLE_SIZE - 1 downto 0);
 
-        variable v_frame_index_a : t_frame_index_array;
-        variable v_frame_index_b : t_frame_index_array;
-        variable v_frame_position : t_frame_position_array(0 to N_VOICES - 1);
         variable v_control_unsigned : t_ctrl_value;
         variable v_control_index_lsb : natural;
+
+        variable v_frame_index : natural range 0 to FRAMES_MAX_LOG2 - 1;
 
     begin
 
@@ -281,6 +285,9 @@ begin
         s_coeff_odd_addra <= (others => '0');
         s_coeff_even_addra <= (others => '0');
 
+        s_frame_index_a <= (others => 0);
+        s_frame_index_b <= (others => 0);
+
         v_level := addrgen_input(r.osc_counter(0)).mipmap_level;
 
         -- Split control value into frame index and position.
@@ -291,16 +298,16 @@ begin
 
             -- Calculate frame A and B indices and frame position.
             if dma2table.frames_log2 = 0 then -- Special case: dont do any frame interpolation.
-                v_frame_index_a(i) := 0;
-                v_frame_index_b(i) := 0;
-                v_frame_position(i) := (others => '0');
+                s_frame_index_a(i) <= 0;
+                s_frame_index_b(i) <= 0;
+                s_frame_position(i) <= (others => '0');
             
             elsif dma2table.frames_log2 = 1 then -- Special case: always interpolate between frames 0 & 1.
-                v_frame_index_a(i) := 0;
-                v_frame_index_b(i) := 1;
+                s_frame_index_a(i) <= 0;
+                s_frame_index_b(i) <= 1;
                 
                 -- Use MSBs of frame_control as frame_position (msb is always 0)..
-                v_frame_position(i) := unsigned(v_control_unsigned(CTRL_SIZE - 2 downto CTRL_SIZE - OSC_SAMPLE_FRAC - 1));
+                s_frame_position(i) <= unsigned(v_control_unsigned(CTRL_SIZE - 2 downto CTRL_SIZE - OSC_SAMPLE_FRAC - 1));
 
             -- Normal case: The last 1 / frames_log2 part of the control range is effectively clipped. 
             -- This allows the table size to be a power of two.
@@ -310,12 +317,19 @@ begin
                 -- Note that since  the control value is signed, bit 14 is the msb.
                 v_control_index_lsb := CTRL_SIZE - dma2table.frames_log2 - 1;
 
-                -- Slice frame index A and calculate index B.
-                v_frame_index_a(i) := to_integer(unsigned(v_control_unsigned(CTRL_SIZE - 2 downto v_control_index_lsb)));
-                v_frame_index_b(i) := minimum(2**dma2table.frames_log2, v_frame_index_a(i) + 1);
+                -- Slice the frame index from the msb part of the control value.
+                v_frame_index := to_integer(unsigned(v_control_unsigned(CTRL_SIZE - 2 downto v_control_index_lsb)));
+
+                -- Assign frame indices A & B.
+                s_frame_index_a(i) <= v_frame_index;
+
+                s_frame_index_b(i) <= 
+                    2**dma2table.frames_log2 - 1 when 
+                    v_frame_index > 2**dma2table.frames_log2 - 2 
+                    else v_frame_index + 1;
 
                 -- Slice frame position.
-                v_frame_position(i) := unsigned(
+                s_frame_position(i) <= unsigned(
                     v_control_unsigned(v_control_index_lsb - 1 downto v_control_index_lsb - OSC_SAMPLE_FRAC));
             end if;    
                 
@@ -424,10 +438,10 @@ begin
             end if;
 
             -- Pipeline stage 0: Wave memory access.
-            s_wave_address_a <=  std_logic_vector(to_unsigned(v_frame_index_a(r.osc_counter(0)), FRAMES_MAX_LOG2)) 
+            s_wave_address_a <=  std_logic_vector(to_unsigned(s_frame_index_a(r.osc_counter(0)), FRAMES_MAX_LOG2)) 
                 & std_logic_vector(r.mipmap_address);
 
-            s_wave_address_b <=  std_logic_vector(to_unsigned(v_frame_index_b(r.osc_counter(0)), FRAMES_MAX_LOG2)) 
+            s_wave_address_b <=  std_logic_vector(to_unsigned(s_frame_index_b(r.osc_counter(0)), FRAMES_MAX_LOG2)) 
                 & std_logic_vector(r.mipmap_address);
 
             -- Pipeline stage 0: Coefficient memory access.
@@ -473,12 +487,12 @@ begin
             s_frame_interp_a <= std_logic_vector(shift_right(unsigned(s_wave_read_data_a), 1));
             
             s_frame_interp_c <= 
-                (1 downto 0 => s_wave_read_data_b(SAMPLE_SIZE - 1)) -- sign extention
-                & s_wave_read_data_b                                -- operand
-                & (0 to OSC_SAMPLE_FRAC - 2 => '0');              -- shift
+                (1 downto 0 => s_wave_read_data_a(SAMPLE_SIZE - 1)) -- sign extention
+                & s_wave_read_data_a                                -- operand
+                & (0 to OSC_SAMPLE_FRAC - 2 => '0');                -- shift
 
             s_frame_interp_d <= std_logic_vector(shift_right(unsigned(s_wave_read_data_b), 1));
-            s_frame_interp_b <= '0' & std_logic_vector(v_frame_position(r.osc_counter(1))); -- Add zero msb to make B unsigned.
+            s_frame_interp_b <= '0' & std_logic_vector(s_frame_position(r.osc_counter(1))); -- Add zero msb to make B unsigned.
 
             -- s_frame_interp_a <= s_wave_read_data_b((r.frame_0_index + 1) * SAMPLE_SIZE - 1
             --                         downto r.frame_0_index * SAMPLE_SIZE);

@@ -75,11 +75,25 @@ package wave_array_pkg is
 
     -- Some of these constants are to big to pre calculate using 32 bit integers.
     constant LFO_MIN_VELOCITY       : unsigned(LFO_PHASE_SIZE - 1 downto 0) := resize(x"aec33e1", LFO_PHASE_SIZE); -- 0.125 Hz
-    constant LFO_MAX_VELOCITY       : unsigned(LFO_PHASE_SIZE - 1 downto 0) := resize(x"15d867c3e", LFO_PHASE_SIZE); -- 4 Hz:
-    -- constant LFO_MAX_VELOCITY       : unsigned(LFO_PHASE_SIZE - 1 downto 0) := resize(x"57619f0fb", LFO_PHASE_SIZE); -- 16 Hz
+    -- constant LFO_MAX_VELOCITY       : unsigned(LFO_PHASE_SIZE - 1 downto 0) := resize(x"15d867c3e", LFO_PHASE_SIZE); -- 4 Hz:
     -- constant LFO_MAX_VELOCITY       : unsigned(LFO_PHASE_SIZE - 1 downto 0) := resize(x"57619f0fb3", LFO_PHASE_SIZE); -- 256 Hz:
-    -- constant LFO_VELOCITY_STEP      : unsigned(LFO_PHASE_SIZE - 1 downto 0) := resize(x"56b2d", LFO_PHASE_SIZE);-- Velocity increase for every bit of the LFO input control value.
-    constant LFO_VELOCITY_STEP      : unsigned(LFO_PHASE_SIZE - 1 downto 0) := resize(x"5756b2", LFO_PHASE_SIZE);-- Velocity increase for every bit of the LFO input control value.
+    -- constant LFO_VELOCITY_STEP      : unsigned(LFO_PHASE_SIZE - 1 downto 0) := resize(x"aead65", LFO_PHASE_SIZE);-- 256 Hz velocity increase for every bit of the LFO input control value.
+
+    -- Use a higher max LFO frequency for easy simulation.
+    constant LFO_MAX_VELOCITY       : unsigned(LFO_PHASE_SIZE - 1 downto 0) := resize(
+                                      x"57619f0fb" -- 16 Hz
+    --pragma synthesis_off
+                                      & x"0"       -- 256 Hz
+    --pragma synthesis_on
+                                      , LFO_PHASE_SIZE); 
+    
+    -- Velocity increase for every bit of the LFO input control value.
+    constant LFO_VELOCITY_STEP      : unsigned(LFO_PHASE_SIZE - 1 downto 0) := resize(
+                                     x"ad65b" -- 16 Hz
+    --pragma synthesis_off
+                                     & x"0"   -- 256 Hz
+    --pragma synthesis_on
+                                     , LFO_PHASE_SIZE);
 
     constant ENV_MIN_ATTACK_T       : real := 1.0 / real(2**10); -- In seconds.
     constant ENV_MAX_ATTACK_T       : real := real(2**3);   
