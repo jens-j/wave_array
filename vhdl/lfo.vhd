@@ -25,10 +25,25 @@ end entity;
 
 architecture arch of lfo is
 
+    constant PIPE_LEN_MULT      : integer := 1;
+    constant PIPE_LEN_ADD       : integer := 1;
+    constant PIPE_LEN_ACC       : integer := 1;
+    constant PIPE_LEN_CLIP      : integer := 1;
+    constant PIPE_LEN_CORDIC    : integer := 1;
+
+    constant PIPE_SUM_ADD       : integer := PIPE_LEN_MULT + PIPE_LEN_ADD;
+    constant PIPE_SUM_ACC       : integer := PIPE_SUM_ADD + PIPE_LEN_ACC;
+    constant PIPE_SUM_CLIP      : integer := PIPE_SUM_ACC + PIPE_LEN_CLIP;
+    constant PIPE_SUM_CORDIC    : integer := PIPE_SUM_CLIP + PIPE_LEN_CORDIC;
+
+    type t_state is (idle, running);
     type t_lfo_phase_array is array (0 to N_OUTPUTS - 1) of signed(LFO_PHASE_SIZE - 1 downto 0);
+    type t_counter_array is array (0 to PIPE_SUM_CORDIC - 1) of integer range 0 to N_OUTPUTS - 1;
 
     type t_mixer_reg is record
+        state                   : t_state;
         lfo_velocity            : unsigned(CTRL_SIZE - 1 downto 0);
+        lfo_velocity_clipped    : unsigned(CTRL_SIZE - 1 downto 0);
         phase                   : t_lfo_phase_array;
         sine_out                : t_ctrl_value_array(0 to N_OUTPUTS - 1);
         square_out              : t_ctrl_value_array(0 to N_OUTPUTS - 1);
@@ -37,15 +52,18 @@ architecture arch of lfo is
         cosine_buffer           : t_ctrl_value_array(0 to N_OUTPUTS - 1);
         square_buffer           : t_ctrl_value_array(0 to N_OUTPUTS - 1);
         saw_buffer              : t_ctrl_value_array(0 to N_OUTPUTS - 1);
-        write_counter           : integer range 0 to N_OUTPUTS;
-        read_counter            : integer range 0 to N_OUTPUTS;
+        valid_shift             : std_logic_vector(PIPE_SUM_CORDIC - 1 downto 0); -- Pipeline valid shift register.
+        index_shift             : t_counter_array; -- Output index shift register.
+        read_counter            : integer range 0 to N_OUTPUTS - 1;
+        phase_mul               : unsigned(CTRL_SIZE + 24 downto 0);
+        phase_delta             : unsigned(LFO_PHASE_SIZE - 1 downto 0);
+        phase_raw               : signed(LFO_PHASE_SIZE - 1 downto 0);
     end record;
 
     constant REG_INIT : t_mixer_reg := (
-        -- -- Initialize phase to -1 in 3.45 format.
-        -- phase                   => (others => (LFO_PHASE_SIZE - 1 downto LFO_PHASE_FRAC => '1',
-        --                                        LFO_PHASE_FRAC - 1 downto 0 => '0')),
+        state                   => idle,
         lfo_velocity            => (others => '0'),
+        lfo_velocity_clipped    => (others => '0'),
         phase                   => (others => (others => '0')),
         sine_out                => (others => (others => '0')),
         square_out              => (others => (others => '0')),
@@ -54,8 +72,12 @@ architecture arch of lfo is
         cosine_buffer           => (others => (others => '0')),
         square_buffer           => (others => (others => '0')),
         saw_buffer              => (others => (others => '0')),
-        write_counter           => N_OUTPUTS,
-        read_counter            => N_OUTPUTS
+        valid_shift             => (others => '0'),
+        index_shift             => (others => 0),
+        read_counter            => N_OUTPUTS - 1,
+        phase_mul               => (others => '0'),
+        phase_delta             => (others => '0'),
+        phase_raw               => (others => '0')
     );
 
     -- Clip the cordic output.
@@ -79,9 +101,6 @@ architecture arch of lfo is
     signal s_dout_tvalid        : std_logic;
     signal s_dout_tdata         : std_logic_vector(47 downto 0);
 
-    signal s_phase_trunc        : signed(CTRL_SIZE - 1 downto 0);
-    signal s_phase_offset       : signed(CTRL_SIZE - 1 downto 0);
-
 begin
 
     cordic : entity xil_defaultlib.cordic_lfo_sine
@@ -99,57 +118,87 @@ begin
     saw_out <= r.saw_out;
 
     combinatorial : process (r, next_sample, config, s_dout_tvalid, s_dout_tdata)
-        variable v_phase_mul    : unsigned(CTRL_SIZE + LFO_PHASE_SIZE - 1 downto 0);
-        variable v_phase_delta  : unsigned(LFO_PHASE_SIZE - 1 downto 0);
-        variable v_phase_raw    : signed(LFO_PHASE_SIZE - 1 downto 0);
+        variable v_lfo_velocity_squared : unsigned(2 * CTRL_SIZE - 1 downto 0);
     begin
 
         r_in <= r;
+
+        -- Default inputs.
         s_phase_tvalid <= '0';
         s_phase_tdata <= (others => '0');
 
-        -- Clip ctrl value to positive only.
-        r_in.lfo_velocity <= x"0000" when config.lfo_velocity < 0 else unsigned(config.lfo_velocity);
+        -- Update shift registers.
+        r_in.valid_shift(0) <= '0';
+        r_in.valid_shift(PIPE_SUM_CORDIC - 1 downto 1) <= r.valid_shift(PIPE_SUM_CORDIC - 2 downto 0);
+        r_in.index_shift(0) <= 0;
+        r_in.index_shift(1 to PIPE_SUM_CORDIC - 1) <= r.index_shift(0 to PIPE_SUM_CORDIC - 2);
 
-        if next_sample = '1' then
+        -- Clip ctrl value to positive only.
+        r_in.lfo_velocity_clipped <= x"0000" when config.lfo_velocity < 0 else unsigned(config.lfo_velocity);
+
+        -- Square clipped control value.
+        v_lfo_velocity_squared := r.lfo_velocity_clipped * r.lfo_velocity_clipped;
+        r_in.lfo_velocity <= v_lfo_velocity_squared(2 * CTRL_SIZE - 2 downto CTRL_SIZE - 1);
+
+        if r.state = idle and next_sample = '1' then
 
             -- Load new output samples from buffer.
             r_in.sine_out <= r.sine_buffer;
             r_in.square_out <= r.square_buffer;
             r_in.saw_out <= r.saw_buffer;
 
-            -- Increment phase.
-            for i in 0 to N_OUTPUTS - 1 loop
-
-                -- Calculate the phase increase.
-                v_phase_mul := unsigned(r.lfo_velocity) * LFO_VELOCITY_STEP;
-                v_phase_delta := LFO_MIN_VELOCITY + v_phase_mul(LFO_PHASE_SIZE - 1 downto 0);
-                v_phase_raw := r.phase(i) + signed(v_phase_delta);
-
-                -- Check for overflow in the fixed point phase value.
-                if v_phase_raw >= shift_left(to_signed(1, LFO_PHASE_SIZE), LFO_PHASE_FRAC) then
-                    r_in.phase(i) <= v_phase_raw - shift_left(
-                        to_signed(1, LFO_PHASE_SIZE), LFO_PHASE_FRAC + 1);
-                else
-                    r_in.phase(i) <= v_phase_raw;
-                end if;
-            end loop;
-
-            r_in.write_counter <= 0;
+            r_in.valid_shift(0) <= '1';
             r_in.read_counter <= 0;
+            r_in.state <= running;
+
+        elsif r.state = running then
+
+            r_in.valid_shift(0) <= '1';
+
+            -- Pipeline stage 0: multiply LFO velocity control value with constant. 
+            r_in.phase_mul <= unsigned(r.lfo_velocity) * LFO_VELOCITY_STEP;
+
+            if r.index_shift(0) < N_OUTPUTS - 1 then
+                r_in.index_shift(0) <= r.index_shift(0) + 1;
+            else 
+                r_in.state <= idle;
+            end if;
 
         end if;
 
-        if r.write_counter < N_OUTPUTS then
+        -- Pipeline stage 1: add constant to scaled control value.
+        if r.valid_shift(PIPE_SUM_ADD - 1) = '1' then 
+
+            r_in.phase_delta <= resize(r.phase_mul + LFO_MIN_VELOCITY, LFO_PHASE_SIZE);
+        end if;
+
+        -- Pipeline stage 2: add to phase accumulator.
+        if r.valid_shift(PIPE_SUM_ACC - 1) = '1' then 
+
+            r_in.phase_raw <= r.phase(r.index_shift(PIPE_SUM_ACC - 1)) + signed(r.phase_delta);
+        end if;
+
+        -- Pipeline stage 3: clip accumulator.
+        if r.valid_shift(PIPE_SUM_CLIP - 1) = '1' then 
+
+            if r.phase_raw >= shift_left(to_signed(1, LFO_PHASE_SIZE), LFO_PHASE_FRAC) then
+
+                r_in.phase(r.index_shift(PIPE_SUM_CLIP - 1)) <= 
+                    r.phase_raw - shift_left(to_signed(1, LFO_PHASE_SIZE), LFO_PHASE_FRAC + 1);
+            else
+                r_in.phase(r.index_shift(PIPE_SUM_CLIP - 1)) <= r.phase_raw;
+            end if;
+        end if;
+
+        -- Pipeline stage 4: input phase into cordic.
+        if r.valid_shift(PIPE_SUM_CORDIC - 1) = '1' then 
             s_phase_tvalid <= '1';
-
-            -- Add 1 to the phase accumulator to start the sine and cosine at 0 phase.
-            s_phase_tdata <= std_logic_vector(r.phase(r.write_counter));
-            r_in.write_counter <= r.write_counter + 1;
+            s_phase_tdata <= std_logic_vector(r.phase(r.index_shift(PIPE_SUM_CORDIC - 1)));
         end if;
 
-        -- Generate new samples.
-        if r.read_counter < N_OUTPUTS and s_dout_tvalid = '1' then
+        -- Pipeline state 5: read cordic ouput and process.
+        -- This pipeline does not use the pipeline shift registers because the cordic delay is quite long.
+        if s_dout_tvalid = '1' then
 
             -- Take sine and cosine sample from the cordic output.
             r_in.sine_buffer(r.read_counter) <= clip_sine(s_dout_tdata(40 downto 24));
@@ -163,7 +212,9 @@ begin
             r_in.square_buffer(r.read_counter) <= (CTRL_SIZE - 1 => '0', CTRL_SIZE - 2 downto 0 => '1')
                 when r.phase(r.read_counter) >= 0 else (CTRL_SIZE - 1 => '1', CTRL_SIZE - 2 downto 0 => '0');
 
-            r_in.read_counter <= r.read_counter + 1;
+            if r.read_counter < N_OUTPUTS - 1 then
+                r_in.read_counter <= r.read_counter + 1;
+            end if;
 
         end if;
 

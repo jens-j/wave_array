@@ -50,7 +50,7 @@ begin
     -- Connect output samples.
     sample(0) <= s_mixer_sample_out;
     sample(1) <= s_mixer_sample_out;
-    
+
     mod_destinations <= s_mod_destinations;
     mod_sources <= s_mod_sources;
     
@@ -105,7 +105,6 @@ begin
         dma2table               => s_dma2table(0),
         table2dma               => s_table2dma(0),
         frame_control           => s_mod_destinations(2),
-        -- frame_control           => s_mod_sources(1),
         output_samples          => s_osc_samples,
         addrgen_output          => addrgen_output
     );
@@ -121,8 +120,6 @@ begin
         next_sample             => next_sample,
         cutoff_control          => s_mod_destinations(0),
         resonance_control       => s_mod_destinations(1),
-        -- cutoff_control          => (0 to N_VOICES - 1 => config.base_ctrl(0)),
-        -- resonance_control       => (0 to N_VOICES - 1 => config.base_ctrl(1)),
         sample_in               => s_osc_samples,
         sample_out              => s_filter_samples
     );
@@ -150,7 +147,6 @@ begin
         reset                   => reset,
         sample_in               => s_filter_samples,
         ctrl_in                 => s_mod_destinations(3),
-        -- ctrl_in                 => s_mod_sources(3),
         next_sample             => next_sample,
         sample_out              => s_mixer_sample_out
     );
