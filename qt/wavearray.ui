@@ -800,10 +800,10 @@ destination</string>
                   <bool>false</bool>
                  </property>
                  <property name="minimum">
-                  <number>-32768</number>
+                  <number>-16384</number>
                  </property>
                  <property name="maximum">
-                  <number>32767</number>
+                  <number>16383</number>
                  </property>
                  <property name="orientation">
                   <enum>Qt::Vertical</enum>
@@ -812,7 +812,7 @@ destination</string>
                   <enum>QSlider::TicksBothSides</enum>
                  </property>
                  <property name="tickInterval">
-                  <number>8192</number>
+                  <number>4096</number>
                  </property>
                 </widget>
                </item>

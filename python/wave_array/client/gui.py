@@ -81,7 +81,7 @@ class WaveArrayGui(QtWidgets.QMainWindow):
         self.ui.slider_frame_position.setValue(position)
         self.ui.lbl_position.setText(f'0x{position:04X}')
 
-        velocity = self.client.read(WaveArray.REG_FRAME_CTRL)
+        velocity = self.client.read(WaveArray.REG_LFO_VELOCITY)
         self.ui.slider_lfo_velocity.setValue(velocity)
         self.ui.lbl_position.setText(f'0x{velocity:04X}')
 
