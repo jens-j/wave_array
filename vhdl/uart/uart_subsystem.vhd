@@ -23,15 +23,14 @@ entity uart_subsystem is
         sdram_input             : out t_sdram_input;
         sdram_output            : in  t_sdram_output;
 
+        -- HK fifo interface.
+        hk_write_enable         : in  std_logic;
+        hk_data                 : in  std_logic_vector(15 downto 0);
+        hk_full                 : out std_logic;
+
         -- UART ports.
         UART_RX                 : in  std_logic;
-        UART_TX                 : out std_logic;
-
-        -- Fault flags.
-        timeout                 : out std_logic;
-        uart_state              : out integer;
-        uart_count              : out integer;
-        fifo_count              : out integer
+        UART_TX                 : out std_logic
     );
 end entity;
 
@@ -73,10 +72,9 @@ begin
         register_input          => register_input,
         sdram_input             => sdram_input,
         sdram_output            => sdram_output,
-        timeout                 => timeout,
-        uart_state              => uart_state,
-        uart_count              => uart_count,
-        fifo_count              => fifo_count
+        hk_write_enable         => hk_write_enable,
+        hk_data                 => hk_data,
+        hk_full                 => hk_full
     );
 
 

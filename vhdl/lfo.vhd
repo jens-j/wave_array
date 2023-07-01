@@ -17,9 +17,7 @@ entity lfo is
         reset                   : in  std_logic;
         config                  : in  t_config;
         next_sample             : in  std_logic;
-        sine_out                : out t_ctrl_value_array(0 to N_OUTPUTS - 1);
-        square_out              : out t_ctrl_value_array(0 to N_OUTPUTS - 1);
-        saw_out                 : out t_ctrl_value_array(0 to N_OUTPUTS - 1)
+        lfo_out                 : out t_ctrl_value_array(0 to N_OUTPUTS - 1)
     );
 end entity;
 
@@ -112,16 +110,16 @@ begin
         m_axis_dout_tdata       => s_dout_tdata
     );
 
-    -- Connect output registers.
-    sine_out <= r.sine_out;
-    square_out <= r.square_out;
-    saw_out <= r.saw_out;
-
     combinatorial : process (r, next_sample, config, s_dout_tvalid, s_dout_tdata)
         variable v_lfo_velocity_squared : unsigned(2 * CTRL_SIZE - 1 downto 0);
     begin
 
         r_in <= r;
+
+        -- Select which waveform to output.
+        lfo_out <= r.sine_out when config.lfo_wave_select = 0 else
+                   r.saw_out when config.lfo_wave_select = 1 else 
+                   r.square_out;
 
         -- Default inputs.
         s_phase_tvalid <= '0';

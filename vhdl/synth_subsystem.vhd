@@ -37,9 +37,7 @@ architecture arch of synth_subsystem is
     signal s_mixer_sample_out   : t_mono_sample;
     signal s_dma2table          : t_dma2table_array(0 to N_TABLES - 1);
     signal s_table2dma          : t_table2dma_array(0 to N_TABLES - 1);
-    signal s_lfo_sine           : t_ctrl_value_array(0 to 0);
-    signal s_lfo_square         : t_ctrl_value_array(0 to 0);
-    signal s_lfo_saw            : t_ctrl_value_array(0 to 0);
+    signal s_lfo_out            : t_ctrl_value_array(0 to 0);
     signal s_envelope_ctrl      : t_ctrl_value_array(0 to N_VOICES - 1);
     signal s_mod_sources        : t_mods_array;
     signal s_mod_destinations   : t_modd_array;
@@ -62,14 +60,14 @@ begin
         s_mod_sources(MODS_NONE)(i)     <= (others => '0');
         s_mod_sources(MODS_POT)(i)      <= s_ctrl_pot;
         s_mod_sources(MODS_ENVELOPE)(i) <= s_envelope_ctrl(i);
-        s_mod_sources(MODS_LFO)(i)      <= s_lfo_sine(0);
+        s_mod_sources(MODS_LFO)(i)      <= s_lfo_out(0);
     end generate;
 
     -- This does not synthesize correctly.
     -- s_mod_sources(MODS_NONE)     <= (0 to N_VOICES - 1 => (others => '0'));
     -- s_mod_sources(MODS_POT)      <= (0 to N_VOICES - 1 => s_ctrl_pot);
     -- s_mod_sources(MODS_ENVELOPE) <= s_envelope_ctrl;
-    -- s_mod_sources(MODS_LFO)      <= (0 to N_VOICES - 1 => s_lfo_sine(0));
+    -- s_mod_sources(MODS_LFO)      <= (0 to N_VOICES - 1 => s_lfo_out(0));
 
     lfo : entity wave.lfo
     generic map (
@@ -80,9 +78,7 @@ begin
         reset                   => reset,
         config                  => config,
         next_sample             => next_sample,
-        sine_out                => s_lfo_sine,
-        square_out              => s_lfo_square,
-        saw_out                 => s_lfo_saw
+        lfo_out                 => s_lfo_out
     );
 
     osc_controller : entity osc.osc_controller

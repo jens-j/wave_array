@@ -34,11 +34,10 @@ entity uart_packet_engine is
         sdram_input             : out t_sdram_input;
         sdram_output            : in  t_sdram_output;
 
-        -- Debug ports.
-        timeout                 : out std_logic;
-        uart_state              : out integer;
-        uart_count              : out integer;
-        fifo_count              : out integer
+        -- HK fifo interface.
+        hk_write_enable         : in  std_logic;
+        hk_data                 : in  std_logic_vector(15 downto 0);
+        hk_full                 : out std_logic
     );
 end entity;
 
@@ -49,7 +48,8 @@ architecture arch of uart_packet_engine is
 
     type t_state is (idle, read_word, read_reg_0, read_reg_1, read_reg_2,
         read_reg_3, write_reg_0, write_reg_1, write_reg_2, read_block_0, read_block_1, read_block_2,
-        read_block_3, write_block_0, write_block_1, write_block_2, write_block_3);
+        read_block_3, write_block_0, write_block_1, write_block_2, write_block_3,
+        offload_hk);
 
     type t_packet_engine_reg is record
         state                   : t_state;
@@ -68,6 +68,7 @@ architecture arch of uart_packet_engine is
         address                 : unsigned(31 downto 0); -- Address field buffer.
         watchdog                : unsigned(WDT_WIDTH downto 0);
         uart_count              : integer range 0 to 2**16 - 1;
+        hk_count                : integer range 0 to HK_PACKET_BYTES - 1;
     end record;
 
     constant REG_INIT : t_packet_engine_reg := (
@@ -86,7 +87,8 @@ architecture arch of uart_packet_engine is
         word_buffer             => (others => '0'),
         address                 => (others => '0'),
         watchdog                => (others => '0'),
-        uart_count              => 0
+        uart_count              => 0,
+        hk_count                => 0
     );
 
     signal r, r_in              : t_packet_engine_reg;
@@ -96,18 +98,38 @@ architecture arch of uart_packet_engine is
     signal s_s2u_fifo_rd_en     : std_logic;
     signal s_s2u_fifo_dout      : std_logic_vector(7 downto 0);
     signal s_s2u_fifo_empty     : std_logic;
-    signal s_s2u_fifo_rd_data_count : std_logic_vector(10 downto 0);
+    signal s_s2u_fifo_rd_count  : std_logic_vector(10 downto 0);
+
+    signal s_hk2u_fifo_rd_en    : std_logic;
+    signal s_hk2u_fifo_dout     : std_logic_vector(7 downto 0);
+    signal s_hk2u_fifo_empty    : std_logic;
+    signal s_hk2u_fifo_rd_count : std_logic_vector(10 downto 0);
 
     signal s_u2s_fifo_din       : std_logic_vector(7 downto 0);
     signal s_u2s_fifo_wr_en     : std_logic;
     signal s_u2s_fifo_rd_en     : std_logic;
     signal s_u2s_fifo_dout      : std_logic_vector(15 downto 0);
     signal s_u2s_fifo_empty     : std_logic;
-    signal s_u2s_fifo_rd_data_count : std_logic_vector(9 downto 0);
+    signal s_u2s_fifo_rd_count  : std_logic_vector(9 downto 0);
 
 
 
 begin
+
+    -- 16 bit to 8 bit fifo to buffer HK data.
+    hk_uart_fifo : entity xil_defaultlib.sdram_uart_fifo_gen
+    port map (
+        rst                     => reset,
+        wr_clk                  => clk,
+        rd_clk                  => clk,
+        din                     => hk_data,
+        wr_en                   => hk_write_enable,
+        rd_en                   => s_hk2u_fifo_rd_en,
+        dout                    => s_hk2u_fifo_dout,
+        full                    => hk_full,
+        empty                   => s_hk2u_fifo_empty,
+        rd_data_count           => s_hk2u_fifo_rd_count
+    );
 
     -- 16 bit to 8 bit fifo to buffer SDRAM block data.
     sdram_uart_fifo : entity xil_defaultlib.sdram_uart_fifo_gen
@@ -121,7 +143,7 @@ begin
         dout                    => s_s2u_fifo_dout,
         full                    => open,
         empty                   => s_s2u_fifo_empty,
-        rd_data_count           => s_s2u_fifo_rd_data_count
+        rd_data_count           => s_s2u_fifo_rd_count
     );
 
     -- 8 to 16 bit fifo to buffer UART write data.
@@ -136,13 +158,12 @@ begin
         dout                    => s_u2s_fifo_dout,
         full                    => open,
         empty                   => s_u2s_fifo_empty,
-        rd_data_count           => s_u2s_fifo_rd_data_count
+        rd_data_count           => s_u2s_fifo_rd_count
     );
 
     -- Connect output registers.
     tx_write_enable             <= r.tx_write_enable;
     tx_data                     <= r.tx_data;
-    timeout                     <= r.timeout;
     register_input              <= r.register_input;
     sdram_input.read_enable     <= r.sdram_read_enable;
     sdram_input.write_enable    <= r.sdram_write_enable;
@@ -155,7 +176,7 @@ begin
     s_u2s_fifo_rd_en <= sdram_output.write_req or sdram_output.done;
 
     comb_process : process (r, rx_empty, rx_data, register_output, sdram_output, s_s2u_fifo_dout,
-        s_s2u_fifo_empty, s_u2s_fifo_rd_data_count, s_s2u_fifo_rd_data_count)
+        s_s2u_fifo_empty, s_u2s_fifo_rd_count, s_s2u_fifo_rd_count, s_hk2u_fifo_rd_count, s_hk2u_fifo_dout)
 
     begin
 
@@ -175,13 +196,10 @@ begin
         s_u2s_fifo_wr_en <= '0';
         s_s2u_fifo_din <= sdram_output.read_data;
         s_u2s_fifo_din <= rx_data;
+        s_hk2u_fifo_rd_en <= '0';
 
         -- This output is not registered to avoid a delay cycle when reading bytes from the fifo.
         rx_read_enable <= '0';
-
-        uart_state <= t_state'pos(r.state);
-        uart_count <= r.uart_count;
-        fifo_count <= to_integer(unsigned(s_s2u_fifo_rd_data_count));
 
         -- Wait for a new opcode to appear at the rx fifo output.
         if r.state = idle then
@@ -213,8 +231,25 @@ begin
                     r_in.next_state <= write_block_0;
                     r_in.state <= read_word; -- Read 4 byte address.
                 end if;
+
+            elsif to_integer(unsigned(s_hk2u_fifo_rd_count)) >= HK_PACKET_BYTES then
+                r_in.hk_count <= 0;
+                r_in.state <= offload_hk;
             end if;
 
+        -- Write a hk packet from the hk fifo to the uart tx fifo.
+        elsif r.state = offload_hk then 
+
+            r_in.tx_write_enable <= '1';
+            r_in.tx_data <= s_hk2u_fifo_dout;
+            s_hk2u_fifo_rd_en <= '1';
+
+            if r.hk_count < HK_PACKET_BYTES - 1 then 
+                r_in.hk_count <= r.hk_count + 1;
+            else
+                r_in.state <= idle;
+            end if;
+                
         -- Read a predefined number of bytes MSB first from the rx fifo into the word buffer.
         elsif r.state = read_word then
             if rx_empty = '0' then

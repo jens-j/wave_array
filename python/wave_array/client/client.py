@@ -1,15 +1,32 @@
 import time
 import logging
-from wave_array.client.uart import UartDevice
+from wave_array.client.uart_protocol import UartProtocol
 
 import numpy as np
 
 class WaveArray:
 
+    # Modulation source and destination indices.
+    MODD_FILTER_CUTOFF          = 0 
+    MODD_FILTER_RESONANCE       = 1 
+    MODD_OSC_FRAME              = 2
+    MODD_MIXER                  = 3
+
+    MODS_NONE                   = 1
+    MODS_POT                    = 2
+    MODS_ENVELOPE               = 3
+    MODS_LFO                    = 4
+
+    MODS_LEN                    = 4
+    MODD_LEN                    = 4
+    MODS_LEN_log2               = int(np.ceil(np.log2(MODS_LEN)))
+    MODD_LEN_log2               = int(np.ceil(np.log2(MODD_LEN)))
+
     # Register address map.
-    REG_ADDR_RESET              = 0x00000000
-    REG_ADDR_FAULT              = 0x00000001
-    REG_ADDR_LED                = 0x00000002
+    REG_RESET                   = 0x00000000
+    REG_FAULT                   = 0x00000001
+    REG_LED                     = 0x00000002
+    REG_VOICES                  = 0x00000003
 
     REG_DBG_UART_COUNT          = 0x00000100
     REG_DBG_UART_FIFO           = 0x00000101
@@ -25,6 +42,7 @@ class WaveArray:
     REG_POTENTIOMETER           = 0x00000400
 
     REG_LFO_VELOCITY            = 0x00000500
+    REG_LFO_WAVE                = 0x00000501
 
     REG_FILTER_CUTOFF           = 0x00000600
     REG_FILTER_RESONANCE        = 0x00000601
@@ -37,10 +55,20 @@ class WaveArray:
     
     REG_MIXER_CTRL              = 0x00000800
 
-    REG_MOD_MAP_BASE            = 0x00001000
+    REG_HK_ENABLE               = 0x00000900
+    REG_HK_PERIOD               = 0x00000901
 
-    def __init__(self, port='COM4'):
-        self.dev = UartDevice(port, 1000_000)
+    REG_MOD_MAP_BASE            = 0x00001000
+    REG_MOD_DEST_BASE           = 0x00002000
+
+    def __init__(self, ao_callback, port='COM4'):
+        self.dev = UartProtocol(port, 1000_000, ao_callback)
+
+        self.n_voices = self.dev.read(self.REG_VOICES)
+        self.n_voices_log2 = int(np.ceil(np.log2(self.n_voices)))
+
+    def stop(self):
+        self.dev.stop()
 
     def reset(self):
         self.dev.write(self.REG_ADDR_RESET, 0x01)
@@ -54,16 +82,15 @@ class WaveArray:
     def read_faults(self):
         return self.dev.read(self.REG_ADDR_FAULT)
 
-    def write(self, address, value, convert=False):
-        raw_value = np.uint16(value * 0x7FFF) if convert else value 
-        print(f'[{address:08X}] <= {raw_value:04X}')
-        self.dev.write(address, raw_value) 
+    def write(self, address, value):
+        print(f'[{address:08X}] <= {value:04X}')
+        self.dev.write(address, value) 
 
-    def read(self, address, convert=False, log=True):
-        raw_value = np.uint16(self.dev.read(address))
+    def read(self, address, log=True):
+        value = np.uint16(self.dev.read(address))
         if log: 
-            print(f'read [{address:08X}] = {raw_value:04X}')
-        return raw_value / 0x7FFF if convert else raw_value
+            print(f'read [{address:08X}] = {value:04X}')
+        return value
 
     def read_mod_source(self, destination, index):
         address = self.REG_MOD_MAP_BASE + destination * 8 + index * 2
@@ -82,6 +109,10 @@ class WaveArray:
     def write_mod_amount(self, destination, index, amount):
         address = self.REG_MOD_MAP_BASE + destination * 8 + index * 2 + 1
         self.write(address, amount)
+
+    def read_mod_dest(self, destination, voice):
+        address = self.REG_MOD_DEST_BASE + destination * 2**self.n_voices_log2 + voice
+        return self.read(address)
 
     def write_sdram(self, address, data):
         burst_address = address

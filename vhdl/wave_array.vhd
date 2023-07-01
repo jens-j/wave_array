@@ -94,6 +94,10 @@ architecture arch of wave_array is
     signal s_mod_sources        : t_mods_array;
     signal s_mod_destinations   : t_modd_array;
 
+    signal s_hk_write_enable    : std_logic;
+    signal s_hk_data            : std_logic_vector(15 downto 0);
+    signal s_hk_full            : std_logic;
+
 begin
 
     -- Connect reset signals.
@@ -105,6 +109,7 @@ begin
         LEDS(15 - i) <= s_voices(i).enable;
     end generate;
 
+    LEDS(1) <= s_reset_ah;
     LEDS(0) <= s_config.led;
 
     I2S_SCLK <= s_i2s_clk;
@@ -121,10 +126,8 @@ begin
         -- & (0 to 16 - ADC_SAMPLE_SIZE - 1 => '0') & s_pot_value;             -- 4 char potentiometer value
 
     s_status.pot_value          <= s_pot_value;
-    s_status.uart_timeout       <= s_uart_timeout;
-    s_status.uart_state         <= s_uart_state;
-    s_status.uart_count         <= s_uart_count;
-    s_status.uart_fifo_count    <= s_uart_fifo_count;
+    s_status.mod_destinations   <= s_mod_destinations;
+    s_status.mod_sources        <= s_mod_sources;
 
     status_gen : for i in 0 to N_VOICES - 1 generate 
         s_status.voice_enabled(i) <= s_voices(i).enable;
@@ -161,12 +164,22 @@ begin
         register_output         => s_register_output,
         sdram_input             => s_sdram_inputs(0),
         sdram_output            => s_sdram_outputs(0),
+        hk_write_enable         => s_hk_write_enable,
+        hk_data                 => s_hk_data,
+        hk_full                 => s_hk_full,
         UART_RX                 => UART_RX,
-        UART_TX                 => UART_TX,
-        timeout                 => s_uart_timeout,
-        uart_state              => s_uart_state,
-        uart_count              => s_uart_count,
-        fifo_count              => s_uart_fifo_count
+        UART_TX                 => UART_TX
+    );
+
+    auto_offload : entity wave.auto_offload
+    port map (
+        clk                     => s_system_clk,
+        reset                   => s_reset_ah,
+        config                  => s_config,
+        status                  => s_status,
+        hk_write_enable         => s_hk_write_enable,
+        hk_data                 => s_hk_data,
+        hk_full                 => s_hk_full
     );
 
     reg_file : entity wave.register_file

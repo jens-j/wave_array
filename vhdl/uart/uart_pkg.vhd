@@ -4,6 +4,7 @@ use ieee.numeric_std.all;
 
 package uart_pkg is
 
+    -- Opcodes.
     constant UART_READ_REQ          : std_logic_vector(7 downto 0) := x"00";
     constant UART_READ_REP          : std_logic_vector(7 downto 0) := x"01";
     constant UART_WRITE_REQ         : std_logic_vector(7 downto 0) := x"02";
@@ -13,5 +14,10 @@ package uart_pkg is
     constant UART_WRITE_BLOCK_REQ   : std_logic_vector(7 downto 0) := x"06";
     constant UART_WRITE_BLOCK_REP   : std_logic_vector(7 downto 0) := x"07";
     constant UART_ERROR_REP         : std_logic_vector(7 downto 0) := x"08";
+    constant UART_AUTO_OFFLOAD      : std_logic_vector(7 downto 0) := x"09";
+
+    -- Auto offload channels.
+    constant UART_AO_HK             : std_logic_vector(7 downto 0) := x"00";
+    constant UART_AO_WAVE           : std_logic_vector(7 downto 0) := x"01";
 
 end package;

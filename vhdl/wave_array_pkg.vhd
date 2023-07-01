@@ -28,6 +28,7 @@ package wave_array_pkg is
 
     constant N_TABLES               : positive := 1; -- Number of parallel wave tables.
     constant N_VOICES               : positive := 4; -- Number of parallel oscillators per table.
+    constant N_VOICES_LOG2          : natural  := integer(ceil(log2(real(N_VOICES))));
 
     constant N_OSCILLATORS          : positive := N_TABLES * N_VOICES; -- Total number of oscillators.
 
@@ -71,7 +72,8 @@ package wave_array_pkg is
     constant LFO_PHASE_INT          : integer := 3;  -- Integer bit width of phase.
     constant LFO_PHASE_FRAC         : integer := LFO_PHASE_SIZE - LFO_PHASE_INT; -- Fractional bit width of phase.
     constant LFO_MIN_RATE           : real := 0.125; -- in Hz.
-    constant LFO_MAX_RATE           : real := 256.0;
+    constant LFO_MAX_RATE           : real := 16.0;
+    constant LFO_N_WAVEFORMS        : integer := 3;
 
     -- Some of these constants are to big to pre calculate using 32 bit integers.
     constant LFO_MIN_VELOCITY       : unsigned(CTRL_SIZE + 24 downto 0) := resize(x"aec33e1", CTRL_SIZE + 25); -- 0.125 Hz
@@ -119,18 +121,37 @@ package wave_array_pkg is
     -- Register file constants.
     constant REGISTER_WIDTH         : integer := 16;
 
+    -- Modulation source and destination constants.
+    constant MODD_FILTER_CUTOFF     : natural := 0; 
+    constant MODD_FILTER_RESONANCE  : natural := 1; 
+    constant MODD_OSC_FRAME         : natural := 2;
+    constant MODD_MIXER             : natural := 3;
+
+    constant MODS_NONE              : natural := 0;
+    constant MODS_POT               : natural := 1;
+    constant MODS_ENVELOPE          : natural := 2;
+    constant MODS_LFO               : natural := 3;
+
+    constant MODS_LEN               : natural := 4;
+    constant MODD_LEN               : natural := 4;
+    constant MODS_LEN_LOG2          : natural := integer(ceil(log2(real(MODS_LEN))));
+    constant MODD_LEN_LOG2          : natural := integer(ceil(log2(real(MODD_LEN))));
+
     -- Mod matrix constants.
     constant MAX_MOD_SOURCES_LOG2   : integer := 2; -- Maximum simulataneous mod sources for a mod destination.
     constant MAX_MOD_SOURCES        : integer := 2**MAX_MOD_SOURCES_LOG2; -- Maximum simulataneous mod sources for a mod destination.
+    
+    -- HK packet constants.
+    constant HK_DATA_WORDS          : integer := 3 + (MODD_LEN + MODS_LEN) * N_VOICES; -- Lenth of HK packet data in words.
+    constant HK_PACKET_BYTES        : integer := 4 + 2 * HK_DATA_WORDS;                -- Length of entire HK packet in bytes.
+    constant HK_DATA_WIDTH          : integer := 16 * HK_DATA_WORDS;                   -- Length of status record as vector of 16 bit words.
+    constant HK_PACKET_WIDTH        : integer := 8 * HK_PACKET_BYTES;                  -- Length of HK_DATA_WIDTH + auto offload header.
 
     -- Register addresses.
     constant REG_RESET              : unsigned := x"0000000"; -- wo 1 bit           | Soft reset.
     constant REG_FAULT              : unsigned := x"0000001"; -- rw 16 bit          | Fault flags.
     constant REG_LED                : unsigned := x"0000002"; -- rw 1 bit           | On-board led register.
-
-    constant REG_DBG_UART_COUNT     : unsigned := x"0000100"; -- ro 16 bit unsigned | UART burst read byte count.
-    constant REG_DBG_UART_FIFO      : unsigned := x"0000101"; -- ro 16 bit unsigned | SDRAM to UART fifo count.
-    constant REG_DBG_UART_STATE     : unsigned := x"0000102"; -- ro 16 bit          | UART packet engine state.
+    constant REG_VOICES             : unsigned := x"0000003"; -- ro 16 bit unsigned | Number of voices.
 
     constant REG_TABLE_BASE_L       : unsigned := x"0000200"; -- rw 16 bit unsigned | Bit 15 downto 0 of the wavetable base SDRAM address.
     constant REG_TABLE_BASE_H       : unsigned := x"0000201"; -- rw 7 bit  unsigned | Bit 22 downto 16 of the wavetable base SDRAM address.
@@ -142,7 +163,7 @@ package wave_array_pkg is
     constant REG_POTENTIOMETER      : unsigned := x"0000400"; -- ro 12 bit unsigned | Potentiometer value. 
 
     constant REG_LFO_VELOCITY       : unsigned := x"0000500"; -- rw 15 bit unsigned | LFO velocity control value. 
-    constant REG_LFO_SYNC           : unsigned := x"0000501"; -- rw  1 bit          | Reset LFO phase to . 
+    constant REG_LFO_WAVE           : unsigned := x"0000501"; -- rw 16 bit unsigned | Select LFO waveform. Clipped to LFO_N_WAVEFORMS - 1.
 
     constant REG_FILTER_CUTOFF      : unsigned := x"0000600"; -- rw 15 bit unsigned | Filter cutoff control value. 
     constant REG_FILTER_RESONANCE   : unsigned := x"0000601"; -- rw 15 bit unsigned | Filter resonance control value. 
@@ -153,9 +174,13 @@ package wave_array_pkg is
     constant REG_ENVELOPE_SUSTAIN   : unsigned := x"0000702"; -- rw 15 bit unsigned | Envelope sustain level control value.
     constant REG_ENVELOPE_RELEASE   : unsigned := x"0000703"; -- rw 15 bit unsigned | Envelope release time control value.
 
-    constant REG_MIXER_CTRL         : unsigned := x"0000800"; -- rw 15 bit unsigned | Envelope attack time control value.
+    constant REG_MIXER_CTRL         : unsigned := x"0000800"; -- rw 15 bit unsigned | Mixer base value value.
+
+    constant REG_HK_ENABLE          : unsigned := x"0000900"; -- rw  1 bit          | Write '1' to enable HK.
+    constant REG_HK_PERIOD          : unsigned := x"0000901"; -- rw 16 bit unsigned | HK update period in steps of 1024 cycles (~10 us).
 
     constant REG_MOD_MAP_BASE       : unsigned := x"0001000"; -- Mod mapping starts here. Ordered major to minor, [destination, source (address, value)]
+    constant REG_MOD_DEST_BASE      : unsigned := x"0002000"; -- ro 16 bit signed   | Modulation desinations start here. Ordered major to minor, [destination, voice].
 
     -- fault register (sticky-)bit indices.
     constant FAULT_UART_TIMEOUT     : integer := 0; -- UART packet engine timout.
@@ -171,6 +196,9 @@ package wave_array_pkg is
     subtype t_ctrl_value is signed(CTRL_SIZE - 1 downto 0);
     type t_ctrl_value_array is array (natural range <>) of t_ctrl_value;
     type t_ctrl_value_2d_array is array (natural range <>) of t_ctrl_value_array;
+
+    type t_modd_array is array (0 to MODD_LEN - 1) of t_ctrl_value_array(0 to N_VOICES - 1);
+    type t_mods_array is array (0 to MODS_LEN - 1) of t_ctrl_value_array(0 to N_VOICES - 1);
 
     -- Address in the oscillator coefficient memory. It consists of two memories that each hold
     -- either the even or odd coefficients.
@@ -220,22 +248,6 @@ package wave_array_pkg is
     -- constant MODS_LEN           : integer := MOD_SOURCE_ENUM'pos(MOD_SOURCE_ENUM'high) + 1;
     -- constant MODD_LEN           : integer := MOD_DEST_ENUM'pos(MOD_DEST_ENUM'high) + 1;
 
-    
-
-    constant MODD_FILTER_CUTOFF : natural := 0; 
-    constant MODD_FILTER_RESONANCE : natural := 1; 
-    constant MODD_OSC_FRAME     : natural := 2;
-    constant MODD_MIXER         : natural := 3;
-
-    constant MODS_NONE          : natural := 0;
-    constant MODS_POT           : natural := 1;
-    constant MODS_ENVELOPE      : natural := 2;
-    constant MODS_LFO           : natural := 3;
-
-    constant MODS_LEN           : natural := 4;
-    constant MODD_LEN           : natural := 4;
-
-    
 
     -- Record holding modulation mapping of all sources enabled for one destination.
     type t_mod_mapping is record 
@@ -260,8 +272,11 @@ package wave_array_pkg is
         led                     : std_logic;
         base_ctrl               : t_ctrl_value_array(0 to MODD_LEN - 1); -- Base value for modulation destinations.
         mod_mapping             : t_mod_mapping_2d_array;
-        lfo_velocity            : t_ctrl_value;
+        hk_enable               : std_logic;
+        hk_period               : unsigned(CTRL_SIZE - 1 downto 0); -- Housekeeping update period in steps of 1024 cycles (~10 ms).
+        lfo_wave_select         : integer range 0 to LFO_N_WAVEFORMS - 1;
         filter_select           : integer range 0 to 4;
+        lfo_velocity            : t_ctrl_value;
         envelope_attack         : t_ctrl_value;
         envelope_decay          : t_ctrl_value;
         envelope_sustain        : t_ctrl_value;
@@ -274,10 +289,8 @@ package wave_array_pkg is
         voice_enabled           : std_logic_vector(N_VOICES - 1 downto 0); -- Notes actively playing.
         voice_active            : std_logic_vector(N_VOICES - 1 downto 0); -- Envelopes active.
         pot_value               : std_logic_vector(ADC_SAMPLE_SIZE - 1 downto 0);
-        uart_timeout            : std_logic;
-        uart_state              : integer;
-        uart_count              : integer;
-        uart_fifo_count         : integer;
+        mod_sources             : t_mods_array;
+        mod_destinations        : t_modd_array;
     end record;
 
     type t_osc_input is record
@@ -345,9 +358,6 @@ package wave_array_pkg is
     type t_register_input_array is array (natural range <>) of t_register_input;
     type t_register_output_array is array (natural range <>) of t_register_output;
 
-    type t_modd_array is array (0 to MODD_LEN - 1) of t_ctrl_value_array(0 to N_VOICES - 1);
-    type t_mods_array is array (0 to MODS_LEN - 1) of t_ctrl_value_array(0 to N_VOICES - 1);
-
     constant MOD_MAPPING_INIT : t_mod_mapping := (
         source                  => MODS_NONE,
         amount                  => (others => '0')
@@ -367,6 +377,9 @@ package wave_array_pkg is
                                     3 => x"0000"),
 
         mod_mapping             => (others => (others => MOD_MAPPING_INIT)),
+        hk_enable               => '0',
+        hk_period               => x"078f", -- 1935 ~= 20 ms => 50 Hz.
+        lfo_wave_select         => 0,
         lfo_velocity            => (others => '0'),
         filter_select           => 0, -- Lowpass
         envelope_attack         => x"0010",
@@ -468,6 +481,9 @@ package wave_array_pkg is
 
     function GET_INPUT_FILE_PATH return string;
 
+    function serialize_status (status : in t_status)
+    return std_logic_vector;
+
 end package;
 
 package body wave_array_pkg is
@@ -479,6 +495,41 @@ package body wave_array_pkg is
         else 
             return SYNTH_FILE_PATH;
         end if;
+    end;
+
+    -- Serialize status record to a std_logic_vector.
+    function serialize_status (status : in t_status) return std_logic_vector is
+        variable v_ser : std_logic_vector(HK_DATA_WIDTH - 1 downto 0) := (others => '0');
+        variable v_offset : integer;
+        variable v_index : integer;
+    begin 
+        v_ser(15 downto 0)  := (15 downto N_VOICES => '0') & status.voice_enabled;
+        v_ser(31 downto 16) := (15 downto N_VOICES => '0') & status.voice_active;
+        v_ser(47 downto 32) := (15 downto ADC_SAMPLE_SIZE => '0') & status.pot_value;
+
+        for source in 0 to MODS_LEN - 1 loop 
+            for voice in 0 to N_VOICES - 1 loop
+            
+                v_index := source * N_VOICES + voice;
+                v_offset := 48;
+
+                v_ser(v_offset + (v_index + 1) * 16 - 1 downto v_offset + v_index * 16) := 
+                    std_logic_vector(status.mod_sources(source)(voice));
+            end loop;
+        end loop;
+
+        for dest in 0 to MODD_LEN - 1 loop 
+            for voice in 0 to N_VOICES - 1 loop
+
+                v_index := dest * N_VOICES + voice;
+                v_offset := 48 + MODS_LEN * N_VOICES * 16;
+
+                v_ser(v_offset + (v_index + 1) * 16 - 1 downto v_offset + v_index * 16) := 
+                    std_logic_vector(status.mod_destinations(dest)(voice));
+            end loop;
+        end loop;
+
+        return v_ser;
     end;
 
 end package body wave_array_pkg;
