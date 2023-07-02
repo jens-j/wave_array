@@ -142,7 +142,7 @@ package wave_array_pkg is
     constant MAX_MOD_SOURCES        : integer := 2**MAX_MOD_SOURCES_LOG2; -- Maximum simulataneous mod sources for a mod destination.
     
     -- HK packet constants.
-    constant HK_DATA_WORDS          : integer := 3 + (MODD_LEN + MODS_LEN) * N_VOICES; -- Lenth of HK packet data in words.
+    constant HK_DATA_WORDS          : integer := 2 + (MODD_LEN + MODS_LEN) * N_VOICES; -- Lenth of HK packet data in words.
     constant HK_PACKET_BYTES        : integer := 4 + 2 * HK_DATA_WORDS;                -- Length of entire HK packet in bytes.
     constant HK_DATA_WIDTH          : integer := 16 * HK_DATA_WORDS;                   -- Length of status record as vector of 16 bit words.
     constant HK_PACKET_WIDTH        : integer := 8 * HK_PACKET_BYTES;                  -- Length of HK_DATA_WIDTH + auto offload header.
@@ -505,27 +505,20 @@ package body wave_array_pkg is
     begin 
         v_ser(15 downto 0)  := (15 downto N_VOICES => '0') & status.voice_enabled;
         v_ser(31 downto 16) := (15 downto N_VOICES => '0') & status.voice_active;
-        v_ser(47 downto 32) := (15 downto ADC_SAMPLE_SIZE => '0') & status.pot_value;
+
+        v_offset := 32;
 
         for source in 0 to MODS_LEN - 1 loop 
-            for voice in 0 to N_VOICES - 1 loop
-            
-                v_index := source * N_VOICES + voice;
-                v_offset := 48;
-
-                v_ser(v_offset + (v_index + 1) * 16 - 1 downto v_offset + v_index * 16) := 
-                    std_logic_vector(status.mod_sources(source)(voice));
+            for voice in 0 to N_VOICES - 1 loop              
+                v_ser(v_offset + 15 downto v_offset) := std_logic_vector(status.mod_sources(source)(voice));
+                v_offset := v_offset + 16;
             end loop;
         end loop;
 
         for dest in 0 to MODD_LEN - 1 loop 
             for voice in 0 to N_VOICES - 1 loop
-
-                v_index := dest * N_VOICES + voice;
-                v_offset := 48 + MODS_LEN * N_VOICES * 16;
-
-                v_ser(v_offset + (v_index + 1) * 16 - 1 downto v_offset + v_index * 16) := 
-                    std_logic_vector(status.mod_destinations(dest)(voice));
+                v_ser(v_offset + 15 downto v_offset) := std_logic_vector(status.mod_destinations(dest)(voice));
+                v_offset := v_offset + 16;
             end loop;
         end loop;
 

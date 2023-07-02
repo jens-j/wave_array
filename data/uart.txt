@@ -22,6 +22,10 @@ write  00001011     3FFF
 write  00001018     0002                        # Map envelope to mixer
 write  00001019     7FFF             
 
+# Housekeeping 
+write  00000901     0020                        # Set high HK rate
+write  00000900     0001                        # Enable HK
+    
 #wait   1000                                     
 #writeb 00000000 00000004 0001000200030004       # write [1,2,3,4] to SDRAM address 0x00000000
 #readb  00000000 00000004                        # read back SDRAM

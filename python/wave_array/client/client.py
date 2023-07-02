@@ -7,15 +7,15 @@ import numpy as np
 class WaveArray:
 
     # Modulation source and destination indices.
-    MODD_FILTER_CUTOFF          = 0 
-    MODD_FILTER_RESONANCE       = 1 
-    MODD_OSC_FRAME              = 2
+    MODD_CUTOFF                 = 0 
+    MODD_RESONANCE              = 1 
+    MODD_FRAME                  = 2
     MODD_MIXER                  = 3
 
-    MODS_NONE                   = 1
-    MODS_POT                    = 2
-    MODS_ENVELOPE               = 3
-    MODS_LFO                    = 4
+    MODS_NONE                   = 0
+    MODS_POT                    = 1
+    MODS_ENVELOPE               = 2
+    MODS_LFO                    = 3
 
     MODS_LEN                    = 4
     MODD_LEN                    = 4

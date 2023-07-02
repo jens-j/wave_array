@@ -102,7 +102,7 @@ begin
             v_value := v_status_ser((r.hk_count + 1) * 16 - 1 downto r.hk_count * 16);
 
             -- r_in.hk_data <= v_value;
-            r_in.hk_data <= v_value(7 downto 0) & v_value(15 downto 8); -- Switch bytes for correct little endian transfer.
+            r_in.hk_data <= v_value(7 downto 0) & v_value(15 downto 8); -- Switch bytes for big endian transfer.
             
             if r.hk_count < HK_DATA_WORDS - 1 then 
                 r_in.hk_count <= r.hk_count + 1;

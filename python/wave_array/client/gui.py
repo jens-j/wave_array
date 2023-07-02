@@ -4,10 +4,10 @@ import os
 import sys 
 import logging
 from functools                import partial
-from random                   import randint
+from random                   import randint, random
 from datetime                 import datetime
 
-import pyqtgraph as pg
+import pyqtgraph              as pg
 import numpy                  as np
 from PyQt5                    import QtWidgets, uic
 from PyQt5.QtCore             import QSize, QSettings, Qt, QTimer
@@ -37,21 +37,28 @@ class WaveArrayGui(QtWidgets.QMainWindow):
 
         # Create client object.
         self.client = WaveArray(self.auto_offload_handler)
+        
 
         self.mod_source = None 
         self.mod_destination = None
         self.modmap = ModMap(self.client)
         self.frames = [None] * 16 
-        self.modd_mixer = np.zeros(self.client.n_voices, dtype='int16')
-        self.modd_frame = np.zeros(self.client.n_voices, dtype='int16')
-        self.mixer_x = np.arange(0, self.PLOT_T, self.PLOT_T / self.PLOT_SAMPLES)[::-1] # Constant used for plotting.
+        self.frames_log2 = 0
+        self.status = Status(self.client)
+
+        self.curves_waveform = [None] * self.client.n_voices 
+        self.curves_pot = [None] * self.client.n_voices
+        self.curves_lfo = [None] * self.client.n_voices
+        self.curves_envelope = [None] * self.client.n_voices
+        self.curves_cutoff = [None] * self.client.n_voices
+        self.curves_resonance = [None] * self.client.n_voices
+        self.curves_frame = [None] * self.client.n_voices
+        self.curves_mixer = [None] * self.client.n_voices
+        self.curve_x = np.arange(0, self.PLOT_T, self.PLOT_T / self.PLOT_SAMPLES)[::-1] # Constant used for plotting.
 
         self.t_hk = datetime.now()
         self.t_plot = datetime.now()
-
-        # PlotDataItems used to update the plots.
-        self.waveforms = [None] * self.client.n_voices 
-        self.mixer_control = [None] * self.client.n_voices
+        
 
         # Initialize the GUI.
         module_path = os.path.dirname(os.path.abspath(__file__))
@@ -60,10 +67,10 @@ class WaveArrayGui(QtWidgets.QMainWindow):
         self.initialize_plots()
 
         table_path = os.path.join(module_path, '../../../data') 
-        self.open_wavetable(filename=os.path.join(table_path, 'saw_square.table'))
+        # self.open_wavetable(filename=os.path.join(table_path, 'saw_square.table'))
+        self.open_wavetable(filename=os.path.join(table_path, 'basic.table'))
 
         # Load initial values.
-        self.load_status()
         self.load_config()
 
         # Connect signals.
@@ -92,7 +99,6 @@ class WaveArrayGui(QtWidgets.QMainWindow):
 
         # Status refresh timer.
         self.timer = QTimer(self)
-        # self.timer.timeout.connect(self.load_status)
         self.timer.timeout.connect(self.update_plots)
         self.timer.start(self.PLOT_PERIOD_MS)
 
@@ -103,80 +109,56 @@ class WaveArrayGui(QtWidgets.QMainWindow):
     def auto_offload_handler(self, packet):
 
         if self.auto_offload_enable:
+            self.status = Status(self.client, packet=packet)   
 
-            status = Status(self.client, packet)
-
-            self.ui.lbl_potentiometer.setText(f"0x{status.pot_value:03X}")
-
-            self.modd_mixer = status.mod_destinations[WaveArray.MODD_MIXER]
-            self.modd_frame = status.mod_destinations[WaveArray.MODD_OSC_FRAME]
-
-    
-    def load_status(self):
-
-        t = datetime.now()
-
-        faults = self.client.read(WaveArray.REG_FAULT, log=False)
-        self.ui.lbl_faults.setText(f"0x{faults:04X}")
-
-        print(f'T hk = {(datetime.now() - t).total_seconds()}')
-
-        potentiometer = self.client.read(WaveArray.REG_POTENTIOMETER, log=False)
-        self.ui.lbl_potentiometer.setText(f"0x{potentiometer:03X}")
-
-        self.frames_log2 = self.client.read(WaveArray.REG_TABLE_FRAMES, log=False)
-        self.ui.lbl_frames.setText(f"{2**self.frames_log2:d}") 
-
-        for i in range(self.client.n_voices):
-
-            self.modd_mixer[i] = np.int16(self.client.read(WaveArray.REG_MOD_DEST_BASE 
-                + WaveArray.MODD_MIXER * 2**self.client.n_voices_log2 + i, log=False))
-
-            self.modd_frame[i] = np.int16(self.client.read(WaveArray.REG_MOD_DEST_BASE 
-                + WaveArray.MODD_OSC_FRAME * 2**self.client.n_voices_log2 + i, log=False))
-
-
+                    
     def update_plots(self):
 
+        
         # t = datetime.now()
         
         for i in range(self.client.n_voices):
 
-            # Set mixer plot data.
-            data = self.mixer_control[i].getData()[1]
-            data[-1] = self.modd_mixer[i]
-            data = np.roll(data, 1)
+            self.curves_pot[i].setData(self.curve_x, np.concatenate(
+                (self.curves_pot[i].getData()[1][1:], [self.status.mod_sources[WaveArray.MODS_POT][i]])))
+            self.curves_envelope[i].setData(self.curve_x, np.concatenate(
+                (self.curves_envelope[i].getData()[1][1:], [self.status.mod_sources[WaveArray.MODS_ENVELOPE][i]])))
+            self.curves_lfo[i].setData(self.curve_x, np.concatenate(
+                (self.curves_lfo[i].getData()[1][1:], [self.status.mod_sources[WaveArray.MODS_LFO][i]])))
+            
+            self.curves_cutoff[i].setData(self.curve_x, np.concatenate(
+                (self.curves_cutoff[i].getData()[1][1:], [self.status.mod_destinations[WaveArray.MODD_CUTOFF][i]])))
+            self.curves_resonance[i].setData(self.curve_x, np.concatenate(
+                (self.curves_resonance[i].getData()[1][1:], [self.status.mod_destinations[WaveArray.MODD_RESONANCE][i]])))
+            self.curves_frame[i].setData(self.curve_x, np.concatenate(
+                (self.curves_frame[i].getData()[1][1:], [self.status.mod_destinations[WaveArray.MODD_FRAME][i]])))
+            self.curves_mixer[i].setData(self.curve_x, np.concatenate(
+                (self.curves_mixer[i].getData()[1][1:], [self.status.mod_destinations[WaveArray.MODD_MIXER][i]])))
 
-            # data = np.concatenate((data[1:], [self.modd_mixer[i]]))
-
-            self.mixer_control[i].setData(self.mixer_x, data)
-
+            
             # Set waveform plot data.
             if self.frames_log2 == 0:
-                self.waveforms[i].setData(self.frames[0])
+                self.curves_waveform[i].setData(self.frames[0])
 
             # Interpolate between frames 0 and 1.
             elif self.frames_log2 == 1: 
-                self.waveforms[i].setData(self.frames[0] 
-                    + np.int16(self.modd_frame[i] * np.int32(self.frames[1] - self.frames[0]) // 2**15))
+                self.curves_waveform[i].setData(self.frames[0]  + np.int16(
+                    self.status.mod_destinations[WaveArray.MODD_FRAME][i] 
+                    * np.int32(self.frames[1] - self.frames[0]) // 2**15))
 
             # interpolate between frames a and b.
             else:
-                index_a = 2**self.frames_log2 * self.modd_frame[i] // 2**15 
+                index_a = 2**self.frames_log2 * self.status.mod_destinations[WaveArray.MODD_FRAME][i] // 2**15 
                 index_b = min(index_a + 1, 2**self.frames_log2 - 1)
-                d = self.modd_frame[i] % 2**(15 - self.frames_log2)
+                d = self.status.mod_destinations[WaveArray.MODD_FRAME][i] % 2**(15 - self.frames_log2)
                 d_max = 2**(15 - self.frames_log2) - 1
                 
-                self.waveforms[i].setData(self.frames[index_a] 
-                    + np.int16(d * np.int32(self.frames[index_b] - self.frames[index_a]) // d_max))
-
-        # print(f'T plot = {(datetime.now() - t).total_seconds()}')
-       
+                self.curves_waveform[i].setData(self.frames[index_a] 
+                    + np.int16(d * np.int32(self.frames[index_b] - self.frames[index_a]) // d_max))      
 
 
     # Read device settings and update GUI elements accordingly.
     def load_config(self):
-
 
         # Initialize configuration.
         enabled = self.client.read(WaveArray.REG_HK_ENABLE)
@@ -237,20 +219,68 @@ class WaveArrayGui(QtWidgets.QMainWindow):
 
     def initialize_plots(self):
         
+        self.ui.plot_cutoff.setBackground('w')
+        self.ui.plot_cutoff.setTitle('filter cutoff')
+        self.ui.plot_cutoff.setYRange(0, 2**15, padding=0)
+
+        self.ui.plot_resonance.setBackground('w')
+        self.ui.plot_resonance.setTitle('filter resonance')
+        self.ui.plot_resonance.setYRange(0, 2**15, padding=0)
+
+        self.ui.plot_frame.setBackground('w')
+        self.ui.plot_frame.setTitle('wavetable frame')
+        self.ui.plot_frame.setYRange(0, 2**15, padding=0)
+
         self.ui.plot_mixer.setBackground('w')
-        self.ui.plot_mixer.setTitle('mixer control values')
+        self.ui.plot_mixer.setTitle('mixer')
+        self.ui.plot_mixer.setYRange(0, 2**15, padding=0)
+        
+        self.ui.plot_pot.setBackground('w')
+        self.ui.plot_pot.setTitle('potentiometer')
+        self.ui.plot_pot.setYRange(0, 2**15, padding=0)
+
+        self.ui.plot_envelope.setBackground('w')
+        self.ui.plot_envelope.setTitle('envelope')
+        self.ui.plot_envelope.setYRange(0, 2**15, padding=0)
+
+        self.ui.plot_lfo.setBackground('w')
+        self.ui.plot_lfo.setTitle('LFO')
+        self.ui.plot_lfo.setYRange(-2**15, 2**15, padding=0)
+
         self.ui.plot_waveform.setBackground('w')
         self.ui.plot_waveform.setTitle('waveform')
+        self.ui.plot_waveform.setYRange(-2**15, 2**15, padding=0)
+
+        hue = random() / self.client.n_voices
 
         # Plot curves and store PlotDataItem.        
         for i in range(self.client.n_voices):
-            pen = pg.mkPen(color=(randint(0, 255), randint(0, 255), randint(0, 255)))
 
-            self.mixer_control[i] = self.ui.plot_mixer.plot(
-                self.mixer_x, np.zeros(self.PLOT_SAMPLES), name=f'voice {i}', pen=pen)
+            pen = pg.mkPen(color=pg.hsvColor((hue + i / self.client.n_voices) % 1.0))
 
-            self.waveforms[i] = self.ui.plot_waveform.plot(
-                np.zeros(1024), name=f'voice {i}', pen=pen)
+            self.curves_pot[i] = self.ui.plot_pot.plot(
+                self.curve_x, np.zeros(self.PLOT_SAMPLES), name=f'voice {i}', pen=pen)
+
+            self.curves_envelope[i] = self.ui.plot_envelope.plot(
+                self.curve_x, np.zeros(self.PLOT_SAMPLES), name=f'voice {i}', pen=pen)
+
+            self.curves_lfo[i] = self.ui.plot_lfo.plot(
+                self.curve_x, np.zeros(self.PLOT_SAMPLES), name=f'voice {i}', pen=pen)
+
+            self.curves_cutoff[i] = self.ui.plot_cutoff.plot(
+                self.curve_x, np.zeros(self.PLOT_SAMPLES), name=f'voice {i}', pen=pen)
+
+            self.curves_resonance[i] = self.ui.plot_resonance.plot(
+                self.curve_x, np.zeros(self.PLOT_SAMPLES), name=f'voice {i}', pen=pen)
+
+            self.curves_frame[i] = self.ui.plot_frame.plot(
+                self.curve_x, np.zeros(self.PLOT_SAMPLES), name=f'voice {i}', pen=pen)
+
+            self.curves_mixer[i] = self.ui.plot_mixer.plot(
+                self.curve_x, np.zeros(self.PLOT_SAMPLES), name=f'voice {i}', pen=pen)
+
+
+            self.curves_waveform[i] = self.ui.plot_waveform.plot(np.zeros(2048), name=f'voice {i}', pen=pen)
 
         self.ui.plot_mixer.addLegend()
         self.ui.plot_waveform.addLegend()
@@ -266,13 +296,15 @@ class WaveArrayGui(QtWidgets.QMainWindow):
     def open_wavetable(self, filename=None):
 
         # This does not work well toghether.
-        self.auto_offload_enable = False
+        # self.auto_offload_enable = False
 
         if filename == None:
             dlg = QFileDialog()
             dlg.setDirectory(default_path)
             dlg.setFileMode(QFileDialog.AnyFile)
             # dlg.selectNameFilter("Wavetable files (*.table)")
+
+            print('ok')
             
             if dlg.exec_():
                 filename = dlg.selectedFiles()[0]
@@ -287,18 +319,18 @@ class WaveArrayGui(QtWidgets.QMainWindow):
         self.client.write_sdram(0, data)
 
         # Update table registers.
-        n_frames_log2 = np.uint16(np.log2(len(data) / 4096))
+        self.frames_log2 = np.uint16(np.log2(len(data) / 4096))
         self.client.write(WaveArray.REG_TABLE_BASE_H, 0x0000)
         self.client.write(WaveArray.REG_TABLE_BASE_L, 0x0000)
-        self.client.write(WaveArray.REG_TABLE_FRAMES, n_frames_log2)
+        self.client.write(WaveArray.REG_TABLE_FRAMES, self.frames_log2)
         self.client.write(WaveArray.REG_TABLE_NEW, 0x0001)
 
         # Store L0 table of each frame to display. Reduce samplerate by 8.
-        for i in range(2**n_frames_log2):
+        for i in range(2**self.frames_log2):
             base = 4096 * i
-            self.frames[i] = data[base:base + 2048:8]
+            self.frames[i] = data[base:base + 2048]
 
-        self.auto_offload_enable = True
+        # self.auto_offload_enable = True
 
 
     def mod_button_clicked(self, destination, source, state):
