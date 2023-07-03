@@ -3,6 +3,7 @@
 import os
 import sys 
 import logging
+import struct
 from functools                import partial
 from random                   import randint, random
 from datetime                 import datetime
@@ -23,7 +24,7 @@ class WaveArrayGui(QtWidgets.QMainWindow):
     PLOT_FREQUENCY = 50
     PLOT_PERIOD_MS = 1000 // PLOT_FREQUENCY
 
-    PLOT_T       = 8 # Seconds.
+    PLOT_T       = 5 # Seconds.
     PLOT_SAMPLES = PLOT_T * PLOT_FREQUENCY
 
     logger = logging.getLogger()
@@ -36,16 +37,17 @@ class WaveArrayGui(QtWidgets.QMainWindow):
         self.auto_offload_enable = False
 
         # Create client object.
-        self.client = WaveArray(self.auto_offload_handler)
+        self.client = WaveArray(self.hk_offload_handler, self.wave_offload_handler)
         
-
         self.mod_source = None 
         self.mod_destination = None
         self.modmap = ModMap(self.client)
         self.frames = [None] * 16 
         self.frames_log2 = 0
         self.status = Status(self.client)
+        self.oscilloscope_samples = np.zeros(100, dtype=np.int16)
 
+        self.curve_oscilloscope = None
         self.curves_waveform = [None] * self.client.n_voices 
         self.curves_pot = [None] * self.client.n_voices
         self.curves_lfo = [None] * self.client.n_voices
@@ -58,7 +60,6 @@ class WaveArrayGui(QtWidgets.QMainWindow):
 
         self.t_hk = datetime.now()
         self.t_plot = datetime.now()
-        
 
         # Initialize the GUI.
         module_path = os.path.dirname(os.path.abspath(__file__))
@@ -76,6 +77,8 @@ class WaveArrayGui(QtWidgets.QMainWindow):
         # Connect signals.
         self.ui.btn_enable_hk.clicked.connect(self.btn_enable_hk_clicked)
         self.ui.box_hk_rate.valueChanged.connect(self.box_hk_rate_changed)
+        self.ui.btn_enable_oscilloscope.clicked.connect(self.btn_enable_oscilloscope_clicked)
+        self.ui.box_oscilloscope_rate.valueChanged.connect(self.box_oscilloscope_rate_changed)
         self.ui.btn_reg_read.released.connect(self.btn_reg_read_clicked)
         self.ui.btn_reg_write.released.connect(self.btn_reg_write_clicked)
         self.ui.action_open_wavetable.triggered.connect(self.open_wavetable)
@@ -106,16 +109,32 @@ class WaveArrayGui(QtWidgets.QMainWindow):
         self.auto_offload_enable = True
 
 
-    def auto_offload_handler(self, packet):
+    def hk_offload_handler(self, packet):
 
         if self.auto_offload_enable:
             self.status = Status(self.client, packet=packet)   
+
+    def wave_offload_handler(self, packet):
+
+        if self.auto_offload_enable:
+
+            length = struct.unpack('<h', packet[2:4])[0]
+            data = np.array(struct.unpack(f'<{length}h', packet[4:]))
+            self.oscilloscope_samples = data
 
                     
     def update_plots(self):
 
         
         # t = datetime.now()
+
+        self.ui.lbl_voice_enabled.setText(f'{self.status.voice_enabled:04X}')
+        self.ui.lbl_voice_active.setText(f'{self.status.voice_active:04X}')
+
+        # print(f'state sample = {self.client.read(WaveArray.REG_DBG_STATE_WAVE_SAMPLE)}')
+        # print(f'state offload = {self.client.read(WaveArray.REG_DBG_STATE_WAVE_OFFLOAD)}')
+
+        self.curve_oscilloscope.setData(self.oscilloscope_samples)
         
         for i in range(self.client.n_voices):
 
@@ -148,9 +167,9 @@ class WaveArrayGui(QtWidgets.QMainWindow):
 
             # interpolate between frames a and b.
             else:
-                index_a = 2**self.frames_log2 * self.status.mod_destinations[WaveArray.MODD_FRAME][i] // 2**15 
+                index_a = 2**self.frames_log2 * max(0, self.status.mod_destinations[WaveArray.MODD_FRAME][i]) // 2**15 
                 index_b = min(index_a + 1, 2**self.frames_log2 - 1)
-                d = self.status.mod_destinations[WaveArray.MODD_FRAME][i] % 2**(15 - self.frames_log2)
+                d = max(0, self.status.mod_destinations[WaveArray.MODD_FRAME][i]) % 2**(15 - self.frames_log2)
                 d_max = 2**(15 - self.frames_log2) - 1
                 
                 self.curves_waveform[i].setData(self.frames[index_a] 
@@ -167,6 +186,13 @@ class WaveArrayGui(QtWidgets.QMainWindow):
         period = self.client.read(WaveArray.REG_HK_PERIOD)
         rate = 100E6 / (period * 1024)
         self.ui.box_hk_rate.setValue(int(rate))
+
+        enabled = self.client.read(WaveArray.REG_WAVE_ENABLE)
+        self.ui.btn_enable_oscilloscope.setChecked(enabled)
+
+        period = self.client.read(WaveArray.REG_WAVE_PERIOD)
+        rate = 100E6 / (period * 1024)
+        self.ui.box_oscilloscope_rate.setValue(int(rate))
     
         index = self.client.read(WaveArray.REG_FILTER_SELECT)
         self.ui.box_filter_select.setCurrentIndex(index)
@@ -251,9 +277,13 @@ class WaveArrayGui(QtWidgets.QMainWindow):
         self.ui.plot_waveform.setTitle('waveform')
         self.ui.plot_waveform.setYRange(-2**15, 2**15, padding=0)
 
+        self.ui.plot_oscilloscope.setBackground('w')
+        self.ui.plot_oscilloscope.setTitle('oscilloscope')
+        # self.ui.plot_oscilloscope.setYRange(-2**15, 2**15, padding=0)
+
         hue = random() / self.client.n_voices
 
-        # Plot curves and store PlotDataItem.        
+        # Plot curves and store PlotDataItem.     
         for i in range(self.client.n_voices):
 
             pen = pg.mkPen(color=pg.hsvColor((hue + i / self.client.n_voices) % 1.0))
@@ -279,13 +309,10 @@ class WaveArrayGui(QtWidgets.QMainWindow):
             self.curves_mixer[i] = self.ui.plot_mixer.plot(
                 self.curve_x, np.zeros(self.PLOT_SAMPLES), name=f'voice {i}', pen=pen)
 
-
             self.curves_waveform[i] = self.ui.plot_waveform.plot(np.zeros(2048), name=f'voice {i}', pen=pen)
 
-        self.ui.plot_mixer.addLegend()
-        self.ui.plot_waveform.addLegend()
-        self.ui.plot_mixer.setYRange(0, 32767, padding=0)
-        self.ui.plot_waveform.setYRange(-32768, 32767, padding=0)
+            if i == self.client.n_voices - 1:
+                self.curve_oscilloscope = self.ui.plot_oscilloscope.plot(np.zeros(100), pen=pen)
 
 
     def show(self):
@@ -325,6 +352,9 @@ class WaveArrayGui(QtWidgets.QMainWindow):
         self.client.write(WaveArray.REG_TABLE_FRAMES, self.frames_log2)
         self.client.write(WaveArray.REG_TABLE_NEW, 0x0001)
 
+        # Update n_frames in gui.
+        self.ui.lbl_frames.setText(f'{2**self.frames_log2}')
+
         # Store L0 table of each frame to display. Reduce samplerate by 8.
         for i in range(2**self.frames_log2):
             base = 4096 * i
@@ -363,6 +393,13 @@ class WaveArrayGui(QtWidgets.QMainWindow):
     def box_hk_rate_changed(self, rate):
         period = 100E6 / (1024 * rate)
         self.client.write(WaveArray.REG_HK_PERIOD, np.uint16(period))
+
+    def btn_enable_oscilloscope_clicked(self, checked):
+        self.client.write(WaveArray.REG_WAVE_ENABLE, int(checked))
+
+    def box_oscilloscope_rate_changed(self, rate):
+        period = 100E6 / (1024 * rate)
+        self.client.write(WaveArray.REG_WAVE_PERIOD, np.uint16(period))
 
     def btn_reg_read_clicked(self):
         self.ui.box_reg_data.setValue(self.client.read(self.ui.box_reg_address.value()))

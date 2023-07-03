@@ -11,7 +11,7 @@ library uart;
 use uart.uart_pkg.all;
 
 
-entity auto_offload is
+entity hk_offload is
     port (
         clk                     : in  std_logic;
         reset                   : in  std_logic;
@@ -25,7 +25,7 @@ entity auto_offload is
     );
 end entity;
 
-architecture arch of auto_offload is 
+architecture arch of hk_offload is 
 
     type t_state is (idle, hk_0, hk_1, hk_2);
 
@@ -55,6 +55,7 @@ begin
     comb_process : process (r, config, status, hk_full)
         variable v_status_ser : std_logic_vector(HK_DATA_WIDTH - 1 downto 0);
         variable v_value : std_logic_vector(15 downto 0);
+        variable v_length : std_logic_vector(15 downto 0);
     begin
 
         r_in <= r;
@@ -91,7 +92,8 @@ begin
         when hk_1 =>
 
             r_in.hk_write_enable <= '1';
-            r_in.hk_data <= std_logic_vector(to_unsigned(HK_DATA_WORDS, CTRL_SIZE));
+            v_length := std_logic_vector(to_unsigned(HK_DATA_WORDS, CTRL_SIZE)); 
+            r_in.hk_data <= v_length(7 downto 0) & v_length(15 downto 8); -- Switch bytes for little endian transfer.
             r_in.state <= hk_2;
 
         -- Write packet data to auto offload fifo.
@@ -102,7 +104,7 @@ begin
             v_value := v_status_ser((r.hk_count + 1) * 16 - 1 downto r.hk_count * 16);
 
             -- r_in.hk_data <= v_value;
-            r_in.hk_data <= v_value(7 downto 0) & v_value(15 downto 8); -- Switch bytes for big endian transfer.
+            r_in.hk_data <= v_value(7 downto 0) & v_value(15 downto 8); -- Switch bytes for little endian transfer.
             
             if r.hk_count < HK_DATA_WORDS - 1 then 
                 r_in.hk_count <= r.hk_count + 1;

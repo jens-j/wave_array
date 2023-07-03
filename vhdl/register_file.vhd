@@ -13,6 +13,7 @@ entity register_file is
 
         register_input          : in  t_register_input;
         register_output         : out t_register_output;
+        new_period              : in  std_logic_vector(N_VOICES - 1 downto 0);
 
         status                  : in  t_status;
         config                  : out t_config
@@ -25,12 +26,14 @@ architecture arch of register_file is
         config                  : t_config;
         register_output         : t_register_output;
         faults                  : std_logic_vector(15 downto 0);
+        new_period              : std_logic_vector(N_VOICES - 1 downto 0);
     end record;
 
     constant REG_INIT : t_packet_engine_reg := (
         config                  => CONFIG_INIT,
         register_output         => ('0', '0', (others => '0')),
-        faults                  => (others => '0')
+        faults                  => (others => '0'),
+        new_period              => (others => '0')
     );
 
     signal r, r_in              : t_packet_engine_reg;
@@ -55,6 +58,13 @@ begin
             r_in.config.dma_input(i).new_table <= '0'; 
         end loop;
 
+        -- Create new_period sticky bit register.
+        for i in 0 to N_VOICES - 1 loop 
+            if new_period(i) = '1' then 
+                r_in.new_period(i) <= '1';
+            end if;
+        end loop;
+
         -- Handle register read.
         if register_input.read_enable = '1' then
 
@@ -65,12 +75,42 @@ begin
 
             elsif register_input.address = REG_FAULT then
                 r_in.register_output.read_data <= r.faults;
+            
+            elsif register_input.address = REG_DBG_WAVE_STATE_OFFLOAD then
+                r_in.register_output.read_data <= 
+                    std_logic_vector(to_unsigned(status.debug_wave_state_offload, REGISTER_WIDTH));
+
+            elsif register_input.address = REG_DBG_WAVE_STATE_SAMPLE then
+                r_in.register_output.read_data <= 
+                    std_logic_vector(to_unsigned(status.debug_wave_state_sample, REGISTER_WIDTH));
+
+            elsif register_input.address = REG_DBG_WAVE_FIFO then
+                r_in.register_output.read_data(10 downto 0) <= 
+                    std_logic_vector(to_unsigned(status.debug_wave_fifo_count, 11));
+
+            elsif register_input.address = REG_DBG_WAVE_TIMER then
+                r_in.register_output.read_data <= status.debug_wave_timer; 
+
+            elsif register_input.address = REG_DBG_WAVE_FLAGS then
+                r_in.register_output.read_data(5 downto 0) <= status.debug_wave_flags; 
+
+            elsif register_input.address = REG_DBG_UART_FLAGS then
+                r_in.register_output.read_data(3 downto 0) <= status.debug_uart_flags;
+
+            elsif register_input.address = REG_DBG_NEW_PERIOD then
+                r_in.register_output.read_data(N_VOICES - 1 downto 0) <= r.new_period;   
 
             elsif register_input.address = REG_HK_ENABLE then
                 r_in.register_output.read_data(0) <= r.config.hk_enable;
 
             elsif register_input.address = REG_HK_PERIOD then
                 r_in.register_output.read_data <= std_logic_vector(r.config.hk_period);
+
+            elsif register_input.address = REG_WAVE_ENABLE then
+                r_in.register_output.read_data(0) <= r.config.wave_enable;
+
+            elsif register_input.address = REG_WAVE_PERIOD then
+                r_in.register_output.read_data <= std_logic_vector(r.config.wave_period);
 
             elsif register_input.address = REG_VOICES then
                 r_in.register_output.read_data <= std_logic_vector(to_unsigned(N_VOICES, REGISTER_WIDTH));
@@ -174,11 +214,20 @@ begin
             elsif register_input.address = REG_FAULT then
                 r_in.faults <= (others => '0');
 
+            elsif register_input.address = REG_DBG_NEW_PERIOD then
+                r_in.new_period <= (others => '0');
+
             elsif register_input.address = REG_HK_ENABLE then
                 r_in.config.hk_enable <= register_input.write_data(0);
 
             elsif register_input.address = REG_HK_PERIOD then
                 r_in.config.hk_period <= unsigned(register_input.write_data);
+
+            elsif register_input.address = REG_WAVE_ENABLE then
+                r_in.config.wave_enable <= register_input.write_data(0);
+
+            elsif register_input.address = REG_WAVE_PERIOD then
+                r_in.config.wave_period <= unsigned(register_input.write_data);
 
             elsif register_input.address = REG_TABLE_BASE_L then
                 r_in.config.dma_input(0).base_address(REGISTER_WIDTH - 1 downto 0) <= unsigned(register_input.write_data);

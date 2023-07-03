@@ -28,9 +28,12 @@ class WaveArray:
     REG_LED                     = 0x00000002
     REG_VOICES                  = 0x00000003
 
-    REG_DBG_UART_COUNT          = 0x00000100
-    REG_DBG_UART_FIFO           = 0x00000101
-    REG_DBG_UART_STATE          = 0x00000102
+    REG_DBG_WAVE_STATE_OFFLOAD  = 0x00000100
+    REG_DBG_WAVE_STATE_SAMPLE   = 0x00000101
+    REG_DBG_WAVE_FIFO           = 0x00000102
+    REG_DBG_WAVE_TIMER          = 0x00000103
+    REG_DBG_WAVE_FLAGS          = 0x00000104
+    REG_DBG_UART_FLAGS          = 0x00000110
 
     REG_TABLE_BASE_L            = 0x00000200
     REG_TABLE_BASE_H            = 0x00000201
@@ -57,12 +60,14 @@ class WaveArray:
 
     REG_HK_ENABLE               = 0x00000900
     REG_HK_PERIOD               = 0x00000901
+    REG_WAVE_ENABLE             = 0x00000902
+    REG_WAVE_PERIOD             = 0x00000903
 
     REG_MOD_MAP_BASE            = 0x00001000
     REG_MOD_DEST_BASE           = 0x00002000
 
-    def __init__(self, ao_callback, port='COM4'):
-        self.dev = UartProtocol(port, 1000_000, ao_callback)
+    def __init__(self, ao_callback, wave_callback, port='COM4'):
+        self.dev = UartProtocol(port, 1000_000, ao_callback, wave_callback)
 
         self.n_voices = self.dev.read(self.REG_VOICES)
         self.n_voices_log2 = int(np.ceil(np.log2(self.n_voices)))

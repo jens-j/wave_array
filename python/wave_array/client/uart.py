@@ -22,15 +22,20 @@ class UartType:
     ERROR_REP       = 8
     AUTO_OFFLOAD    = 9
 
+class AutoOffloadType:
+    AO_HK           = 0
+    AO_WAVE         = 1
+
 class Uart:
 
     logger = logging.getLogger('Uart')
 
     T_SLEEP = 0.001 # s
 
-    def __init__(self, port, baudrate, ao_callback):
+    def __init__(self, port, baudrate, hk_callback, wave_callback):
 
-        self.ao_callback = ao_callback
+        self.hk_callback = hk_callback
+        self.wave_callback = wave_callback
         self.uart = serial.Serial(port, baudrate=baudrate, timeout=self.T_SLEEP)
         self.rep_queue = Queue()
         self.ao_queue = Queue()
@@ -85,7 +90,7 @@ class Uart:
 
                 # self.logger.info(f'opcode = {header}')
 
-                opcode = int.from_bytes(header, 'big')
+                opcode = struct.unpack('<B', header)[0]
 
                 if opcode == UartType.READ_REP:
                     data = self._read_bytes(2)
@@ -96,7 +101,7 @@ class Uart:
 
                 elif opcode == UartType.READ_BLOCK_REP:
                     length = self._read_bytes(4)
-                    data = self._read_bytes(int.from_bytes(length, 'big') * 2)
+                    data = self._read_bytes(2 * struct.unpack('<h', length)[0])
                     self.rep_queue.put(header + length + data)
 
                 elif opcode == UartType.WRITE_BLOCK_REP:
@@ -107,23 +112,25 @@ class Uart:
                     self.rep_queue.put(header + code)
 
                 elif opcode == UartType.AUTO_OFFLOAD:
+
                     channel = self._read_bytes(1)
                     length = self._read_bytes(2)
-
-                    # l = struct.unpack('I', length)
-
-                    # self.logger.info(f'channel= {int.from_bytes(channel, "big")}')
-                    # self.logger.info(f'length = {int.from_bytes(length, "big")} ({length})')
-
-                    data = self._read_bytes(int.from_bytes(length, 'big') * 2)
-
+                    data = self._read_bytes(2 * struct.unpack('<h', length)[0])
                     packet = header + channel + length + data
 
-                    # print(len(packet))
+                    # print(header)
+                    # print(channel)
+                    # print(length, struct.unpack('<h', length)[0])
+                    # print(data)
                     # print(packet)
 
-                    self.ao_callback(packet)
-                    # self.ao_queue.put(packet)
+                    if struct.unpack('<B', channel)[0] == AutoOffloadType.AO_HK:
+                        self.hk_callback(packet)
+                    elif struct.unpack('<B', channel)[0] == AutoOffloadType.AO_WAVE:
+                        self.wave_callback(packet)
+                    else: 
+                        self.logger.warning(f'unknown auto offload channel received from device: {channel}')
+
                 else:
                     self.logger.warning(f'unknown opcode received from device: {header}')
 

@@ -17,7 +17,8 @@ entity midi_slave is
         midi_channel            : in  std_logic_vector(3 downto 0);
         envelope_active         : in  std_logic_vector(N_VOICES - 1 downto 0); 
         voices                  : out t_voice_array(0 to N_VOICES - 1);
-        status_byte             : out t_byte
+        status_byte             : out t_byte;
+        lowest_voice            : out integer range 0 to N_VOICES - 1 -- Voice index of the lowest playing note.
     );
 end entity;
 
@@ -91,6 +92,7 @@ begin
         -- Outputs.
         voices <= r.voices;
         status_byte <= midi_message_s.status_byte;
+        lowest_voice <= r.lowest_voice;
 
         for i in 0 to N_VOICES - 1 loop
             r_in.voices(i).change <= '0';

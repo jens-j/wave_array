@@ -34,6 +34,7 @@ entity table_interpolator is
         frame_control           : in  t_ctrl_value_array(0 to N_VOICES - 1);
         addrgen_input           : in  t_addrgen2table_array(0 to N_VOICES - 1);
         output_samples          : out t_stereo_sample_array(0 to N_VOICES - 1); -- Two samples are needed for the downsampling.
+        new_period              : out std_logic_vector(N_VOICES - 1 downto 0); -- High in first cycle of waveform period.
 
         -- Debug ports.
         overflow                : out std_logic; -- Flag numeric overflow.
@@ -64,10 +65,13 @@ architecture arch of table_interpolator is
         osc_counter_next        : integer range 0 to N_VOICES; -- The value of the next oscillator (osc_counter + 1).
         sample_counter_next     : integer range 0 to 2;
         output_samples          : t_stereo_sample_array(0 to N_VOICES - 1);
+        new_period              : std_logic_vector(N_VOICES - 1 downto 0);
+        new_period_buffer       : std_logic_vector(N_VOICES - 1 downto 0);
         sample_buffers          : t_stereo_sample_array(0 to N_VOICES - 1);
         mipmap_address          : t_mipmap_address; -- Increment to get successive input samples.
         coeff_base_address      : unsigned(POLY_M_LOG2 - 2 downto 0); -- Concatenated with coeff_counter gives the coeff memory address.
         table2dma               : t_table2dma;
+        prev_phase              : t_osc_phase_array(0 to N_VOICES - 1);
 
         -- Writeback pipeline registers (9 cycles).
         sample_counter          : t_sample_counter_array;  -- Count the two output samples plus one for pipeline winddown.
@@ -92,10 +96,13 @@ architecture arch of table_interpolator is
         osc_counter_next        => 0,
         sample_counter_next     => 0,
         output_samples          => (others => (others => (others => '0'))),
+        new_period              => (others => '0'),
+        new_period_buffer       => (others => '0'),
         sample_buffers  	    => (others => (others => (others => '0'))),
         mipmap_address          => (others => '0'),
         coeff_base_address      => (others => '0'),
         table2dma               => (ack => '0'),
+        prev_phase              => (others => (others => '0')),
         sample_counter          => (others => 0),
         osc_counter             => (others => 0),
         writeback               => (others => '0'),
@@ -237,10 +244,11 @@ begin
     );
 
     -- Output connections.
-    output_samples <= r.output_samples;
-    overflow <= r.overflow;
-    timeout <= r.timeout;
-    table2dma <= r.table2dma;
+    output_samples  <= r.output_samples;
+    overflow        <= r.overflow;
+    timeout         <= r.timeout;
+    table2dma       <= r.table2dma;
+    new_period      <= r.new_period;
 
     combinatorial : process (r, osc_inputs, addrgen_input, next_sample, dma2table, frame_control,
                              s_frame_interp_p, s_coeff_interp_p, s_macc_p,
@@ -263,7 +271,7 @@ begin
         r_in <= r;
 
         r_in.table2dma.ack <= '0';
-        r_in.writeback(0) <= '0';
+        r_in.writeback(0)  <= '0';
         r_in.zero_coeff(0) <= '0';
 
         s_frame_interp_a <= (others => '0');
@@ -277,12 +285,12 @@ begin
         s_coeff_interp_d <= (others => '0');
 
         s_macc_sel <= (others => '0');
-        s_macc_a <= (others => '0');
-        s_macc_b <= (others => '0');
+        s_macc_a   <= (others => '0');
+        s_macc_b   <= (others => '0');
 
-        s_wave_address_a <= (others => '0');
-        s_wave_address_b <= (others => '0');
-        s_coeff_odd_addra <= (others => '0');
+        s_wave_address_a   <= (others => '0');
+        s_wave_address_b   <= (others => '0');
+        s_coeff_odd_addra  <= (others => '0');
         s_coeff_even_addra <= (others => '0');
 
         s_frame_index_a <= (others => 0);
@@ -353,6 +361,7 @@ begin
 
                 -- Load new output samples from buffer.
                 r_in.output_samples <= r.sample_buffers;
+                r_in.new_period <= r.new_period_buffer;
 
                 r_in.sample_counter(0) <= 0;
                 r_in.sample_counter_next <= 0;
@@ -364,7 +373,18 @@ begin
             end if;
 
         -- Start new cycle
-        elsif r.state = init then
+        elsif r.state = init then 
+
+            -- Check for phase overflow and assert new_period flag.
+            for i in 0 to N_VOICES - 1 loop
+                if addrgen_input(i).phase(0) < r.prev_phase(i) then 
+                    r_in.new_period_buffer(i) <= '1';
+                else 
+                    r_in.new_period_buffer(i) <= '0';
+                end if;
+                r_in.prev_phase(i) <= addrgen_input(i).phase(0);
+            end loop;
+
             r_in.odd_phase(0) <= v_odd_phase_0;
             r_in.phase_position(0) <= addrgen_input(0).phase(0)(OSC_COEFF_FRAC + v_level - 1 downto v_level);
             r_in.mipmap_address <= addrgen_input(0).mipmap_address(0);
@@ -568,6 +588,7 @@ begin
                 r_in.state <= idle;
             end if;
         end if;
+
 
     end process;
 

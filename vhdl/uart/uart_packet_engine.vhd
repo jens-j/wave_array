@@ -37,7 +37,14 @@ entity uart_packet_engine is
         -- HK fifo interface.
         hk_write_enable         : in  std_logic;
         hk_data                 : in  std_logic_vector(15 downto 0);
-        hk_full                 : out std_logic
+        hk_full                 : out std_logic;
+
+        -- Waveform fifo interface.
+        wave_write_enable       : in  std_logic;
+        wave_data               : in  std_logic_vector(15 downto 0);
+        wave_full               : out std_logic;
+
+        debug_flags             : out std_logic_vector(3 downto 0)
     );
 end entity;
 
@@ -49,7 +56,7 @@ architecture arch of uart_packet_engine is
     type t_state is (idle, read_word, read_reg_0, read_reg_1, read_reg_2,
         read_reg_3, write_reg_0, write_reg_1, write_reg_2, read_block_0, read_block_1, read_block_2,
         read_block_3, write_block_0, write_block_1, write_block_2, write_block_3,
-        offload_hk);
+        offload_hk, offload_wave_0, offload_wave_1, offload_wave_2, offload_wave_3, offload_wave_4);
 
     type t_packet_engine_reg is record
         state                   : t_state;
@@ -69,6 +76,8 @@ architecture arch of uart_packet_engine is
         watchdog                : unsigned(WDT_WIDTH downto 0);
         uart_count              : integer range 0 to 2**16 - 1;
         hk_count                : integer range 0 to HK_PACKET_BYTES - 1;
+        wave_count              : integer range 0 to 2**CTRL_SIZE - 1;
+        length_lsb              : std_logic_vector(7 downto 0);
     end record;
 
     constant REG_INIT : t_packet_engine_reg := (
@@ -88,7 +97,9 @@ architecture arch of uart_packet_engine is
         address                 => (others => '0'),
         watchdog                => (others => '0'),
         uart_count              => 0,
-        hk_count                => 0
+        hk_count                => 0,
+        wave_count              => 0,
+        length_lsb              => (others => '0')
     );
 
     signal r, r_in              : t_packet_engine_reg;
@@ -97,18 +108,27 @@ architecture arch of uart_packet_engine is
     signal s_s2u_fifo_wr_en     : std_logic;
     signal s_s2u_fifo_rd_en     : std_logic;
     signal s_s2u_fifo_dout      : std_logic_vector(7 downto 0);
+    signal s_s2u_fifo_full      : std_logic;
     signal s_s2u_fifo_empty     : std_logic;
     signal s_s2u_fifo_rd_count  : std_logic_vector(10 downto 0);
 
     signal s_hk2u_fifo_rd_en    : std_logic;
     signal s_hk2u_fifo_dout     : std_logic_vector(7 downto 0);
+    signal s_hk2u_fifo_full     : std_logic;
     signal s_hk2u_fifo_empty    : std_logic;
     signal s_hk2u_fifo_rd_count : std_logic_vector(10 downto 0);
+
+    signal s_wave2u_fifo_rd_en  : std_logic;
+    signal s_wave2u_fifo_dout   : std_logic_vector(7 downto 0);
+    signal s_wave2u_fifo_full   : std_logic;
+    signal s_wave2u_fifo_empty  : std_logic;
+    signal s_wave2u_fifo_rd_count : std_logic_vector(12 downto 0);
 
     signal s_u2s_fifo_din       : std_logic_vector(7 downto 0);
     signal s_u2s_fifo_wr_en     : std_logic;
     signal s_u2s_fifo_rd_en     : std_logic;
     signal s_u2s_fifo_dout      : std_logic_vector(15 downto 0);
+    signal s_u2s_fifo_full      : std_logic;
     signal s_u2s_fifo_empty     : std_logic;
     signal s_u2s_fifo_rd_count  : std_logic_vector(9 downto 0);
 
@@ -116,7 +136,12 @@ architecture arch of uart_packet_engine is
 
 begin
 
-    -- 16 bit to 8 bit fifo to buffer HK data.
+    hk_full <= s_hk2u_fifo_full;
+    wave_full <= s_wave2u_fifo_full;
+
+    debug_flags <= s_s2u_fifo_full & s_u2s_fifo_full & s_hk2u_fifo_full & s_wave2u_fifo_full;
+
+    -- 16 bit to 8 bit fifo to buffer HK data (1024 words).
     hk_uart_fifo : entity xil_defaultlib.sdram_uart_fifo_gen
     port map (
         rst                     => reset,
@@ -126,12 +151,26 @@ begin
         wr_en                   => hk_write_enable,
         rd_en                   => s_hk2u_fifo_rd_en,
         dout                    => s_hk2u_fifo_dout,
-        full                    => hk_full,
+        full                    => s_hk2u_fifo_full,
         empty                   => s_hk2u_fifo_empty,
         rd_data_count           => s_hk2u_fifo_rd_count
     );
 
-    -- 16 bit to 8 bit fifo to buffer SDRAM block data.
+    -- 16 bit to 8 bit fifo to buffer wave data (2048 words).
+    wave_uart_fifo : entity xil_defaultlib.wave_uart_fifo_gen
+    port map (
+        srst                    => reset,
+        clk                     => clk,
+        din                     => wave_data,
+        wr_en                   => wave_write_enable,
+        rd_en                   => s_wave2u_fifo_rd_en,
+        dout                    => s_wave2u_fifo_dout,
+        full                    => s_wave2u_fifo_full,
+        empty                   => s_wave2u_fifo_empty,
+        rd_data_count           => s_wave2u_fifo_rd_count
+    );
+
+    -- 16 bit to 8 bit fifo to buffer SDRAM block data (1024 words).
     sdram_uart_fifo : entity xil_defaultlib.sdram_uart_fifo_gen
     port map (
         rst                     => reset,
@@ -141,12 +180,12 @@ begin
         wr_en                   => s_s2u_fifo_wr_en,
         rd_en                   => s_s2u_fifo_rd_en,
         dout                    => s_s2u_fifo_dout,
-        full                    => open,
+        full                    => s_s2u_fifo_full,
         empty                   => s_s2u_fifo_empty,
         rd_data_count           => s_s2u_fifo_rd_count
     );
 
-    -- 8 to 16 bit fifo to buffer UART write data.
+    -- 8 to 16 bit fifo to buffer UART write data (1024 words).
     uart_sdram_fifo : entity xil_defaultlib.uart_sdram_fifo_gen
     port map (
         rst                     => reset,
@@ -156,7 +195,7 @@ begin
         wr_en                   => s_u2s_fifo_wr_en,
         rd_en                   => s_u2s_fifo_rd_en,
         dout                    => s_u2s_fifo_dout,
-        full                    => open,
+        full                    => s_u2s_fifo_full,
         empty                   => s_u2s_fifo_empty,
         rd_data_count           => s_u2s_fifo_rd_count
     );
@@ -176,7 +215,8 @@ begin
     s_u2s_fifo_rd_en <= sdram_output.write_req or sdram_output.done;
 
     comb_process : process (r, rx_empty, rx_data, register_output, sdram_output, s_s2u_fifo_dout,
-        s_s2u_fifo_empty, s_u2s_fifo_rd_count, s_s2u_fifo_rd_count, s_hk2u_fifo_rd_count, s_hk2u_fifo_dout)
+        s_s2u_fifo_empty, s_u2s_fifo_rd_count, s_s2u_fifo_rd_count, 
+        s_hk2u_fifo_rd_count, s_hk2u_fifo_dout, s_wave2u_fifo_rd_count, s_wave2u_fifo_dout, s_wave2u_fifo_empty)
 
     begin
 
@@ -197,6 +237,7 @@ begin
         s_s2u_fifo_din <= sdram_output.read_data;
         s_u2s_fifo_din <= rx_data;
         s_hk2u_fifo_rd_en <= '0';
+        s_wave2u_fifo_rd_en <= '0';
 
         -- This output is not registered to avoid a delay cycle when reading bytes from the fifo.
         rx_read_enable <= '0';
@@ -235,6 +276,66 @@ begin
             elsif to_integer(unsigned(s_hk2u_fifo_rd_count)) >= HK_PACKET_BYTES then
                 r_in.hk_count <= 0;
                 r_in.state <= offload_hk;
+
+            elsif s_wave2u_fifo_empty = '0' then
+                r_in.state <= offload_wave_0;
+            end if;
+
+        -- Write opcode to UART.
+        elsif r.state = offload_wave_0 then 
+
+            if s_wave2u_fifo_empty = '0' then
+                r_in.tx_write_enable <= '1';
+                r_in.tx_data <= s_wave2u_fifo_dout;
+                s_wave2u_fifo_rd_en <= '1';
+                r_in.state <= offload_wave_1;
+            end if;
+
+        -- Write channel to UART.
+        elsif r.state = offload_wave_1 then 
+
+            if s_wave2u_fifo_empty = '0' then
+                r_in.tx_write_enable <= '1';
+                r_in.tx_data <= s_wave2u_fifo_dout;
+                s_wave2u_fifo_rd_en <= '1';
+                r_in.state <= offload_wave_2;
+            end if;
+
+        -- Write lsb byte of packet data length to UART.
+        elsif r.state = offload_wave_2 then 
+
+            if s_wave2u_fifo_empty = '0' then
+                r_in.tx_write_enable <= '1';
+                r_in.tx_data <= s_wave2u_fifo_dout;
+                r_in.length_lsb <= s_wave2u_fifo_dout;
+                s_wave2u_fifo_rd_en <= '1';
+                r_in.state <= offload_wave_3;
+            end if;
+
+        -- Write msb and calculate length.
+        elsif r.state = offload_wave_3 then 
+
+            if s_wave2u_fifo_empty = '0' then
+                r_in.tx_write_enable <= '1';
+                r_in.tx_data <= s_wave2u_fifo_dout;
+                s_wave2u_fifo_rd_en <= '1';
+                r_in.wave_count <= 2 * to_integer(unsigned(s_wave2u_fifo_dout) & unsigned(r.length_lsb)); -- Convert from words to bytes.
+                r_in.state <= offload_wave_4;
+            end if;
+
+        -- Write packet data bytes.
+        elsif r.state = offload_wave_4 then 
+
+            if s_wave2u_fifo_empty = '0' then
+                r_in.tx_write_enable <= '1';
+                r_in.tx_data <= s_wave2u_fifo_dout;
+                s_wave2u_fifo_rd_en <= '1';
+
+                if r.wave_count > 1 then 
+                    r_in.wave_count <= r.wave_count - 1;
+                else 
+                    r_in.state <= idle;
+                end if;
             end if;
 
         -- Write a hk packet from the hk fifo to the uart tx fifo.

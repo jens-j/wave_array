@@ -25,7 +25,8 @@ entity synth_subsystem is
         sdram_input             : out t_sdram_input;
         envelope_active         : out std_logic_vector(N_VOICES - 1 downto 0);
         mod_sources             : out t_mods_array;
-        mod_destinations        : out t_modd_array
+        mod_destinations        : out t_modd_array;
+        new_period              : out std_logic_vector(N_VOICES - 1 downto 0) -- High in first cycle of waveform period.
     );
 end entity;
 
@@ -102,6 +103,7 @@ begin
         table2dma               => s_table2dma(0),
         frame_control           => s_mod_destinations(2),
         output_samples          => s_osc_samples,
+        new_period              => new_period,
         addrgen_output          => addrgen_output
     );
 

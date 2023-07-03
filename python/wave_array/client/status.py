@@ -37,8 +37,12 @@ class Status:
         # Skip header.
         data = self.packet[4:]
 
-        self.voice_enabled = [bool(data[0] & (0x0001 << i)) for i in range(0, self.client.n_voices)]
-        self.voice_active = [bool(data[1] & (0x0001 << i)) for i in range(0, self.client.n_voices)]
+        # self.voice_enabled = [bool(data[0] & (0x0001 << i)) for i in range(0, self.client.n_voices)]
+        # self.voice_active = [bool(data[1] & (0x0001 << i)) for i in range(0, self.client.n_voices)]
+
+        self.voice_enabled = struct.unpack('<h', data[0:2])[0]
+        self.voice_active = struct.unpack('<h', data[2:4])[0]
+
         self.mod_sources = {}
         self.mod_destinations = {}
 

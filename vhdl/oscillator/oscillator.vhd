@@ -19,6 +19,7 @@ entity oscillator is
         table2dma               : out t_table2dma;
         frame_control           : in  t_ctrl_value_array(0 to N_VOICES - 1);
         output_samples          : out t_mono_sample_array(0 to N_VOICES - 1);
+        new_period              : out std_logic_vector(N_VOICES - 1 downto 0); -- High in first cycle of waveform period.
         addrgen_output          : out t_addrgen2table_array(0 to N_VOICES - 1) -- Debug output
     );
 end entity;
@@ -58,6 +59,7 @@ begin
         frame_control           => frame_control,
         addrgen_input           => s_addrgen2table,
         output_samples          => s_intermediate_samples,
+        new_period              => new_period,
         overflow                => s_overflow,
         timeout                 => s_timeout
     );

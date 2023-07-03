@@ -147,16 +147,28 @@ package wave_array_pkg is
     constant HK_DATA_WIDTH          : integer := 16 * HK_DATA_WORDS;                   -- Length of status record as vector of 16 bit words.
     constant HK_PACKET_WIDTH        : integer := 8 * HK_PACKET_BYTES;                  -- Length of HK_DATA_WIDTH + auto offload header.
 
+    -- Wave packet constants.
+    constant WAVE_MAX_WORDS_LOG2    : integer := 11;
+    constant WAVE_MAX_WORDS         : integer := 2**WAVE_MAX_WORDS_LOG2;
+
     -- Register addresses.
-    constant REG_RESET              : unsigned := x"0000000"; -- wo 1 bit           | Soft reset.
+    constant REG_RESET              : unsigned := x"0000000"; -- wo 1 bit           | Software reset.
     constant REG_FAULT              : unsigned := x"0000001"; -- rw 16 bit          | Fault flags.
     constant REG_LED                : unsigned := x"0000002"; -- rw 1 bit           | On-board led register.
     constant REG_VOICES             : unsigned := x"0000003"; -- ro 16 bit unsigned | Number of voices.
 
+    constant REG_DBG_WAVE_STATE_OFFLOAD : unsigned := x"0000100"; -- ro 16 bit          | Wave offload state.
+    constant REG_DBG_WAVE_STATE_SAMPLE  : unsigned := x"0000101"; -- ro 16 bit          | Wave sample state.
+    constant REG_DBG_WAVE_FIFO          : unsigned := x"0000102"; -- ro 11 bit unsigned | Wave offload fifo count.
+    constant REG_DBG_WAVE_TIMER         : unsigned := x"0000103"; -- ro 16 bit unsigned | Wave offload timer value.
+    constant REG_DBG_WAVE_FLAGS         : unsigned := x"0000104"; -- ro 11 bit          | Wave offload wave_req & wave_ready flags.    
+    constant REG_DBG_UART_FLAGS         : unsigned := x"0000110"; -- ro 11 bit          | Wave offload wave_req & wave_ready flags.    
+    constant REG_DBG_NEW_PERIOD         : unsigned := x"0000120"; -- rw  4 bit          | New_period sticky bits, write to clear.    
+
     constant REG_TABLE_BASE_L       : unsigned := x"0000200"; -- rw 16 bit unsigned | Bit 15 downto 0 of the wavetable base SDRAM address.
-    constant REG_TABLE_BASE_H       : unsigned := x"0000201"; -- rw 7 bit  unsigned | Bit 22 downto 16 of the wavetable base SDRAM address.
-    constant REG_TABLE_FRAMES       : unsigned := x"0000202"; -- rw 4 bit  unsigned | Log2 of the number of frames in the wavetable. Cannot be > WAVE_MAX_FRAMES_LOG2.
-    constant REG_TABLE_NEW          : unsigned := x"0000203"; -- wo 1 bit           | Writing to this register triggers initialization of the wavetable BRAMS.
+    constant REG_TABLE_BASE_H       : unsigned := x"0000201"; -- rw  7 bit unsigned | Bit 22 downto 16 of the wavetable base SDRAM address.
+    constant REG_TABLE_FRAMES       : unsigned := x"0000202"; -- rw  4 bit unsigned | Log2 of the number of frames in the wavetable. Cannot be > WAVE_MAX_FRAMES_LOG2.
+    constant REG_TABLE_NEW          : unsigned := x"0000203"; -- wo  1 bit          | Writing to this register triggers initialization of the wavetable BRAMS.
 
     constant REG_FRAME_CTRL         : unsigned := x"0000300"; -- wo 15 bit unsigned | Frame control base value.   
 
@@ -178,6 +190,9 @@ package wave_array_pkg is
 
     constant REG_HK_ENABLE          : unsigned := x"0000900"; -- rw  1 bit          | Write '1' to enable HK.
     constant REG_HK_PERIOD          : unsigned := x"0000901"; -- rw 16 bit unsigned | HK update period in steps of 1024 cycles (~10 us).
+
+    constant REG_WAVE_ENABLE        : unsigned := x"0000902"; -- rw  1 bit          | Write '1' to enable wave offload.
+    constant REG_WAVE_PERIOD        : unsigned := x"0000903"; -- rw 16 bit unsigned | Wave offoad update period in steps of 1024 cycles (~10 us).
 
     constant REG_MOD_MAP_BASE       : unsigned := x"0001000"; -- Mod mapping starts here. Ordered major to minor, [destination, source (address, value)]
     constant REG_MOD_DEST_BASE      : unsigned := x"0002000"; -- ro 16 bit signed   | Modulation desinations start here. Ordered major to minor, [destination, voice].
@@ -274,6 +289,8 @@ package wave_array_pkg is
         mod_mapping             : t_mod_mapping_2d_array;
         hk_enable               : std_logic;
         hk_period               : unsigned(CTRL_SIZE - 1 downto 0); -- Housekeeping update period in steps of 1024 cycles (~10 ms).
+        wave_enable             : std_logic;
+        wave_period             : unsigned(CTRL_SIZE - 1 downto 0); -- Housekeeping update period in steps of 1024 cycles (~10 ms).
         lfo_wave_select         : integer range 0 to LFO_N_WAVEFORMS - 1;
         filter_select           : integer range 0 to 4;
         lfo_velocity            : t_ctrl_value;
@@ -291,6 +308,12 @@ package wave_array_pkg is
         pot_value               : std_logic_vector(ADC_SAMPLE_SIZE - 1 downto 0);
         mod_sources             : t_mods_array;
         mod_destinations        : t_modd_array;
+        debug_wave_state_offload: integer;
+        debug_wave_state_sample : integer;
+        debug_wave_fifo_count   : integer range 0 to 2047;
+        debug_wave_timer        : std_logic_vector(15 downto 0); -- Only 16 lsb.
+        debug_wave_flags        : std_logic_vector(5 downto 0); -- Flags: wave_req & wave_ready & fifo_empty & fifo_full.
+        debug_uart_flags        : std_logic_vector(3 downto 0); -- Fifo full flags: sdram2uart & uart2sdram & hk & wave.
     end record;
 
     type t_osc_input is record
@@ -379,6 +402,8 @@ package wave_array_pkg is
         mod_mapping             => (others => (others => MOD_MAPPING_INIT)),
         hk_enable               => '0',
         hk_period               => x"078f", -- 1935 ~= 20 ms => 50 Hz.
+        wave_enable             => '0',
+        wave_period             => x"078f", -- 1935 ~= 20 ms => 50 Hz.
         lfo_wave_select         => 0,
         lfo_velocity            => (others => '0'),
         filter_select           => 0, -- Lowpass

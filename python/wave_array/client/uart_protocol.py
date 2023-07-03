@@ -10,8 +10,8 @@ class UartProtocol:
 
     logger = logging.getLogger('UartProtocol')
 
-    def __init__(self, port, baudrate, ao_callback):
-        self.uart = Uart(port, baudrate, ao_callback)
+    def __init__(self, port, baudrate, ao_callback, wave_callback):
+        self.uart = Uart(port, baudrate, ao_callback, wave_callback)
 
     
     def stop(self):

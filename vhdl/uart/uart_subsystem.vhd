@@ -28,9 +28,16 @@ entity uart_subsystem is
         hk_data                 : in  std_logic_vector(15 downto 0);
         hk_full                 : out std_logic;
 
+        -- Waveform fifo interface.
+        wave_write_enable       : in  std_logic;
+        wave_data               : in  std_logic_vector(15 downto 0);
+        wave_full               : out std_logic;
+
         -- UART ports.
         UART_RX                 : in  std_logic;
-        UART_TX                 : out std_logic
+        UART_TX                 : out std_logic;
+
+        debug_flags             : out std_logic_vector(3 downto 0)
     );
 end entity;
 
@@ -74,7 +81,11 @@ begin
         sdram_output            => sdram_output,
         hk_write_enable         => hk_write_enable,
         hk_data                 => hk_data,
-        hk_full                 => hk_full
+        hk_full                 => hk_full,
+        wave_write_enable       => wave_write_enable,
+        wave_data               => wave_data,
+        wave_full               => wave_full,
+        debug_flags             => debug_flags
     );
 
 

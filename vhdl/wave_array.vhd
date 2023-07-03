@@ -71,6 +71,7 @@ architecture arch of wave_array is
     signal s_next_sample        : std_logic;
     signal s_voices             : t_voice_array(0 to N_VOICES - 1);
     signal s_midi_status_byte   : t_byte;
+    signal s_lowest_voice       : integer range 0 to N_VOICES - 1;
     signal s_pot_value          : std_logic_vector(ADC_SAMPLE_SIZE - 1 downto 0);
     signal s_sample             : t_stereo_sample;
     signal s_display_data       : std_logic_vector(31 downto 0);
@@ -97,6 +98,18 @@ architecture arch of wave_array is
     signal s_hk_write_enable    : std_logic;
     signal s_hk_data            : std_logic_vector(15 downto 0);
     signal s_hk_full            : std_logic;
+
+    signal s_wave_write_enable  : std_logic;
+    signal s_wave_data          : std_logic_vector(15 downto 0);
+    signal s_wave_full          : std_logic;
+
+    signal s_new_period         : std_logic_vector(N_VOICES - 1 downto 0);
+    signal s_debug_wave_state_offload : integer;
+    signal s_debug_wave_state_sample : integer;
+    signal s_debug_wave_fifo_count : integer range 0 to 2047;
+    signal s_debug_wave_timer   : std_logic_vector(15 downto 0);
+    signal s_debug_wave_flags   : std_logic_vector(5 downto 0);
+    signal s_debug_uart_flags   : std_logic_vector(3 downto 0);
 
 begin
 
@@ -129,6 +142,13 @@ begin
     s_status.mod_destinations   <= s_mod_destinations;
     s_status.mod_sources        <= s_mod_sources;
 
+    s_status.debug_wave_state_offload <= s_debug_wave_state_offload;
+    s_status.debug_wave_state_sample <= s_debug_wave_state_sample;
+    s_status.debug_wave_fifo_count <= s_debug_wave_fifo_count;
+    s_status.debug_wave_timer   <= s_debug_wave_timer;
+    s_status.debug_wave_flags   <= s_debug_wave_flags;
+    s_status.debug_uart_flags   <= s_debug_uart_flags;
+
     status_gen : for i in 0 to N_VOICES - 1 generate 
         s_status.voice_enabled(i) <= s_voices(i).enable;
         s_status.voice_active(i)  <= s_envelope_active(i);
@@ -153,7 +173,8 @@ begin
         midi_channel            => SWITCHES(3 downto 0),
         envelope_active         => s_envelope_active,
         voices                  => s_voices,
-        status_byte             => s_midi_status_byte
+        status_byte             => s_midi_status_byte,
+        lowest_voice            => s_lowest_voice
     );
 
     uart_subsys : entity uart.uart_subsystem
@@ -167,11 +188,15 @@ begin
         hk_write_enable         => s_hk_write_enable,
         hk_data                 => s_hk_data,
         hk_full                 => s_hk_full,
+        wave_write_enable       => s_wave_write_enable,
+        wave_data               => s_wave_data,
+        wave_full               => s_wave_full,
         UART_RX                 => UART_RX,
-        UART_TX                 => UART_TX
+        UART_TX                 => UART_TX,
+        debug_flags             => s_debug_uart_flags
     );
 
-    auto_offload : entity wave.auto_offload
+    hk_offload : entity wave.hk_offload
     port map (
         clk                     => s_system_clk,
         reset                   => s_reset_ah,
@@ -182,12 +207,32 @@ begin
         hk_full                 => s_hk_full
     );
 
+    wave_offload : entity wave.wave_offload
+    port map (
+        clk                     => s_system_clk,
+        reset                   => s_reset_ah,
+        config                  => s_config,
+        next_sample             => s_next_sample,
+        new_period              => s_new_period,
+        sample_in               => s_sample(0),
+        lowest_voice            => s_lowest_voice,
+        wave_write_enable       => s_wave_write_enable,
+        wave_data               => s_wave_data,
+        wave_full               => s_wave_full,
+        debug_state_offload     => s_debug_wave_state_offload,
+        debug_state_sample      => s_debug_wave_state_sample,
+        debug_fifo_count        => s_debug_wave_fifo_count,
+        debug_timer             => s_debug_wave_timer,
+        debug_flags             => s_debug_wave_flags
+    );
+
     reg_file : entity wave.register_file
     port map (
         clk                     => s_system_clk,
         reset                   => s_reset_ah,
         register_output         => s_register_output,
         register_input          => s_register_input,
+        new_period              => s_new_period,
         status                  => s_status,
         config                  => s_config
     );
@@ -206,7 +251,8 @@ begin
         sdram_output            => s_sdram_outputs(1),
         envelope_active         => s_envelope_active,
         mod_sources             => s_mod_sources,
-        mod_destinations        => s_mod_destinations
+        mod_destinations        => s_mod_destinations,
+        new_period              => s_new_period
     );
 
     i2s_interface : entity i2s.i2s_interface
