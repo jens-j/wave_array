@@ -12,12 +12,17 @@ import pyqtgraph              as pg
 import numpy                  as np
 from PyQt5                    import QtWidgets, uic
 from PyQt5.QtCore             import QSize, QSettings, Qt, QTimer
-from PyQt5.QtWidgets          import QLabel, QApplication, QFileDialog
+from PyQt5.QtWidgets          import QLabel, QApplication, QFileDialog, QVBoxLayout, QRadioButton, QSpacerItem, \
+                                     QSizePolicy, QListWidgetItem
 from PyQt5.QtGui              import QIntValidator
+
 
 from wave_array.client.client import WaveArray
 from wave_array.client.modmap import ModMap, MapException
 from wave_array.client.status import Status
+from wave_array.client.drag_widgets import DragListWidget, DropPlotWidget
+
+
 
 class WaveArrayGui(QtWidgets.QMainWindow):
 
@@ -46,6 +51,8 @@ class WaveArrayGui(QtWidgets.QMainWindow):
         self.frames_log2 = 0
         self.status = Status(self.client)
         self.oscilloscope_samples = np.zeros(100, dtype=np.int16)
+        self.voice_enabled_buttons = []
+        self.voice_active_buttons = []
 
         self.curve_oscilloscope = None
         self.curves_waveform = [None] * self.client.n_voices 
@@ -65,11 +72,14 @@ class WaveArrayGui(QtWidgets.QMainWindow):
         module_path = os.path.dirname(os.path.abspath(__file__))
         ui_path     = os.path.join(module_path, '../../../qt')
         self.ui     = uic.loadUi(os.path.join(ui_path, 'wavearray.ui'))
+        self.generate_voice_ui()
         self.initialize_plots()
 
-        table_path = os.path.join(module_path, '../../../data') 
+        # table_path = os.path.join(module_path, '../../../data') 
         # self.open_wavetable(filename=os.path.join(table_path, 'saw_square.table'))
-        self.open_wavetable(filename=os.path.join(table_path, 'basic.table'))
+        # self.open_wavetable(filename=os.path.join(table_path, 'basic.table'))
+
+        self.load_wavetables()
 
         # Load initial values.
         self.load_config()
@@ -134,6 +144,12 @@ class WaveArrayGui(QtWidgets.QMainWindow):
         # print(f'state sample = {self.client.read(WaveArray.REG_DBG_STATE_WAVE_SAMPLE)}')
         # print(f'state offload = {self.client.read(WaveArray.REG_DBG_STATE_WAVE_OFFLOAD)}')
 
+        # Set voice leds.
+        for i in range(self.client.n_voices):
+            self.voice_enabled_buttons[i].setChecked(bool(self.status.voice_enabled & (1 << i)))
+            self.voice_active_buttons[i].setChecked(bool(self.status.voice_active & (1 << i)))
+
+
         self.curve_oscilloscope.setData(self.oscilloscope_samples)
         
         for i in range(self.client.n_voices):
@@ -155,25 +171,25 @@ class WaveArrayGui(QtWidgets.QMainWindow):
                 (self.curves_mixer[i].getData()[1][1:], [self.status.mod_destinations[WaveArray.MODD_MIXER][i]])))
 
             
-            # Set waveform plot data.
-            if self.frames_log2 == 0:
-                self.curves_waveform[i].setData(self.frames[0])
+            # # Set waveform plot data.
+            # if self.frames_log2 == 0:
+            #     self.curves_waveform[i].setData(self.frames[0])
 
-            # Interpolate between frames 0 and 1.
-            elif self.frames_log2 == 1: 
-                self.curves_waveform[i].setData(self.frames[0]  + np.int16(
-                    self.status.mod_destinations[WaveArray.MODD_FRAME][i] 
-                    * np.int32(self.frames[1] - self.frames[0]) // 2**15))
+            # # Interpolate between frames 0 and 1.
+            # elif self.frames_log2 == 1: 
+            #     self.curves_waveform[i].setData(self.frames[0]  + np.int16(
+            #         self.status.mod_destinations[WaveArray.MODD_FRAME][i] 
+            #         * np.int32(self.frames[1] - self.frames[0]) // 2**15))
 
-            # interpolate between frames a and b.
-            else:
-                index_a = 2**self.frames_log2 * max(0, self.status.mod_destinations[WaveArray.MODD_FRAME][i]) // 2**15 
-                index_b = min(index_a + 1, 2**self.frames_log2 - 1)
-                d = max(0, self.status.mod_destinations[WaveArray.MODD_FRAME][i]) % 2**(15 - self.frames_log2)
-                d_max = 2**(15 - self.frames_log2) - 1
+            # # interpolate between frames a and b.
+            # else:
+            #     index_a = 2**self.frames_log2 * max(0, self.status.mod_destinations[WaveArray.MODD_FRAME][i]) // 2**15 
+            #     index_b = min(index_a + 1, 2**self.frames_log2 - 1)
+            #     d = max(0, self.status.mod_destinations[WaveArray.MODD_FRAME][i]) % 2**(15 - self.frames_log2)
+            #     d_max = 2**(15 - self.frames_log2) - 1
                 
-                self.curves_waveform[i].setData(self.frames[index_a] 
-                    + np.int16(d * np.int32(self.frames[index_b] - self.frames[index_a]) // d_max))      
+            #     self.curves_waveform[i].setData(self.frames[index_a] 
+            #         + np.int16(d * np.int32(self.frames[index_b] - self.frames[index_a]) // d_max))      
 
 
     # Read device settings and update GUI elements accordingly.
@@ -242,6 +258,33 @@ class WaveArrayGui(QtWidgets.QMainWindow):
 
                 btn.setChecked(enable)
 
+       
+    def generate_voice_ui(self):
+
+        for i in range(self.client.n_voices):
+
+            layout = QVBoxLayout()
+            label = QLabel(f'{i}') 
+            label.setStyleSheet("font-weight: normal");
+            label.setAlignment(Qt.AlignCenter)
+            layout.addWidget(label)
+
+            for j in range(2):
+                btn = QRadioButton('')
+                # btn.setCheckable(False)
+                btn.setAutoExclusive(False)
+                btn.setMinimumSize(20, 20)
+                btn.setMaximumSize(20, 20)
+                layout.addWidget(btn)
+
+                if j == 0:
+                    self.voice_enabled_buttons.append(btn)
+                else:
+                    self.voice_active_buttons.append(btn)
+
+            self.ui.group_voices.layout().insertLayout(2, layout, 0) # Skip labels and separator.
+
+        # self.ui.group_voices.layout().addItem(QSpacerItem(20, 40, QSizePolicy.Minimum, QSizePolicy.Expanding))
 
     def initialize_plots(self):
         
@@ -273,9 +316,13 @@ class WaveArrayGui(QtWidgets.QMainWindow):
         self.ui.plot_lfo.setTitle('LFO')
         self.ui.plot_lfo.setYRange(-2**15, 2**15, padding=0)
 
-        self.ui.plot_waveform.setBackground('w')
-        self.ui.plot_waveform.setTitle('waveform')
-        self.ui.plot_waveform.setYRange(-2**15, 2**15, padding=0)
+        self.ui.plot_waveform_0.setBackground('w')
+        self.ui.plot_waveform_0.setTitle('wavetable 0')
+        self.ui.plot_waveform_0.setYRange(-2**15, 2**15, padding=0)
+
+        self.ui.plot_waveform_1.setBackground('w')
+        self.ui.plot_waveform_1.setTitle('wavetable 1')
+        self.ui.plot_waveform_1.setYRange(-2**15, 2**15, padding=0)
 
         self.ui.plot_oscilloscope.setBackground('w')
         self.ui.plot_oscilloscope.setTitle('oscilloscope')
@@ -309,7 +356,7 @@ class WaveArrayGui(QtWidgets.QMainWindow):
             self.curves_mixer[i] = self.ui.plot_mixer.plot(
                 self.curve_x, np.zeros(self.PLOT_SAMPLES), name=f'voice {i}', pen=pen)
 
-            self.curves_waveform[i] = self.ui.plot_waveform.plot(np.zeros(2048), name=f'voice {i}', pen=pen)
+            self.curves_waveform[i] = self.ui.plot_waveform_0.plot(np.zeros(2048), name=f'voice {i}', pen=pen)
 
             if i == self.client.n_voices - 1:
                 self.curve_oscilloscope = self.ui.plot_oscilloscope.plot(np.zeros(100), pen=pen)
@@ -318,6 +365,26 @@ class WaveArrayGui(QtWidgets.QMainWindow):
     def show(self):
         """ Re-implemented from QMainWindow. """
         self.ui.show()
+
+    
+    def load_wavetables(self):
+
+        module_path = os.path.dirname(os.path.abspath(__file__))
+        table_path     = os.path.join(module_path, '../../../data/wavetables')
+
+        for filename in os.listdir(table_path):
+
+            parts = filename.split('.')
+
+            if len(parts) > 2:
+                log.warning(f'Illegal wavetable file name {filename}')
+
+            elif parts[1] != 'table':
+                log.warning(f'Wavetable file name has wrong extension {filename}')
+
+            else:
+                label = QListWidgetItem(parts[0])
+                self.ui.list_tables.addItem(label)
 
     
     def open_wavetable(self, filename=None):
@@ -330,8 +397,6 @@ class WaveArrayGui(QtWidgets.QMainWindow):
             dlg.setDirectory(default_path)
             dlg.setFileMode(QFileDialog.AnyFile)
             # dlg.selectNameFilter("Wavetable files (*.table)")
-
-            print('ok')
             
             if dlg.exec_():
                 filename = dlg.selectedFiles()[0]

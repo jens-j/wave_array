@@ -118,6 +118,7 @@ class Uart:
                     data = self._read_bytes(2 * struct.unpack('<h', length)[0])
                     packet = header + channel + length + data
 
+                    # print('')
                     # print(header)
                     # print(channel)
                     # print(length, struct.unpack('<h', length)[0])

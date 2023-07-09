@@ -35,11 +35,6 @@ class WaveArray:
     REG_DBG_WAVE_FLAGS          = 0x00000104
     REG_DBG_UART_FLAGS          = 0x00000110
 
-    REG_TABLE_BASE_L            = 0x00000200
-    REG_TABLE_BASE_H            = 0x00000201
-    REG_TABLE_FRAMES            = 0x00000202
-    REG_TABLE_NEW               = 0x00000203
-
     REG_FRAME_CTRL              = 0x00000300
 
     REG_POTENTIOMETER           = 0x00000400
@@ -65,6 +60,7 @@ class WaveArray:
 
     REG_MOD_MAP_BASE            = 0x00001000
     REG_MOD_DEST_BASE           = 0x00002000
+    REG_TABLE_BASE              = 0x00003000
 
     def __init__(self, ao_callback, wave_callback, port='COM4'):
         self.dev = UartProtocol(port, 1000_000, ao_callback, wave_callback)
