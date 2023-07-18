@@ -130,7 +130,7 @@ begin
             if r.next_sample = '1' and new_period(lowest_voice) = '1' and r.wave_ready = '0' then 
                 s_fifo_write_enable <= '1';
                 r_in.lowest_voice <= lowest_voice;
-                r_in.sample_count <= 0;
+                r_in.sample_count <= 1;
                 r_in.state_sample <= sample_running; 
             end if; 
 
@@ -158,7 +158,6 @@ begin
             
             if config.wave_enable = '1' and r.wave_req = '1' and r.wave_ready = '1' then 
                 r_in.wave_req <= '0';
-                r_in.wave_ready <= '0';
                 r_in.offload_count <= r.wave_length;
                 r_in.state_offload <= offload_wave_0;
             end if;
@@ -192,6 +191,7 @@ begin
             if r.offload_count > 1 then 
                 r_in.offload_count <= r.offload_count - 1;
             else 
+                r_in.wave_ready <= '0';
                 r_in.state_offload <= offload_idle;
             end if;
         end case;

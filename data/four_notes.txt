@@ -10,7 +10,7 @@ send 96 64 00   # note E7 off using note-off command
 send 95 58 00   # note E6 off using 0 velocity
 send 95 50 00   # note A#6 off using 0 velocity
 
-#wait 1          # wait for 1 ms
+wait 1          # wait for 1 ms
 send 95 50 7F   # note A#6 on with max velocity
 send 95 68 7F   # note G#7 on with max velocity
 wait 5          # wait for 5 ms

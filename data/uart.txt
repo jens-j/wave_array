@@ -17,37 +17,30 @@ write  00000500     4000                        # Write LFO velocity
 # Mod mapping 
 write  00001000     0002                        # Map envelope to filter cutoff 
 write  00001001     4000        
-write  00001010     0003                        # Map lfo to frame
-write  00001011     3FFF 
-write  00001018     0002                        # Map envelope to mixer
-write  00001019     7FFF             
-
-# Housekeeping 
-write  00000901     0040                        # Set high HK rate
-write  00000900     0001                        # Enable HK
-write  00000903     0080                        # Set high oscilloscope rate
-write  00000902     0001                        # Enable oscilloscope    
-
-# Some debug reads 
-read   00000100                                 
-read   00000101                                 
-read   00000102                                 
-read   00000103                                 
-read   00000104                                 
+write  00001010     0002                        # Map envelope to mixer
+write  00001011     7FFF                                  
+write  00001018     0003                        # Map lfo to oscillator 0 frame
+write  00001019     3FFF 
 
 #wait   1000                                     
 #writeb 00000000 00000004 0001000200030004       # write [1,2,3,4] to SDRAM address 0x00000000
 #readb  00000000 00000004                        # read back SDRAM
 #read   00000100                                 # read uart count
 
-#wait   1000
+wait   1000
 writef 00000000 00004000                        # write wavetable to the SDRAM at address 0x0
-write  00000200     0000                        # Write low half of table base address 
-write  00000201     0000                        # Write high half of table base address
-write  00000202     0002                        # write frames_log2
-write  00000203     0001                        # initialize wavetable RAM
+write  00003000     0000                        # Write low half of table base address 
+write  00003001     0000                        # Write high half of table base address
+write  00003002     0002                        # write frames_log2
+write  00003003     0001                        # initialize wavetable RAM
 
 wait   1000 
 read   00000300                                 # read frame index 
 read   00000301                                 # read frame position       
 read   00000302                                 # read wave memory bank index
+
+# Housekeeping 
+write  00000901     0040                        # Set high HK rate
+write  00000900     0001                        # Enable HK
+write  00000903     0040                        # Set high oscilloscope rate
+write  00000902     0001                        # Enable oscilloscope             

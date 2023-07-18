@@ -96,7 +96,6 @@ begin
         elsif r.state = load then
 
             -- Shift samples in the input buffer.
-
             for i in N_VOICES - 1 downto 0 loop
 
                 -- Store the new (odd) samples.
