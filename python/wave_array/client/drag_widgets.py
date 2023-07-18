@@ -31,8 +31,9 @@ class DragListWidget(QListWidget):
 # Pyqtgraph PlotWidget sublass that can handle drops.
 class DropPlotWidget(pg.PlotWidget):
 
-    def __init__(self, parent=None):
+    def __init__(self, gui, parent=None):
         super().__init__(parent)
+        self.callback = None
         self.setAcceptDrops(True)
 
     def dragEnterEvent(self, e):
@@ -44,7 +45,13 @@ class DropPlotWidget(pg.PlotWidget):
     def dragMoveEvent(self, e):
         e.accept()
 
+    def addDropCallback(self, callback):
+        self.callback = callback
+
     def dropEvent(self, e):
         index = self.parent().layout().indexOf(self) - 1 # Skip table list.
-        print(f'{index} <= {e.mimeData().text()}')
+        table_name = e.mimeData().text()
+        print(f'{index} <= {table_name}')
         e.accept()
+
+        self.callback(table_name, index)

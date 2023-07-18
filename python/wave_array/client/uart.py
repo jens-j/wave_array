@@ -31,6 +31,7 @@ class Uart:
     logger = logging.getLogger('Uart')
 
     T_SLEEP = 0.001 # s
+    T_TIMEOUT = 5
 
     def __init__(self, port, baudrate, hk_callback, wave_callback):
 
@@ -66,24 +67,27 @@ class Uart:
         return packet
 
     
-    def _read_bytes(self, amount):
+    def _read_bytes(self, amount, timeout=True):
 
         # self.logger.info(f'_read_bytes({amount})')
 
         b = b''
+        t0 = time.time()
 
-        while True:
+        while (not timeout) or time.time() - t0 < self.T_TIMEOUT:
             b += self.uart.read(size=(amount - len(b)))
             if len(b) >= amount:
                 return b
             time.sleep(0.001)
+
+        raise UartException(f'Read timeout ({b})')
 
 
     def _run(self):
             
         while not self.stop_thread:
             try: 
-                header = self._read_bytes(1) 
+                header = self._read_bytes(1, timeout=False) 
 
                 if len(header) == 0:
                     continue

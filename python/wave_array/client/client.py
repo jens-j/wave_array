@@ -6,22 +6,6 @@ import numpy as np
 
 class WaveArray:
 
-    # Modulation source and destination indices.
-    MODD_CUTOFF                 = 0 
-    MODD_RESONANCE              = 1 
-    MODD_FRAME                  = 2
-    MODD_MIXER                  = 3
-
-    MODS_NONE                   = 0
-    MODS_POT                    = 1
-    MODS_ENVELOPE               = 2
-    MODS_LFO                    = 3
-
-    MODS_LEN                    = 4
-    MODD_LEN                    = 4
-    MODS_LEN_log2               = int(np.ceil(np.log2(MODS_LEN)))
-    MODD_LEN_log2               = int(np.ceil(np.log2(MODD_LEN)))
-
     # Register address map.
     REG_RESET                   = 0x00000000
     REG_FAULT                   = 0x00000001
@@ -61,6 +45,8 @@ class WaveArray:
     REG_MOD_MAP_BASE            = 0x00001000
     REG_MOD_DEST_BASE           = 0x00002000
     REG_TABLE_BASE              = 0x00003000
+    REG_FRAME_CTRL_BASE         = 0x00004000
+    REG_MIX_CTRL_BASE           = 0x00005000
 
     def __init__(self, ao_callback, wave_callback, port='COM4'):
         self.dev = UartProtocol(port, 1000_000, ao_callback, wave_callback)
@@ -98,7 +84,6 @@ class WaveArray:
         return self.read(address)
 
     def write_mod_source(self, destination, index, source):
-        
         address = self.REG_MOD_MAP_BASE + destination * 8 + index * 2
         print(f'mod enable {destination} {index} {source} {address:08X}')
         self.write(address, source)

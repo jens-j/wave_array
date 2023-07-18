@@ -1,3 +1,5 @@
+import logging 
+import numpy                  as np
 
 
 class MapException(Exception):
@@ -11,28 +13,53 @@ class Map:
         self.amount = amount
 
     def __str__(self):
-        return f'{self.source} -> {self.destination}, {self.amount:.6f}'
+        return f'{ModMap.MODS[self.source]} -> {ModMap.MODD[self.destination]}, {self.amount:04X}'
 
 
 class ModMap:
 
+    # Maximum mod sources mapped to the same destination.
     MAX_SOURCES = 4
 
-    # Modulation destinations.
+    # Modulation source and destination indices.
+    MODD_CUTOFF             = 0 
+    MODD_RESONANCE          = 1 
+    MODD_VOLUME             = 2
+    MODD_OSC_0_FRAME        = 3
+    MODD_OSC_1_FRAME        = 4
+    MODD_OSC_0_MIX          = 5
+    MODD_OSC_1_MIX          = 6
+
+    MODS_NONE               = 0
+    MODS_POT                = 1
+    MODS_ENVELOPE           = 2
+    MODS_LFO                = 3
+
+    MODS_LEN                = 4
+    MODD_LEN                = 7
+    MODS_LEN_LOG2           = int(np.ceil(np.log2(MODS_LEN)))
+    MODD_LEN_LOG2           = int(np.ceil(np.log2(MODD_LEN)))
+
+    # Modulation destination strings.
     MODD = {
-        0: 'FILTER_CUTOFF',          
-        1: 'FILTER_RESONANCE',       
-        2: 'OSC_FRAME',              
-        3: 'VOLUME'
+        MODD_CUTOFF         : 'filter_cutoff',          
+        MODD_RESONANCE      : 'filter_resonance',                
+        MODD_VOLUME         : 'mixer_volume',
+        MODD_OSC_0_FRAME    : 'osc_0_frame',     
+        MODD_OSC_1_FRAME    : 'osc_1_frame',     
+        MODD_OSC_0_MIX      : 'osc_0_mix',     
+        MODD_OSC_1_MIX      : 'osc_1_mix'
     }                  
 
-    # Modulation sources.
+    # Modulation source strings.
     MODS = {
-        0: 'NONE',                   
-        1: 'POT',                    
-        2: 'ENVELOPE',                
-        3: 'LFO'                    
+        MODS_NONE           : 'none',                   
+        MODS_POT            : 'pot',                    
+        MODS_ENVELOPE       : 'envelope',                
+        MODS_LFO            : 'lfo'                    
     }
+
+    logger = logging.getLogger()
 
 
     def __init__(self, client):
@@ -82,6 +109,8 @@ class ModMap:
     def get_mapping(self, destination, source):
 
         i = self._find_source(destination, source)
+
+        print(f"get_mapping(destination, source) = {i}")
 
         if i != None:
             amount = self.client.read_mod_amount(source, i)
@@ -138,11 +167,13 @@ class ModMap:
 
         map = {}
         
-        for d in self.MODS.keys():
+        for d in self.MODD.keys():
 
             map[d] = [None] * self.MAX_SOURCES
 
             for i in range(self.MAX_SOURCES):
+
+                print(f'{d} {i}')
 
                 source = self.client.read_mod_source(d, i)
                 amount = self.client.read_mod_amount(d, i)

@@ -13,7 +13,7 @@ import numpy                  as np
 from PyQt5                    import QtWidgets, uic
 from PyQt5.QtCore             import QSize, QSettings, Qt, QTimer
 from PyQt5.QtWidgets          import QLabel, QApplication, QFileDialog, QVBoxLayout, QRadioButton, QSpacerItem, \
-                                     QSizePolicy, QListWidgetItem
+                                     QSizePolicy, QListWidgetItem, QCheckBox
 from PyQt5.QtGui              import QIntValidator
 
 
@@ -53,6 +53,7 @@ class WaveArrayGui(QtWidgets.QMainWindow):
         self.oscilloscope_samples = np.zeros(100, dtype=np.int16)
         self.voice_enabled_buttons = []
         self.voice_active_buttons = []
+        self.mod_layout = None
 
         self.curve_oscilloscope = None
         self.curves_waveform = [None] * self.client.n_voices 
@@ -61,9 +62,13 @@ class WaveArrayGui(QtWidgets.QMainWindow):
         self.curves_envelope = [None] * self.client.n_voices
         self.curves_cutoff = [None] * self.client.n_voices
         self.curves_resonance = [None] * self.client.n_voices
-        self.curves_frame = [None] * self.client.n_voices
+        self.curves_frame_0 = [None] * self.client.n_voices
+        self.curves_frame_1 = [None] * self.client.n_voices
         self.curves_mixer = [None] * self.client.n_voices
         self.curve_x = np.arange(0, self.PLOT_T, self.PLOT_T / self.PLOT_SAMPLES)[::-1] # Constant used for plotting.
+
+        module_path = os.path.dirname(os.path.abspath(__file__))
+        self.table_dir = os.path.join(module_path, '../../../data/wavetables/')
 
         self.t_hk = datetime.now()
         self.t_plot = datetime.now()
@@ -73,6 +78,7 @@ class WaveArrayGui(QtWidgets.QMainWindow):
         ui_path     = os.path.join(module_path, '../../../qt')
         self.ui     = uic.loadUi(os.path.join(ui_path, 'wavearray.ui'))
         self.generate_voice_ui()
+        self.generate_mod_matrix()
         self.initialize_plots()
 
         # table_path = os.path.join(module_path, '../../../data') 
@@ -91,11 +97,13 @@ class WaveArrayGui(QtWidgets.QMainWindow):
         self.ui.box_oscilloscope_rate.valueChanged.connect(self.box_oscilloscope_rate_changed)
         self.ui.btn_reg_read.released.connect(self.btn_reg_read_clicked)
         self.ui.btn_reg_write.released.connect(self.btn_reg_write_clicked)
-        self.ui.action_open_wavetable.triggered.connect(self.open_wavetable)
         self.ui.action_load_config.triggered.connect(self.load_config)
         self.ui.box_filter_select.currentIndexChanged.connect(self.filter_select_changed)
         self.ui.box_lfo_waveform.currentIndexChanged.connect(self.lfo_waveform_changed)
-        self.ui.slider_frame_position.sliderMoved.connect(self.frame_position_changed)
+        self.ui.slider_mix_0_position.sliderMoved.connect(partial(self.mix_amount_changed, 0))
+        self.ui.slider_mix_1_position.sliderMoved.connect(partial(self.mix_amount_changed, 1))
+        self.ui.slider_frame_0_position.sliderMoved.connect(partial(self.frame_position_changed, 0))
+        self.ui.slider_frame_1_position.sliderMoved.connect(partial(self.frame_position_changed, 1))
         self.ui.slider_lfo_velocity.sliderMoved.connect(self.lfo_velocity_changed)
         self.ui.slider_filter_cutoff.sliderMoved.connect(self.filter_cutoff_changed)
         self.ui.slider_filter_resonance.sliderMoved.connect(self.filter_resonance_changed)
@@ -105,10 +113,10 @@ class WaveArrayGui(QtWidgets.QMainWindow):
         self.ui.slider_envelope_release.sliderMoved.connect(self.envelope_release_changed)
         self.ui.slider_mod_amount.sliderMoved.connect(self.set_mod_amount)
         
-        for d in ModMap.MODD.keys():
-            for s in list(ModMap.MODS.keys())[1:]: # Skip MODS_NONE.
-                button = getattr(self.ui, f'btn_mod_{d}_{s}')
-                button.stateChanged.connect(partial(self.mod_button_clicked, d, s))
+        for destination in range(ModMap.MODD_LEN):
+            for source in range(ModMap.MODS_LEN - 1): 
+                button = self.mod_layout.itemAtPosition(destination, source).widget()
+                button.stateChanged.connect(partial(self.mod_button_clicked, destination, source + 1)) # Skip MODS_NONE.
 
         # Status refresh timer.
         self.timer = QTimer(self)
@@ -134,7 +142,6 @@ class WaveArrayGui(QtWidgets.QMainWindow):
 
                     
     def update_plots(self):
-
         
         # t = datetime.now()
 
@@ -155,20 +162,22 @@ class WaveArrayGui(QtWidgets.QMainWindow):
         for i in range(self.client.n_voices):
 
             self.curves_pot[i].setData(self.curve_x, np.concatenate(
-                (self.curves_pot[i].getData()[1][1:], [self.status.mod_sources[WaveArray.MODS_POT][i]])))
+                (self.curves_pot[i].getData()[1][1:], [self.status.mod_sources[ModMap.MODS_POT][i]])))
             self.curves_envelope[i].setData(self.curve_x, np.concatenate(
-                (self.curves_envelope[i].getData()[1][1:], [self.status.mod_sources[WaveArray.MODS_ENVELOPE][i]])))
+                (self.curves_envelope[i].getData()[1][1:], [self.status.mod_sources[ModMap.MODS_ENVELOPE][i]])))
             self.curves_lfo[i].setData(self.curve_x, np.concatenate(
-                (self.curves_lfo[i].getData()[1][1:], [self.status.mod_sources[WaveArray.MODS_LFO][i]])))
+                (self.curves_lfo[i].getData()[1][1:], [self.status.mod_sources[ModMap.MODS_LFO][i]])))
             
             self.curves_cutoff[i].setData(self.curve_x, np.concatenate(
-                (self.curves_cutoff[i].getData()[1][1:], [self.status.mod_destinations[WaveArray.MODD_CUTOFF][i]])))
+                (self.curves_cutoff[i].getData()[1][1:], [self.status.mod_destinations[ModMap.MODD_CUTOFF][i]])))
             self.curves_resonance[i].setData(self.curve_x, np.concatenate(
-                (self.curves_resonance[i].getData()[1][1:], [self.status.mod_destinations[WaveArray.MODD_RESONANCE][i]])))
-            self.curves_frame[i].setData(self.curve_x, np.concatenate(
-                (self.curves_frame[i].getData()[1][1:], [self.status.mod_destinations[WaveArray.MODD_FRAME][i]])))
+                (self.curves_resonance[i].getData()[1][1:], [self.status.mod_destinations[ModMap.MODD_RESONANCE][i]])))
+            self.curves_frame_0[i].setData(self.curve_x, np.concatenate(
+                (self.curves_frame_0[i].getData()[1][1:], [self.status.mod_destinations[ModMap.MODD_OSC_0_FRAME][i]])))
+            self.curves_frame_1[i].setData(self.curve_x, np.concatenate(
+                (self.curves_frame_1[i].getData()[1][1:], [self.status.mod_destinations[ModMap.MODD_OSC_1_FRAME][i]])))
             self.curves_mixer[i].setData(self.curve_x, np.concatenate(
-                (self.curves_mixer[i].getData()[1][1:], [self.status.mod_destinations[WaveArray.MODD_MIXER][i]])))
+                (self.curves_mixer[i].getData()[1][1:], [self.status.mod_destinations[ModMap.MODD_VOLUME][i]])))
 
             
             # # Set waveform plot data.
@@ -178,14 +187,14 @@ class WaveArrayGui(QtWidgets.QMainWindow):
             # # Interpolate between frames 0 and 1.
             # elif self.frames_log2 == 1: 
             #     self.curves_waveform[i].setData(self.frames[0]  + np.int16(
-            #         self.status.mod_destinations[WaveArray.MODD_FRAME][i] 
+            #         self.status.mod_destinations[ModMap.MODD_FRAME][i] 
             #         * np.int32(self.frames[1] - self.frames[0]) // 2**15))
 
             # # interpolate between frames a and b.
             # else:
-            #     index_a = 2**self.frames_log2 * max(0, self.status.mod_destinations[WaveArray.MODD_FRAME][i]) // 2**15 
+            #     index_a = 2**self.frames_log2 * max(0, self.status.mod_destinations[ModMap.MODD_FRAME][i]) // 2**15 
             #     index_b = min(index_a + 1, 2**self.frames_log2 - 1)
-            #     d = max(0, self.status.mod_destinations[WaveArray.MODD_FRAME][i]) % 2**(15 - self.frames_log2)
+            #     d = max(0, self.status.mod_destinations[ModMap.MODD_FRAME][i]) % 2**(15 - self.frames_log2)
             #     d_max = 2**(15 - self.frames_log2) - 1
                 
             #     self.curves_waveform[i].setData(self.frames[index_a] 
@@ -217,13 +226,25 @@ class WaveArrayGui(QtWidgets.QMainWindow):
         self.ui.box_lfo_waveform.setCurrentIndex(index)
 
         # Initialize sliders.
-        position = self.client.read(WaveArray.REG_FRAME_CTRL)
-        self.ui.slider_frame_position.setValue(position)
-        self.ui.lbl_position.setText(f'0x{position:04X}')
+        amount = self.client.read(WaveArray.REG_MIX_CTRL_BASE)
+        self.ui.slider_mix_0_position.setValue(amount)
+        self.ui.lbl_mix_0.setText(f'0x{amount:04X}')
+
+        amount = self.client.read(WaveArray.REG_MIX_CTRL_BASE + 1)
+        self.ui.slider_mix_1_position.setValue(amount)
+        self.ui.lbl_mix_1.setText(f'0x{amount:04X}')
+
+        position = self.client.read(WaveArray.REG_FRAME_CTRL_BASE)
+        self.ui.slider_frame_0_position.setValue(position)
+        self.ui.lbl_position_0.setText(f'0x{position:04X}')
+
+        position = self.client.read(WaveArray.REG_FRAME_CTRL_BASE + 1)
+        self.ui.slider_frame_1_position.setValue(position)
+        self.ui.lbl_position_1.setText(f'0x{position:04X}')
 
         velocity = self.client.read(WaveArray.REG_LFO_VELOCITY)
         self.ui.slider_lfo_velocity.setValue(velocity)
-        self.ui.lbl_position.setText(f'0x{velocity:04X}')
+        self.ui.lbl_velocity.setText(f'0x{velocity:04X}')
 
         cutoff = self.client.read(WaveArray.REG_FILTER_CUTOFF)
         self.ui.slider_filter_cutoff.setValue(cutoff)
@@ -249,14 +270,11 @@ class WaveArrayGui(QtWidgets.QMainWindow):
         self.ui.slider_envelope_release.setValue(release)  
         self.ui.lbl_release.setText(f'0x{release:04X}')
 
-        # initialize mod matrix. 
-        for d in range(len(ModMap.MODD)):
-            for s in range(1, len(ModMap.MODS)):
-
-                enable, amount = self.modmap.get_mapping(d, s)
-                btn = getattr(self.ui, f'btn_mod_{d}_{s}')
-
-                btn.setChecked(enable)
+        for destination in range(ModMap.MODD_LEN):
+            for source in range(1, ModMap.MODS_LEN):
+                box = self.mod_layout.itemAtPosition(destination, source - 1).widget()
+                enable, amount = self.modmap.get_mapping(destination, source)
+                box.setChecked(enable)
 
        
     def generate_voice_ui(self):
@@ -286,7 +304,21 @@ class WaveArrayGui(QtWidgets.QMainWindow):
 
         # self.ui.group_voices.layout().addItem(QSpacerItem(20, 40, QSizePolicy.Minimum, QSizePolicy.Expanding))
 
+    def generate_mod_matrix(self):
+
+        self.mod_layout = self.ui.group_mod_matrix.layout().children()[1].children()[-1] # .layout_matrix_col.layout_mod_matrix
+
+        for destination in range(ModMap.MODD_LEN):
+            for source in range(ModMap.MODS_LEN - 1):
+                box = QCheckBox('')
+                self.mod_layout.addWidget(box, destination, source)
+
+
     def initialize_plots(self):
+
+        # Add callback to wavetable write when a table is dropped on the oscillator plots.
+        self.ui.plot_waveform_0.addDropCallback(self.write_wavetable)
+        self.ui.plot_waveform_1.addDropCallback(self.write_wavetable)
         
         self.ui.plot_cutoff.setBackground('w')
         self.ui.plot_cutoff.setTitle('filter cutoff')
@@ -296,9 +328,13 @@ class WaveArrayGui(QtWidgets.QMainWindow):
         self.ui.plot_resonance.setTitle('filter resonance')
         self.ui.plot_resonance.setYRange(0, 2**15, padding=0)
 
-        self.ui.plot_frame.setBackground('w')
-        self.ui.plot_frame.setTitle('wavetable frame')
-        self.ui.plot_frame.setYRange(0, 2**15, padding=0)
+        self.ui.plot_frame_0.setBackground('w')
+        self.ui.plot_frame_0.setTitle('wavetable frame')
+        self.ui.plot_frame_0.setYRange(0, 2**15, padding=0)
+
+        self.ui.plot_frame_1.setBackground('w')
+        self.ui.plot_frame_1.setTitle('wavetable frame')
+        self.ui.plot_frame_1.setYRange(0, 2**15, padding=0)
 
         self.ui.plot_mixer.setBackground('w')
         self.ui.plot_mixer.setTitle('mixer')
@@ -350,7 +386,10 @@ class WaveArrayGui(QtWidgets.QMainWindow):
             self.curves_resonance[i] = self.ui.plot_resonance.plot(
                 self.curve_x, np.zeros(self.PLOT_SAMPLES), name=f'voice {i}', pen=pen)
 
-            self.curves_frame[i] = self.ui.plot_frame.plot(
+            self.curves_frame_0[i] = self.ui.plot_frame_0.plot(
+                self.curve_x, np.zeros(self.PLOT_SAMPLES), name=f'voice {i}', pen=pen)
+
+            self.curves_frame_1[i] = self.ui.plot_frame_1.plot(
                 self.curve_x, np.zeros(self.PLOT_SAMPLES), name=f'voice {i}', pen=pen)
 
             self.curves_mixer[i] = self.ui.plot_mixer.plot(
@@ -372,7 +411,7 @@ class WaveArrayGui(QtWidgets.QMainWindow):
         module_path = os.path.dirname(os.path.abspath(__file__))
         table_path     = os.path.join(module_path, '../../../data/wavetables')
 
-        for filename in os.listdir(table_path):
+        for filename in os.listdir(self.table_dir):
 
             parts = filename.split('.')
 
@@ -386,51 +425,34 @@ class WaveArrayGui(QtWidgets.QMainWindow):
                 label = QListWidgetItem(parts[0])
                 self.ui.list_tables.addItem(label)
 
-    
-    def open_wavetable(self, filename=None):
 
-        # This does not work well toghether.
-        # self.auto_offload_enable = False
+    # Write a wavetable to the SDRAM. Currently only one wavetable is stored per oscillator.
+    def write_wavetable(self, table_name, index):
 
-        if filename == None:
-            dlg = QFileDialog()
-            dlg.setDirectory(default_path)
-            dlg.setFileMode(QFileDialog.AnyFile)
-            # dlg.selectNameFilter("Wavetable files (*.table)")
-            
-            if dlg.exec_():
-                filename = dlg.selectedFiles()[0]
+        filepath = self.table_dir + table_name + '.table'
 
-        with open(filename, 'r') as f:
+        with open(filepath, 'r') as f:
             raw_data = f.read().split('\n')
 
         raw_data = list(filter(lambda x: x != '', raw_data))
         data = np.array([int(x, 16) for x in raw_data]).astype('int16')
+        frames_log2 = np.uint16(np.log2(len(data) / 4096))
+        address = 0x0000_0000 if index == 0 else 0x0000_4000
+        offset = 0 if index == 0 else 4
 
         # Write table to sdram.
         self.client.write_sdram(0, data)
 
         # Update table registers.
-        self.frames_log2 = np.uint16(np.log2(len(data) / 4096))
-        self.client.write(WaveArray.REG_TABLE_BASE_H, 0x0000)
-        self.client.write(WaveArray.REG_TABLE_BASE_L, 0x0000)
-        self.client.write(WaveArray.REG_TABLE_FRAMES, self.frames_log2)
-        self.client.write(WaveArray.REG_TABLE_NEW, 0x0001)
-
-        # Update n_frames in gui.
-        self.ui.lbl_frames.setText(f'{2**self.frames_log2}')
-
-        # Store L0 table of each frame to display. Reduce samplerate by 8.
-        for i in range(2**self.frames_log2):
-            base = 4096 * i
-            self.frames[i] = data[base:base + 2048]
-
-        # self.auto_offload_enable = True
+        self.client.write(WaveArray.REG_TABLE_BASE + offset    , (address >> 16) & 0xFFFF)
+        self.client.write(WaveArray.REG_TABLE_BASE + offset + 1, address & 0xFFFF)
+        self.client.write(WaveArray.REG_TABLE_BASE + offset + 2, frames_log2)
+        self.client.write(WaveArray.REG_TABLE_BASE + offset + 3, 0x0001)
 
 
     def mod_button_clicked(self, destination, source, state):
 
-        self.mod_source = source 
+        self.mod_source = source  
         self.mod_destination = destination
 
         # Update amount slider and text.
@@ -485,9 +507,15 @@ class WaveArrayGui(QtWidgets.QMainWindow):
     def lfo_velocity_changed(self, control_value):
         self.client.write(WaveArray.REG_LFO_VELOCITY, control_value)
 
-    def frame_position_changed(self, control_value):
-        self.client.write(WaveArray.REG_FRAME_CTRL, control_value)
-        self.ui.lbl_position.setText(f'0x{control_value:04X}')
+    def mix_amount_changed(self, index, control_value):
+        self.client.write(WaveArray.REG_MIX_CTRL_BASE + index, control_value)
+        lbl = getattr(self.ui, f'lbl_mix_{index}')
+        lbl.setText(f'0x{control_value:04X}')
+
+    def frame_position_changed(self, index, control_value):
+        self.client.write(WaveArray.REG_FRAME_CTRL_BASE + index, control_value)
+        lbl = getattr(self.ui, f'lbl_position_{index}')
+        lbl.setText(f'0x{control_value:04X}')
 
     def filter_cutoff_changed(self, control_value):
         self.client.write(WaveArray.REG_FILTER_CUTOFF, control_value)
@@ -521,11 +549,12 @@ def main():
     
     gui = None
     application = QApplication(sys.argv)
-    
+
     try:
         gui = WaveArrayGui()
         gui.show()
         application.exec_()
+
     except Exception as e:
         logger.error(e)
         if gui:

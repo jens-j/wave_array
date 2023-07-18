@@ -1,6 +1,7 @@
 import numpy as np
 import struct
 from wave_array.client.uart import UartType 
+from wave_array.client.modmap import ModMap
 
 class Status:
     
@@ -8,7 +9,7 @@ class Status:
     # Packet: entire packet as array of np.int16.
     def __init__(self, client, packet=None):
 
-        self.PACKET_BYTES = (2 + 2 + (client.MODS_LEN + client.MODD_LEN) * client.n_voices) * 2
+        self.PACKET_BYTES = (2 + 2 + (ModMap.MODS_LEN + ModMap.MODD_LEN) * client.n_voices) * 2
 
         self.client = client
 
@@ -48,7 +49,7 @@ class Status:
 
         offset = 4
 
-        for source in range(self.client.MODS_LEN):
+        for source in range(ModMap.MODS_LEN):
 
             self.mod_sources[source] = []
 
@@ -57,7 +58,7 @@ class Status:
                 self.mod_sources[source].append(struct.unpack('<h', data[offset:offset + 2])[0])
                 offset += 2
         
-        for destination in range(self.client.MODD_LEN):
+        for destination in range(ModMap.MODD_LEN):
 
             self.mod_destinations[destination] = []
 
@@ -79,7 +80,7 @@ class Status:
 
         offset = 8
 
-        for source in range(self.client.MODS_LEN):
+        for source in range(self.ModMap.MODS_LEN):
 
             s = f'Mod Source {source}: ['
 
@@ -94,7 +95,7 @@ class Status:
             print(s + ']')
 
         
-        for destination in range(self.client.MODD_LEN):
+        for destination in range(self.ModMap.MODD_LEN):
 
             s = f'Mod Destination {destination}: ['
 
