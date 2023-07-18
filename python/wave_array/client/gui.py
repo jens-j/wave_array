@@ -20,6 +20,7 @@ from PyQt5.QtGui              import QIntValidator
 from wave_array.client.client import WaveArray
 from wave_array.client.modmap import ModMap, MapException
 from wave_array.client.status import Status
+from wave_array.client.wavetable import WaveTable
 from wave_array.client.drag_widgets import DragListWidget, DropPlotWidget
 
 
@@ -47,8 +48,7 @@ class WaveArrayGui(QtWidgets.QMainWindow):
         self.mod_source = None 
         self.mod_destination = None
         self.modmap = ModMap(self.client)
-        self.frames = [None] * 16 
-        self.frames_log2 = 0
+        self.wavetables = [WaveTable(), WaveTable()]
         self.status = Status(self.client)
         self.oscilloscope_samples = np.zeros(100, dtype=np.int16)
         self.voice_enabled_buttons = []
@@ -56,7 +56,7 @@ class WaveArrayGui(QtWidgets.QMainWindow):
         self.mod_layout = None
 
         self.curve_oscilloscope = None
-        self.curves_waveform = [None] * self.client.n_voices 
+        self.curves_waveforms = [[None] * self.client.n_voices, [None] * self.client.n_voices]
         self.curves_pot = [None] * self.client.n_voices
         self.curves_lfo = [None] * self.client.n_voices
         self.curves_envelope = [None] * self.client.n_voices
@@ -179,26 +179,35 @@ class WaveArrayGui(QtWidgets.QMainWindow):
             self.curves_mixer[i].setData(self.curve_x, np.concatenate(
                 (self.curves_mixer[i].getData()[1][1:], [self.status.mod_destinations[ModMap.MODD_VOLUME][i]])))
 
+            # Update both wavetable plots.
+            for j in range(2):
+
+                wavetable = self.wavetables[j]
+                dest = ModMap.MODD_OSC_0_FRAME if j == 0 else ModMap.MODD_OSC_1_FRAME
+
+                # Skip uninitialized wavetables.
+                if wavetable.n_frames == 0:
+                    continue
             
-            # # Set waveform plot data.
-            # if self.frames_log2 == 0:
-            #     self.curves_waveform[i].setData(self.frames[0])
+                # Set waveform plot data.
+                if wavetable.n_frames_log2 == 0:
+                    self.curves_waveforms[j][i].setData(wavetable.frames[0])
 
-            # # Interpolate between frames 0 and 1.
-            # elif self.frames_log2 == 1: 
-            #     self.curves_waveform[i].setData(self.frames[0]  + np.int16(
-            #         self.status.mod_destinations[ModMap.MODD_FRAME][i] 
-            #         * np.int32(self.frames[1] - self.frames[0]) // 2**15))
+                # Interpolate between frames 0 and 1.
+                elif wavetable.n_frames_log2 == 1: 
+                    self.curves_waveforms[j][i].setData(wavetable.frames[0]  + np.int16(
+                        self.status.mod_destinations[dest][i] 
+                        * np.int32(wavetable.frames[1] - wavetable.frames[0]) // 2**15))
 
-            # # interpolate between frames a and b.
-            # else:
-            #     index_a = 2**self.frames_log2 * max(0, self.status.mod_destinations[ModMap.MODD_FRAME][i]) // 2**15 
-            #     index_b = min(index_a + 1, 2**self.frames_log2 - 1)
-            #     d = max(0, self.status.mod_destinations[ModMap.MODD_FRAME][i]) % 2**(15 - self.frames_log2)
-            #     d_max = 2**(15 - self.frames_log2) - 1
-                
-            #     self.curves_waveform[i].setData(self.frames[index_a] 
-            #         + np.int16(d * np.int32(self.frames[index_b] - self.frames[index_a]) // d_max))      
+                # interpolate between frames a and b.
+                else:
+                    index_a = 2**wavetable.n_frames_log2 * max(0, self.status.mod_destinations[dest][i]) // 2**15 
+                    index_b = min(index_a + 1, 2**wavetable.n_frames_log2 - 1)
+                    d = max(0, self.status.mod_destinations[dest][i]) % 2**(15 - wavetable.n_frames_log2)
+                    d_max = 2**(15 - wavetable.n_frames_log2) - 1
+                    
+                    self.curves_waveforms[j][i].setData(wavetable.frames[index_a] 
+                        + np.int16(d * np.int32(wavetable.frames[index_b] - wavetable.frames[index_a]) // d_max))      
 
 
     # Read device settings and update GUI elements accordingly.
@@ -323,45 +332,59 @@ class WaveArrayGui(QtWidgets.QMainWindow):
         self.ui.plot_cutoff.setBackground('w')
         self.ui.plot_cutoff.setTitle('filter cutoff')
         self.ui.plot_cutoff.setYRange(0, 2**15, padding=0)
+        self.ui.plot_cutoff.hideAxis('left')
 
         self.ui.plot_resonance.setBackground('w')
         self.ui.plot_resonance.setTitle('filter resonance')
         self.ui.plot_resonance.setYRange(0, 2**15, padding=0)
+        self.ui.plot_resonance.hideAxis('left')
 
         self.ui.plot_frame_0.setBackground('w')
         self.ui.plot_frame_0.setTitle('wavetable frame')
         self.ui.plot_frame_0.setYRange(0, 2**15, padding=0)
+        self.ui.plot_frame_0.hideAxis('left')
 
         self.ui.plot_frame_1.setBackground('w')
         self.ui.plot_frame_1.setTitle('wavetable frame')
         self.ui.plot_frame_1.setYRange(0, 2**15, padding=0)
+        self.ui.plot_frame_1.hideAxis('left')
 
         self.ui.plot_mixer.setBackground('w')
         self.ui.plot_mixer.setTitle('mixer')
         self.ui.plot_mixer.setYRange(0, 2**15, padding=0)
+        self.ui.plot_mixer.hideAxis('left')
         
         self.ui.plot_pot.setBackground('w')
         self.ui.plot_pot.setTitle('potentiometer')
         self.ui.plot_pot.setYRange(0, 2**15, padding=0)
+        self.ui.plot_pot.hideAxis('left')
 
         self.ui.plot_envelope.setBackground('w')
         self.ui.plot_envelope.setTitle('envelope')
         self.ui.plot_envelope.setYRange(0, 2**15, padding=0)
+        self.ui.plot_envelope.hideAxis('left')
 
         self.ui.plot_lfo.setBackground('w')
         self.ui.plot_lfo.setTitle('LFO')
         self.ui.plot_lfo.setYRange(-2**15, 2**15, padding=0)
+        self.ui.plot_lfo.hideAxis('left')
 
         self.ui.plot_waveform_0.setBackground('w')
-        self.ui.plot_waveform_0.setTitle('wavetable 0')
+        self.ui.plot_waveform_0.setTitle('wavetable A')
         self.ui.plot_waveform_0.setYRange(-2**15, 2**15, padding=0)
+        self.ui.plot_waveform_0.hideAxis('left')
+        self.ui.plot_waveform_0.hideAxis('bottom')
 
         self.ui.plot_waveform_1.setBackground('w')
-        self.ui.plot_waveform_1.setTitle('wavetable 1')
+        self.ui.plot_waveform_1.setTitle('wavetable B')
         self.ui.plot_waveform_1.setYRange(-2**15, 2**15, padding=0)
+        self.ui.plot_waveform_1.hideAxis('left')
+        self.ui.plot_waveform_1.hideAxis('bottom')
 
         self.ui.plot_oscilloscope.setBackground('w')
         self.ui.plot_oscilloscope.setTitle('oscilloscope')
+        self.ui.plot_oscilloscope.hideAxis('left')
+        self.ui.plot_oscilloscope.hideAxis('bottom')
         # self.ui.plot_oscilloscope.setYRange(-2**15, 2**15, padding=0)
 
         hue = random() / self.client.n_voices
@@ -395,7 +418,8 @@ class WaveArrayGui(QtWidgets.QMainWindow):
             self.curves_mixer[i] = self.ui.plot_mixer.plot(
                 self.curve_x, np.zeros(self.PLOT_SAMPLES), name=f'voice {i}', pen=pen)
 
-            self.curves_waveform[i] = self.ui.plot_waveform_0.plot(np.zeros(2048), name=f'voice {i}', pen=pen)
+            self.curves_waveforms[0][i] = self.ui.plot_waveform_0.plot(np.zeros(2048), name=f'voice {i}', pen=pen)
+            self.curves_waveforms[1][i] = self.ui.plot_waveform_1.plot(np.zeros(2048), name=f'voice {i}', pen=pen)
 
             if i == self.client.n_voices - 1:
                 self.curve_oscilloscope = self.ui.plot_oscilloscope.plot(np.zeros(100), pen=pen)
@@ -436,7 +460,8 @@ class WaveArrayGui(QtWidgets.QMainWindow):
 
         raw_data = list(filter(lambda x: x != '', raw_data))
         data = np.array([int(x, 16) for x in raw_data]).astype('int16')
-        frames_log2 = np.uint16(np.log2(len(data) / 4096))
+        frames = len(data) // 4096
+        frames_log2 = np.uint16(np.log2(frames))
         address = 0x0000_0000 if index == 0 else 0x0000_4000
         offset = 0 if index == 0 else 4
 
@@ -448,6 +473,14 @@ class WaveArrayGui(QtWidgets.QMainWindow):
         self.client.write(WaveArray.REG_TABLE_BASE + offset + 1, address & 0xFFFF)
         self.client.write(WaveArray.REG_TABLE_BASE + offset + 2, frames_log2)
         self.client.write(WaveArray.REG_TABLE_BASE + offset + 3, 0x0001)
+
+        # Update Wavetable object
+        self.wavetables[index].initialize(data)
+
+        # Update plot title.
+        plot = self.ui.plot_waveform_0 if index == 0 else self.ui.plot_waveform_1
+        name = 'A' if index == 0 else 'B'
+        plot.setTitle(f'{name}: {table_name} [{frames}]')
 
 
     def mod_button_clicked(self, destination, source, state):
@@ -549,6 +582,13 @@ def main():
     
     gui = None
     application = QApplication(sys.argv)
+
+    # Set stylesheet 
+    module_path = os.path.dirname(os.path.abspath(__file__))
+    style_dir = os.path.join(module_path, '../../../qt/')
+
+    with open(style_dir + 'Combinear.qss') as f:
+        application.setStyleSheet(f.read())
 
     try:
         gui = WaveArrayGui()
