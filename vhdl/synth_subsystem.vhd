@@ -19,7 +19,6 @@ entity synth_subsystem is
         next_sample             : in  std_logic;
         pot_value               : in  std_logic_vector(ADC_SAMPLE_SIZE - 1 downto 0);
         voices                  : in  t_voice_array(0 to N_VOICES - 1);
-        addrgen_output          : out t_addrgen2table_array(0 to N_VOICES - 1); -- Debug output.
         sample                  : out t_stereo_sample;
         sdram_output            : in  t_sdram_output;
         sdram_input             : out t_sdram_input;
@@ -53,7 +52,7 @@ begin
     mod_destinations <= s_mod_destinations;
     mod_sources <= s_mod_sources;
     
-    -- Convert potentiometer value to a control_value.
+    -- Convert potentiometer value to a (unsigned) control_value.
     s_ctrl_pot <= '0' & signed(pot_value) & (CTRL_SIZE - ADC_SAMPLE_SIZE - 2 downto 0 => '0');
 
     -- Connect mod source array.
@@ -91,20 +90,18 @@ begin
         osc_inputs              => s_osc_inputs
     );
 
-
-    oscillator : entity osc.oscillator
+    osc_stack : entity wave.oscillator_stack
     port map (
         clk                     => clk,
         reset                   => reset,
         config                  => config,
         next_sample             => next_sample,
         osc_inputs              => s_osc_inputs,
-        dma2table               => s_dma2table(0),
-        table2dma               => s_table2dma(0),
-        frame_control           => s_mod_destinations(2),
+        dma2table               => s_dma2table,
+        table2dma               => s_table2dma,
+        mod_destinations        => s_mod_destinations,
         output_samples          => s_osc_samples,
-        new_period              => new_period,
-        addrgen_output          => addrgen_output
+        new_period              => new_period
     );
 
     filter : entity wave.state_variable_filter
@@ -116,8 +113,8 @@ begin
         reset                   => reset,
         config                  => config,
         next_sample             => next_sample,
-        cutoff_control          => s_mod_destinations(0),
-        resonance_control       => s_mod_destinations(1),
+        cutoff_control          => s_mod_destinations(MODD_FILTER_CUTOFF),
+        resonance_control       => s_mod_destinations(MODD_FILTER_RESONANCE),
         sample_in               => s_osc_samples,
         sample_out              => s_filter_samples
     );
@@ -136,7 +133,7 @@ begin
         envelope_active         => envelope_active
     );
 
-    mixer : entity wave.mixer
+    mixer : entity wave.voice_mixer
     generic map (
         N_INPUTS                => N_VOICES
     )
@@ -144,7 +141,7 @@ begin
         clk                     => clk,
         reset                   => reset,
         sample_in               => s_filter_samples,
-        ctrl_in                 => s_mod_destinations(3),
+        ctrl_in                 => s_mod_destinations(MODD_MIXER),
         next_sample             => next_sample,
         sample_out              => s_mixer_sample_out
     );

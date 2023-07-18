@@ -75,7 +75,6 @@ architecture arch of wave_array is
     signal s_pot_value          : std_logic_vector(ADC_SAMPLE_SIZE - 1 downto 0);
     signal s_sample             : t_stereo_sample;
     signal s_display_data       : std_logic_vector(31 downto 0);
-    signal s_addgen_output      : t_addrgen2table_array(0 to N_VOICES - 1);
 
     signal s_register_input     : t_register_input;
     signal s_register_output    : t_register_output;
@@ -130,12 +129,11 @@ begin
 
     -- 7 segment display.
     s_display_data <=
-        (15 downto 0 => '0') & std_logic_vector(s_mod_destinations(MODD_OSC_FRAME)(0));
+        (15 downto 0 => '0') & std_logic_vector(s_mod_destinations(MODD_OSC_0_FRAME)(0));
 
         -- std_logic_vector(to_unsigned(s_voices(0).note.octave, 4))           -- 1 char octave
         -- & std_logic_vector(to_unsigned(s_voices(0).note.key, 4))            -- 1 char note
         -- -- & "0" & s_voices(0).midi_velocity                                -- 2 char midi velocity
-        -- & std_logic_vector(to_unsigned(s_addgen_output(0).mipmap_level, 8)) -- 2 char mipmap level
         -- & (0 to 16 - ADC_SAMPLE_SIZE - 1 => '0') & s_pot_value;             -- 4 char potentiometer value
 
     s_status.pot_value          <= s_pot_value;
@@ -245,7 +243,6 @@ begin
         next_sample             => s_next_sample,
         pot_value               => s_pot_value,
         voices                  => s_voices,
-        addrgen_output          => s_addgen_output,
         sample                  => s_sample,
         sdram_input             => s_sdram_inputs(1),
         sdram_output            => s_sdram_outputs(1),

@@ -26,8 +26,13 @@ package wave_array_pkg is
     constant UART_MAX_BURST_LOG2    : integer := 12;
     constant UART_MAX_BURST         : integer := 2**UART_MAX_BURST_LOG2;
 
-    constant N_TABLES               : positive := 1; -- Number of parallel wave tables.
-    constant N_VOICES               : positive := 4; -- Number of parallel oscillators per table.
+    constant N_TABLES               : positive := 2; -- Number of parallel wave tables.
+    constant N_TABLES_LOG2          : natural  := integer(ceil(log2(real(N_TABLES))));
+    constant N_VOICES               : positive := 16 -- Number of parallel oscillators per table.
+    --pragma synthesis_off
+                                      / 4 -- Use only 4 voices in simulation to keep the wave view smaller.
+    --pragma synthesis_on
+    ;
     constant N_VOICES_LOG2          : natural  := integer(ceil(log2(real(N_VOICES))));
 
     constant N_OSCILLATORS          : positive := N_TABLES * N_VOICES; -- Total number of oscillators.
@@ -124,8 +129,11 @@ package wave_array_pkg is
     -- Modulation source and destination constants.
     constant MODD_FILTER_CUTOFF     : natural := 0; 
     constant MODD_FILTER_RESONANCE  : natural := 1; 
-    constant MODD_OSC_FRAME         : natural := 2;
-    constant MODD_MIXER             : natural := 3;
+    constant MODD_MIXER             : natural := 2;
+    constant MODD_OSC_0_FRAME       : natural := 3;
+    constant MODD_OSC_1_FRAME       : natural := 4;
+    constant MODD_OSC_0_MIX         : natural := 5;
+    constant MODD_OSC_1_MIX         : natural := 6;
 
     constant MODS_NONE              : natural := 0;
     constant MODS_POT               : natural := 1;
@@ -133,7 +141,7 @@ package wave_array_pkg is
     constant MODS_LFO               : natural := 3;
 
     constant MODS_LEN               : natural := 4;
-    constant MODD_LEN               : natural := 4;
+    constant MODD_LEN               : natural := 7;
     constant MODS_LEN_LOG2          : natural := integer(ceil(log2(real(MODS_LEN))));
     constant MODD_LEN_LOG2          : natural := integer(ceil(log2(real(MODD_LEN))));
 
@@ -161,16 +169,15 @@ package wave_array_pkg is
     constant REG_DBG_WAVE_STATE_SAMPLE  : unsigned := x"0000101"; -- ro 16 bit          | Wave sample state.
     constant REG_DBG_WAVE_FIFO          : unsigned := x"0000102"; -- ro 11 bit unsigned | Wave offload fifo count.
     constant REG_DBG_WAVE_TIMER         : unsigned := x"0000103"; -- ro 16 bit unsigned | Wave offload timer value.
-    constant REG_DBG_WAVE_FLAGS         : unsigned := x"0000104"; -- ro 11 bit          | Wave offload wave_req & wave_ready flags.    
-    constant REG_DBG_UART_FLAGS         : unsigned := x"0000110"; -- ro 11 bit          | Wave offload wave_req & wave_ready flags.    
-    constant REG_DBG_NEW_PERIOD         : unsigned := x"0000120"; -- rw  4 bit          | New_period sticky bits, write to clear.    
+    constant REG_DBG_WAVE_FLAGS         : unsigned := x"0000104"; -- ro  6 bit          | Wave offload fifo_overflow & fifo_underflow & wave_req & wave_ready flags & fifo_empty & fifo_full.    
+    constant REG_DBG_UART_FLAGS         : unsigned := x"0000110"; -- ro  4 bit          | s2u_fifo_full & u2s_fifo_full & hk2u_fifo_full & wave2u_fifo_full.    
+    constant REG_DBG_NEW_PERIOD         : unsigned := x"0000120"; -- rw 16 bit          | New_period sticky bits, write to clear.    
+
 
     constant REG_TABLE_BASE_L       : unsigned := x"0000200"; -- rw 16 bit unsigned | Bit 15 downto 0 of the wavetable base SDRAM address.
     constant REG_TABLE_BASE_H       : unsigned := x"0000201"; -- rw  7 bit unsigned | Bit 22 downto 16 of the wavetable base SDRAM address.
     constant REG_TABLE_FRAMES       : unsigned := x"0000202"; -- rw  4 bit unsigned | Log2 of the number of frames in the wavetable. Cannot be > WAVE_MAX_FRAMES_LOG2.
     constant REG_TABLE_NEW          : unsigned := x"0000203"; -- wo  1 bit          | Writing to this register triggers initialization of the wavetable BRAMS.
-
-    constant REG_FRAME_CTRL         : unsigned := x"0000300"; -- wo 15 bit unsigned | Frame control base value.   
 
     constant REG_POTENTIOMETER      : unsigned := x"0000400"; -- ro 12 bit unsigned | Potentiometer value. 
 
@@ -194,9 +201,17 @@ package wave_array_pkg is
     constant REG_WAVE_ENABLE        : unsigned := x"0000902"; -- rw  1 bit          | Write '1' to enable wave offload.
     constant REG_WAVE_PERIOD        : unsigned := x"0000903"; -- rw 16 bit unsigned | Wave offoad update period in steps of 1024 cycles (~10 us).
 
+    -- Base addresses for stuff that has multiple similar registers.
     constant REG_MOD_MAP_BASE       : unsigned := x"0001000"; -- Mod mapping starts here. Ordered major to minor, [destination, source (address, value)]
-    constant REG_MOD_DEST_BASE      : unsigned := x"0002000"; -- ro 16 bit signed   | Modulation desinations start here. Ordered major to minor, [destination, voice].
+    constant REG_MOD_DEST_BASE      : unsigned := x"0002000"; -- ro 16 bit signed   | Modulation destinations start here. Ordered major to minor, [destination, voice].
+    constant REG_FRAME_CTRL_BASE    : unsigned := x"0004000"; -- wo 15 bit unsigned | Frame control base value for each wavetable.    
+    constant REG_MIX_CTRL_BASE      : unsigned := x"0005000"; -- wo 15 bit unsigned | Table mixer control base value for each wavetable.    
 
+    -- Wavetable registers base address. Contiguous blocks of 4 registers for each wavetable.
+    constant REG_TABLE_BASE         : unsigned := x"0003000"; -- rw 16 bit unsigned | Bit 15 downto 0 of the wavetable base SDRAM address.
+                                               -- x"0003XX1"; -- rw 16 bit unsigned | Bit 22 downto 16 of the wavetable base SDRAM address.
+                                               -- x"0003XX2"; -- rw  4 bit unsigned | Log2 of the number of frames in the wavetable.
+                                               -- x"0003XX3"; -- wo  1 bit          | Writing to this register triggers initialization of the wavetable BRAMS.
     -- fault register (sticky-)bit indices.
     constant FAULT_UART_TIMEOUT     : integer := 0; -- UART packet engine timout.
     constant FAULT_REG_ADDRESS      : integer := 1; -- Register address undefined.
@@ -208,12 +223,17 @@ package wave_array_pkg is
     type t_mono_sample_array is array (natural range <>) of t_mono_sample;
     type t_stereo_sample_array is array (natural range <>) of t_stereo_sample;
 
+    type t_osc_sample_array is array (0 to N_TABLES - 1) of t_mono_sample_array(0 to N_VOICES - 1);
+
     subtype t_ctrl_value is signed(CTRL_SIZE - 1 downto 0);
     type t_ctrl_value_array is array (natural range <>) of t_ctrl_value;
     type t_ctrl_value_2d_array is array (natural range <>) of t_ctrl_value_array;
 
     type t_modd_array is array (0 to MODD_LEN - 1) of t_ctrl_value_array(0 to N_VOICES - 1);
     type t_mods_array is array (0 to MODS_LEN - 1) of t_ctrl_value_array(0 to N_VOICES - 1);
+
+    -- 2D control array for oscillator parameters like frame position and table mixing coefficient.
+    type t_osc_ctrl_array is array (0 to N_TABLES - 1) of t_ctrl_value_array(0 to N_VOICES - 1);
 
     -- Address in the oscillator coefficient memory. It consists of two memories that each hold
     -- either the even or odd coefficients.
@@ -397,7 +417,10 @@ package wave_array_pkg is
         base_ctrl               => (0 => x"4000",
                                     1 => x"0400",
                                     2 => x"0000",
-                                    3 => x"0000"),
+                                    3 => x"0000",
+                                    4 => x"0000",
+                                    5 => x"7FFF",
+                                    6 => x"7FFF"),
 
         mod_mapping             => (others => (others => MOD_MAPPING_INIT)),
         hk_enable               => '0',
@@ -528,8 +551,13 @@ package body wave_array_pkg is
         variable v_offset : integer;
         variable v_index : integer;
     begin 
-        v_ser(15 downto 0)  := (15 downto N_VOICES => '0') & status.voice_enabled;
-        v_ser(31 downto 16) := (15 downto N_VOICES => '0') & status.voice_active;
+        if N_VOICES < 16 then 
+            v_ser(15 downto 0)  := (15 downto N_VOICES => '0') & status.voice_enabled;
+            v_ser(31 downto 16) := (15 downto N_VOICES => '0') & status.voice_active;
+        else 
+            v_ser(15 downto 0)  := status.voice_enabled;
+            v_ser(31 downto 16) := status.voice_active; 
+        end if;
 
         v_offset := 32;
 

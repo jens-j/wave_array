@@ -6,8 +6,8 @@ use ieee.math_real.all;
 library wave;
 use wave.wave_array_pkg.all;
 
-
-entity mixer is
+-- Mix together all voices into a single waveform.
+entity voice_mixer is
     generic (
         N_INPUTS                : positive
     );
@@ -21,7 +21,7 @@ entity mixer is
     );
 end entity;
 
-architecture arch of mixer is
+architecture arch of voice_mixer is
 
     constant N_INPUTS_LOG2 : integer := integer(ceil(log2(real(N_INPUTS))));
 
@@ -74,12 +74,12 @@ begin
                 r_in.ctrl_clipped <= x"0000" when ctrl_in(r.counter) < 0 else ctrl_in(r.counter);
             end if;
 
-            -- Ppeline stage 1: multipy sample with control value.
+            -- Ppeline stage 1: multiply sample with control value.
             if r.counter > 0 and r.counter < N_INPUTS + 1 then 
                 r_in.sample_mult <= signed(sample_in(r.counter - 1)) * signed('0' & r.ctrl_clipped);
             end if;
 
-            -- Ppeline stage 2: slice 16 bit output and extend to accumulator size.
+            -- Pipeline stage 2: slice 16 bit output and extend to accumulator size.
             if r.counter > 1 then  
                 r_in.mix_buffer <= r.mix_buffer + resize(
                     r.sample_mult(SAMPLE_SIZE + CTRL_SIZE - 2 downto SAMPLE_SIZE - 1), 
