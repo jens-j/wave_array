@@ -155,9 +155,6 @@ architecture linear of envelope is
 begin
 
     lin2log : entity wave.lin2log 
-    generic map (
-        init_file => GET_INPUT_FILE_PATH & "log.hex"
-    )
     port map (
         clk                     => clk,
         reset                   => reset,

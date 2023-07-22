@@ -197,7 +197,7 @@ begin
         end case;
 
         -- Increment wave timer.
-        if r.wave_timer = to_integer(config.wave_period) * 2**10 then 
+        if r.wave_timer >= to_integer(config.wave_period) * 2**10 then 
             r_in.wave_timer <= 0;
             r_in.wave_req <= '1';
         else 

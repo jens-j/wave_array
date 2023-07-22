@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>1896</width>
-    <height>722</height>
+    <width>1582</width>
+    <height>912</height>
    </rect>
   </property>
   <property name="maximumSize">
@@ -22,76 +22,80 @@
   <widget class="QWidget" name="centralwidget">
    <layout class="QHBoxLayout" name="horizontalLayout_2">
     <item>
-     <widget class="QGroupBox" name="groupBox_6">
-      <property name="sizePolicy">
-       <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
-        <horstretch>0</horstretch>
-        <verstretch>0</verstretch>
-       </sizepolicy>
-      </property>
-      <property name="font">
-       <font>
-        <weight>75</weight>
-        <bold>true</bold>
-       </font>
-      </property>
-      <property name="title">
-       <string>Waveforms</string>
-      </property>
-      <layout class="QVBoxLayout" name="verticalLayout_7">
-       <item>
-        <widget class="DragListWidget" name="list_tables">
-         <property name="dragDropMode">
-          <enum>QAbstractItemView::DragOnly</enum>
-         </property>
-        </widget>
-       </item>
-       <item>
-        <widget class="DropPlotWidget" name="plot_waveform_0" native="true">
-         <property name="sizePolicy">
-          <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
-           <horstretch>0</horstretch>
-           <verstretch>0</verstretch>
-          </sizepolicy>
-         </property>
-         <property name="minimumSize">
-          <size>
-           <width>300</width>
-           <height>200</height>
-          </size>
-         </property>
-         <property name="maximumSize">
-          <size>
-           <width>600</width>
-           <height>200</height>
-          </size>
-         </property>
-        </widget>
-       </item>
-       <item>
-        <widget class="DropPlotWidget" name="plot_waveform_1" native="true">
-         <property name="sizePolicy">
-          <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
-           <horstretch>0</horstretch>
-           <verstretch>0</verstretch>
-          </sizepolicy>
-         </property>
-         <property name="minimumSize">
-          <size>
-           <width>300</width>
-           <height>200</height>
-          </size>
-         </property>
-         <property name="maximumSize">
-          <size>
-           <width>600</width>
-           <height>200</height>
-          </size>
-         </property>
-        </widget>
-       </item>
-      </layout>
-     </widget>
+     <layout class="QVBoxLayout" name="verticalLayout_7">
+      <item>
+       <widget class="QGroupBox" name="groupBox_6">
+        <property name="sizePolicy">
+         <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+          <horstretch>0</horstretch>
+          <verstretch>0</verstretch>
+         </sizepolicy>
+        </property>
+        <property name="font">
+         <font>
+          <weight>75</weight>
+          <bold>true</bold>
+         </font>
+        </property>
+        <property name="title">
+         <string>Waveforms</string>
+        </property>
+        <layout class="QVBoxLayout" name="verticalLayout_10">
+         <item>
+          <widget class="DragListWidget" name="list_tables">
+           <property name="dragDropMode">
+            <enum>QAbstractItemView::DragOnly</enum>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="DropPlotWidget" name="plot_waveform_0" native="true">
+           <property name="sizePolicy">
+            <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
+             <horstretch>0</horstretch>
+             <verstretch>0</verstretch>
+            </sizepolicy>
+           </property>
+           <property name="minimumSize">
+            <size>
+             <width>300</width>
+             <height>200</height>
+            </size>
+           </property>
+           <property name="maximumSize">
+            <size>
+             <width>600</width>
+             <height>200</height>
+            </size>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="DropPlotWidget" name="plot_waveform_1" native="true">
+           <property name="sizePolicy">
+            <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
+             <horstretch>0</horstretch>
+             <verstretch>0</verstretch>
+            </sizepolicy>
+           </property>
+           <property name="minimumSize">
+            <size>
+             <width>300</width>
+             <height>200</height>
+            </size>
+           </property>
+           <property name="maximumSize">
+            <size>
+             <width>600</width>
+             <height>200</height>
+            </size>
+           </property>
+          </widget>
+         </item>
+        </layout>
+       </widget>
+      </item>
+     </layout>
     </item>
     <item>
      <layout class="QVBoxLayout" name="verticalLayout">
@@ -438,6 +442,49 @@
               </layout>
              </item>
              <item>
+              <layout class="QHBoxLayout" name="horizontalLayout_76">
+               <item>
+                <widget class="QLabel" name="label_73">
+                 <property name="minimumSize">
+                  <size>
+                   <width>120</width>
+                   <height>0</height>
+                  </size>
+                 </property>
+                 <property name="font">
+                  <font>
+                   <weight>50</weight>
+                   <bold>false</bold>
+                  </font>
+                 </property>
+                 <property name="text">
+                  <string>LFO trigger</string>
+                 </property>
+                </widget>
+               </item>
+               <item>
+                <spacer name="horizontalSpacer_40">
+                 <property name="orientation">
+                  <enum>Qt::Horizontal</enum>
+                 </property>
+                 <property name="sizeHint" stdset="0">
+                  <size>
+                   <width>40</width>
+                   <height>20</height>
+                  </size>
+                 </property>
+                </spacer>
+               </item>
+               <item>
+                <widget class="QCheckBox" name="btn_enable_lfo_trigger">
+                 <property name="text">
+                  <string/>
+                 </property>
+                </widget>
+               </item>
+              </layout>
+             </item>
+             <item>
               <layout class="QHBoxLayout" name="horizontalLayout_66">
                <item>
                 <widget class="QLabel" name="label_61">
@@ -490,6 +537,9 @@
                    <weight>50</weight>
                    <bold>false</bold>
                   </font>
+                 </property>
+                 <property name="alignment">
+                  <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
                  </property>
                  <property name="minimum">
                   <number>1</number>
@@ -557,6 +607,9 @@
                    <weight>50</weight>
                    <bold>false</bold>
                   </font>
+                 </property>
+                 <property name="alignment">
+                  <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
                  </property>
                  <property name="minimum">
                   <number>1</number>
@@ -809,6 +862,9 @@
                    <bold>false</bold>
                   </font>
                  </property>
+                 <property name="alignment">
+                  <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+                 </property>
                  <property name="maximum">
                   <number>999999999</number>
                  </property>
@@ -885,6 +941,9 @@
                    <weight>50</weight>
                    <bold>false</bold>
                   </font>
+                 </property>
+                 <property name="alignment">
+                  <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
                  </property>
                  <property name="minimum">
                   <number>-32678</number>
@@ -1101,7 +1160,10 @@
                       </font>
                      </property>
                      <property name="text">
-                      <string>filter cutoff</string>
+                      <string>cutoff</string>
+                     </property>
+                     <property name="alignment">
+                      <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
                      </property>
                     </widget>
                    </item>
@@ -1114,7 +1176,10 @@
                       </font>
                      </property>
                      <property name="text">
-                      <string>filter resonance</string>
+                      <string>resonance</string>
+                     </property>
+                     <property name="alignment">
+                      <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
                      </property>
                     </widget>
                    </item>
@@ -1129,6 +1194,9 @@
                      <property name="text">
                       <string>volume</string>
                      </property>
+                     <property name="alignment">
+                      <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+                     </property>
                     </widget>
                    </item>
                    <item>
@@ -1140,7 +1208,10 @@
                       </font>
                      </property>
                      <property name="text">
-                      <string>osc 0 frame</string>
+                      <string>A frame</string>
+                     </property>
+                     <property name="alignment">
+                      <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
                      </property>
                     </widget>
                    </item>
@@ -1153,7 +1224,10 @@
                       </font>
                      </property>
                      <property name="text">
-                      <string>osc 1 frame</string>
+                      <string>B frame</string>
+                     </property>
+                     <property name="alignment">
+                      <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
                      </property>
                     </widget>
                    </item>
@@ -1166,7 +1240,10 @@
                       </font>
                      </property>
                      <property name="text">
-                      <string>osc 0 mix</string>
+                      <string>A mix</string>
+                     </property>
+                     <property name="alignment">
+                      <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
                      </property>
                     </widget>
                    </item>
@@ -1179,7 +1256,42 @@
                       </font>
                      </property>
                      <property name="text">
-                      <string>osc 1 mix</string>
+                      <string>B mix</string>
+                     </property>
+                     <property name="alignment">
+                      <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+                     </property>
+                    </widget>
+                   </item>
+                   <item>
+                    <widget class="QLabel" name="label_97">
+                     <property name="font">
+                      <font>
+                       <weight>50</weight>
+                       <bold>false</bold>
+                      </font>
+                     </property>
+                     <property name="text">
+                      <string> A frequency</string>
+                     </property>
+                     <property name="alignment">
+                      <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+                     </property>
+                    </widget>
+                   </item>
+                   <item>
+                    <widget class="QLabel" name="label_98">
+                     <property name="font">
+                      <font>
+                       <weight>50</weight>
+                       <bold>false</bold>
+                      </font>
+                     </property>
+                     <property name="text">
+                      <string> B frequency</string>
+                     </property>
+                     <property name="alignment">
+                      <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
                      </property>
                     </widget>
                    </item>
@@ -1499,7 +1611,7 @@ destination</string>
            </font>
           </property>
           <property name="title">
-           <string>Mix A</string>
+           <string>Table mixer</string>
           </property>
           <property name="alignment">
            <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
@@ -1611,7 +1723,7 @@ destination</string>
                 </font>
                </property>
                <property name="text">
-                <string>amount</string>
+                <string>A</string>
                </property>
                <property name="alignment">
                 <set>Qt::AlignCenter</set>
@@ -1620,24 +1732,6 @@ destination</string>
              </item>
             </layout>
            </item>
-          </layout>
-         </widget>
-        </item>
-        <item>
-         <widget class="QGroupBox" name="groupBox_18">
-          <property name="font">
-           <font>
-            <weight>75</weight>
-            <bold>true</bold>
-           </font>
-          </property>
-          <property name="title">
-           <string>Mix B</string>
-          </property>
-          <property name="alignment">
-           <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
-          </property>
-          <layout class="QHBoxLayout" name="horizontalLayout_77">
            <item>
             <layout class="QVBoxLayout" name="verticalLayout_78">
              <item>
@@ -1744,7 +1838,7 @@ destination</string>
                 </font>
                </property>
                <property name="text">
-                <string>amount</string>
+                <string>B</string>
                </property>
                <property name="alignment">
                 <set>Qt::AlignCenter</set>
@@ -1765,7 +1859,7 @@ destination</string>
            </font>
           </property>
           <property name="title">
-           <string>Frame A</string>
+           <string>Frame position</string>
           </property>
           <property name="alignment">
            <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
@@ -1877,7 +1971,7 @@ destination</string>
                 </font>
                </property>
                <property name="text">
-                <string>position</string>
+                <string>A</string>
                </property>
                <property name="alignment">
                 <set>Qt::AlignCenter</set>
@@ -1886,24 +1980,6 @@ destination</string>
              </item>
             </layout>
            </item>
-          </layout>
-         </widget>
-        </item>
-        <item>
-         <widget class="QGroupBox" name="groupBox_17">
-          <property name="font">
-           <font>
-            <weight>75</weight>
-            <bold>true</bold>
-           </font>
-          </property>
-          <property name="title">
-           <string>Frame B</string>
-          </property>
-          <property name="alignment">
-           <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
-          </property>
-          <layout class="QHBoxLayout" name="horizontalLayout_70">
            <item>
             <layout class="QVBoxLayout" name="verticalLayout_72">
              <item>
@@ -2010,7 +2086,7 @@ destination</string>
                 </font>
                </property>
                <property name="text">
-                <string>position</string>
+                <string>B</string>
                </property>
                <property name="alignment">
                 <set>Qt::AlignCenter</set>
@@ -2023,7 +2099,272 @@ destination</string>
          </widget>
         </item>
         <item>
-         <widget class="QGroupBox" name="groupBox_15">
+         <widget class="QGroupBox" name="groupBox_24">
+          <property name="font">
+           <font>
+            <weight>75</weight>
+            <bold>true</bold>
+           </font>
+          </property>
+          <property name="title">
+           <string>Oscillator tuning</string>
+          </property>
+          <property name="alignment">
+           <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
+          </property>
+          <layout class="QHBoxLayout" name="horizontalLayout_98">
+           <item>
+            <layout class="QVBoxLayout" name="verticalLayout_94">
+             <item>
+              <spacer name="verticalSpacer_78">
+               <property name="orientation">
+                <enum>Qt::Vertical</enum>
+               </property>
+               <property name="sizeType">
+                <enum>QSizePolicy::Minimum</enum>
+               </property>
+               <property name="sizeHint" stdset="0">
+                <size>
+                 <width>20</width>
+                 <height>0</height>
+                </size>
+               </property>
+              </spacer>
+             </item>
+             <item>
+              <widget class="QSlider" name="slider_pitch_0">
+               <property name="sizePolicy">
+                <sizepolicy hsizetype="Minimum" vsizetype="Expanding">
+                 <horstretch>0</horstretch>
+                 <verstretch>0</verstretch>
+                </sizepolicy>
+               </property>
+               <property name="minimumSize">
+                <size>
+                 <width>60</width>
+                 <height>100</height>
+                </size>
+               </property>
+               <property name="maximumSize">
+                <size>
+                 <width>60</width>
+                 <height>200</height>
+                </size>
+               </property>
+               <property name="font">
+                <font>
+                 <weight>50</weight>
+                 <bold>false</bold>
+                </font>
+               </property>
+               <property name="minimum">
+                <number>-32768</number>
+               </property>
+               <property name="maximum">
+                <number>32767</number>
+               </property>
+               <property name="orientation">
+                <enum>Qt::Vertical</enum>
+               </property>
+               <property name="tickPosition">
+                <enum>QSlider::TicksBothSides</enum>
+               </property>
+               <property name="tickInterval">
+                <number>8192</number>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <widget class="Line" name="line_33">
+               <property name="orientation">
+                <enum>Qt::Horizontal</enum>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <widget class="QLabel" name="lbl_pitch_0">
+               <property name="font">
+                <font>
+                 <weight>50</weight>
+                 <bold>false</bold>
+                </font>
+               </property>
+               <property name="text">
+                <string>0x0000</string>
+               </property>
+               <property name="alignment">
+                <set>Qt::AlignCenter</set>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <widget class="QLabel" name="lbl_filter_cutoff_28">
+               <property name="minimumSize">
+                <size>
+                 <width>0</width>
+                 <height>15</height>
+                </size>
+               </property>
+               <property name="maximumSize">
+                <size>
+                 <width>16777215</width>
+                 <height>15</height>
+                </size>
+               </property>
+               <property name="font">
+                <font>
+                 <pointsize>8</pointsize>
+                 <weight>75</weight>
+                 <bold>true</bold>
+                </font>
+               </property>
+               <property name="text">
+                <string>A</string>
+               </property>
+               <property name="alignment">
+                <set>Qt::AlignCenter</set>
+               </property>
+              </widget>
+             </item>
+            </layout>
+           </item>
+           <item>
+            <layout class="QVBoxLayout" name="verticalLayout_95">
+             <item>
+              <spacer name="verticalSpacer_79">
+               <property name="orientation">
+                <enum>Qt::Vertical</enum>
+               </property>
+               <property name="sizeType">
+                <enum>QSizePolicy::Minimum</enum>
+               </property>
+               <property name="sizeHint" stdset="0">
+                <size>
+                 <width>20</width>
+                 <height>0</height>
+                </size>
+               </property>
+              </spacer>
+             </item>
+             <item>
+              <widget class="QSlider" name="slider_pitch_1">
+               <property name="sizePolicy">
+                <sizepolicy hsizetype="Minimum" vsizetype="Expanding">
+                 <horstretch>0</horstretch>
+                 <verstretch>0</verstretch>
+                </sizepolicy>
+               </property>
+               <property name="minimumSize">
+                <size>
+                 <width>60</width>
+                 <height>100</height>
+                </size>
+               </property>
+               <property name="maximumSize">
+                <size>
+                 <width>60</width>
+                 <height>200</height>
+                </size>
+               </property>
+               <property name="font">
+                <font>
+                 <weight>50</weight>
+                 <bold>false</bold>
+                </font>
+               </property>
+               <property name="minimum">
+                <number>-36768</number>
+               </property>
+               <property name="maximum">
+                <number>32767</number>
+               </property>
+               <property name="orientation">
+                <enum>Qt::Vertical</enum>
+               </property>
+               <property name="tickPosition">
+                <enum>QSlider::TicksBothSides</enum>
+               </property>
+               <property name="tickInterval">
+                <number>8192</number>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <widget class="Line" name="line_34">
+               <property name="orientation">
+                <enum>Qt::Horizontal</enum>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <widget class="QLabel" name="lbl_pitch_1">
+               <property name="font">
+                <font>
+                 <weight>50</weight>
+                 <bold>false</bold>
+                </font>
+               </property>
+               <property name="text">
+                <string>0x0000</string>
+               </property>
+               <property name="alignment">
+                <set>Qt::AlignCenter</set>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <widget class="QLabel" name="lbl_filter_cutoff_31">
+               <property name="minimumSize">
+                <size>
+                 <width>0</width>
+                 <height>15</height>
+                </size>
+               </property>
+               <property name="maximumSize">
+                <size>
+                 <width>16777215</width>
+                 <height>15</height>
+                </size>
+               </property>
+               <property name="font">
+                <font>
+                 <pointsize>8</pointsize>
+                 <weight>75</weight>
+                 <bold>true</bold>
+                </font>
+               </property>
+               <property name="text">
+                <string>B</string>
+               </property>
+               <property name="alignment">
+                <set>Qt::AlignCenter</set>
+               </property>
+              </widget>
+             </item>
+            </layout>
+           </item>
+          </layout>
+         </widget>
+        </item>
+        <item>
+         <spacer name="horizontalSpacer_9">
+          <property name="orientation">
+           <enum>Qt::Horizontal</enum>
+          </property>
+          <property name="sizeHint" stdset="0">
+           <size>
+            <width>40</width>
+            <height>20</height>
+           </size>
+          </property>
+         </spacer>
+        </item>
+       </layout>
+      </item>
+      <item>
+       <layout class="QHBoxLayout" name="horizontalLayout_8">
+        <item>
+         <widget class="QGroupBox" name="groupBox_26">
           <property name="font">
            <font>
             <weight>75</weight>
@@ -2036,11 +2377,11 @@ destination</string>
           <property name="alignment">
            <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
           </property>
-          <layout class="QHBoxLayout" name="horizontalLayout_58">
+          <layout class="QHBoxLayout" name="horizontalLayout_99">
            <item>
-            <layout class="QVBoxLayout" name="verticalLayout_65">
+            <layout class="QVBoxLayout" name="verticalLayout_96">
              <item>
-              <spacer name="verticalSpacer_54">
+              <spacer name="verticalSpacer_80">
                <property name="orientation">
                 <enum>Qt::Vertical</enum>
                </property>
@@ -2099,7 +2440,7 @@ destination</string>
               </widget>
              </item>
              <item>
-              <widget class="Line" name="line_2">
+              <widget class="Line" name="line_35">
                <property name="orientation">
                 <enum>Qt::Horizontal</enum>
                </property>
@@ -2122,7 +2463,7 @@ destination</string>
               </widget>
              </item>
              <item>
-              <widget class="QLabel" name="lbl_filter_cutoff_14">
+              <widget class="QLabel" name="lbl_filter_cutoff_29">
                <property name="minimumSize">
                 <size>
                  <width>0</width>
@@ -2156,7 +2497,7 @@ destination</string>
          </widget>
         </item>
         <item>
-         <widget class="QGroupBox" name="groupBox_2">
+         <widget class="QGroupBox" name="groupBox_9">
           <property name="font">
            <font>
             <weight>75</weight>
@@ -2169,11 +2510,11 @@ destination</string>
           <property name="alignment">
            <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
           </property>
-          <layout class="QHBoxLayout" name="horizontalLayout_59">
+          <layout class="QHBoxLayout" name="horizontalLayout_100">
            <item>
-            <layout class="QVBoxLayout" name="verticalLayout_66">
+            <layout class="QVBoxLayout" name="verticalLayout_97">
              <item>
-              <spacer name="verticalSpacer_55">
+              <spacer name="verticalSpacer_81">
                <property name="orientation">
                 <enum>Qt::Vertical</enum>
                </property>
@@ -2232,7 +2573,7 @@ destination</string>
               </widget>
              </item>
              <item>
-              <widget class="Line" name="line_3">
+              <widget class="Line" name="line_36">
                <property name="orientation">
                 <enum>Qt::Horizontal</enum>
                </property>
@@ -2255,7 +2596,7 @@ destination</string>
               </widget>
              </item>
              <item>
-              <widget class="QLabel" name="lbl_filter_cutoff_15">
+              <widget class="QLabel" name="lbl_filter_cutoff_30">
                <property name="minimumSize">
                 <size>
                  <width>0</width>
@@ -2286,9 +2627,9 @@ destination</string>
             </layout>
            </item>
            <item>
-            <layout class="QVBoxLayout" name="verticalLayout_67">
+            <layout class="QVBoxLayout" name="verticalLayout_98">
              <item>
-              <spacer name="verticalSpacer_56">
+              <spacer name="verticalSpacer_82">
                <property name="orientation">
                 <enum>Qt::Vertical</enum>
                </property>
@@ -2347,7 +2688,7 @@ destination</string>
               </widget>
              </item>
              <item>
-              <widget class="Line" name="line_4">
+              <widget class="Line" name="line_37">
                <property name="orientation">
                 <enum>Qt::Horizontal</enum>
                </property>
@@ -2370,7 +2711,7 @@ destination</string>
               </widget>
              </item>
              <item>
-              <widget class="QLabel" name="lbl_filter_resonance_4">
+              <widget class="QLabel" name="lbl_filter_resonance_6">
                <property name="minimumSize">
                 <size>
                  <width>0</width>
@@ -2404,7 +2745,7 @@ destination</string>
          </widget>
         </item>
         <item>
-         <widget class="QGroupBox" name="groupBox_16">
+         <widget class="QGroupBox" name="groupBox_27">
           <property name="font">
            <font>
             <weight>75</weight>
@@ -2417,11 +2758,11 @@ destination</string>
           <property name="alignment">
            <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
           </property>
-          <layout class="QHBoxLayout" name="horizontalLayout_60">
+          <layout class="QHBoxLayout" name="horizontalLayout_101">
            <item>
-            <layout class="QVBoxLayout" name="verticalLayout_68">
+            <layout class="QVBoxLayout" name="verticalLayout_99">
              <item>
-              <spacer name="verticalSpacer_57">
+              <spacer name="verticalSpacer_83">
                <property name="orientation">
                 <enum>Qt::Vertical</enum>
                </property>
@@ -2480,7 +2821,7 @@ destination</string>
               </widget>
              </item>
              <item>
-              <widget class="Line" name="line_6">
+              <widget class="Line" name="line_38">
                <property name="orientation">
                 <enum>Qt::Horizontal</enum>
                </property>
@@ -2503,7 +2844,7 @@ destination</string>
               </widget>
              </item>
              <item>
-              <widget class="QLabel" name="lbl_envelop_attack_4">
+              <widget class="QLabel" name="lbl_envelop_attack_6">
                <property name="minimumSize">
                 <size>
                  <width>0</width>
@@ -2534,9 +2875,9 @@ destination</string>
             </layout>
            </item>
            <item>
-            <layout class="QVBoxLayout" name="verticalLayout_69">
+            <layout class="QVBoxLayout" name="verticalLayout_100">
              <item>
-              <spacer name="verticalSpacer_58">
+              <spacer name="verticalSpacer_84">
                <property name="orientation">
                 <enum>Qt::Vertical</enum>
                </property>
@@ -2595,7 +2936,7 @@ destination</string>
               </widget>
              </item>
              <item>
-              <widget class="Line" name="line_7">
+              <widget class="Line" name="line_39">
                <property name="orientation">
                 <enum>Qt::Horizontal</enum>
                </property>
@@ -2618,7 +2959,7 @@ destination</string>
               </widget>
              </item>
              <item>
-              <widget class="QLabel" name="lbl_envelope_decay_4">
+              <widget class="QLabel" name="lbl_envelope_decay_6">
                <property name="minimumSize">
                 <size>
                  <width>0</width>
@@ -2649,9 +2990,9 @@ destination</string>
             </layout>
            </item>
            <item>
-            <layout class="QVBoxLayout" name="verticalLayout_70">
+            <layout class="QVBoxLayout" name="verticalLayout_101">
              <item>
-              <spacer name="verticalSpacer_59">
+              <spacer name="verticalSpacer_85">
                <property name="orientation">
                 <enum>Qt::Vertical</enum>
                </property>
@@ -2710,7 +3051,7 @@ destination</string>
               </widget>
              </item>
              <item>
-              <widget class="Line" name="line_10">
+              <widget class="Line" name="line_40">
                <property name="orientation">
                 <enum>Qt::Horizontal</enum>
                </property>
@@ -2733,7 +3074,7 @@ destination</string>
               </widget>
              </item>
              <item>
-              <widget class="QLabel" name="lbl_envelope_sustain_4">
+              <widget class="QLabel" name="lbl_envelope_sustain_6">
                <property name="minimumSize">
                 <size>
                  <width>0</width>
@@ -2764,9 +3105,9 @@ destination</string>
             </layout>
            </item>
            <item>
-            <layout class="QVBoxLayout" name="verticalLayout_71">
+            <layout class="QVBoxLayout" name="verticalLayout_102">
              <item>
-              <spacer name="verticalSpacer_60">
+              <spacer name="verticalSpacer_86">
                <property name="orientation">
                 <enum>Qt::Vertical</enum>
                </property>
@@ -2825,7 +3166,7 @@ destination</string>
               </widget>
              </item>
              <item>
-              <widget class="Line" name="line_11">
+              <widget class="Line" name="line_41">
                <property name="orientation">
                 <enum>Qt::Horizontal</enum>
                </property>
@@ -2848,7 +3189,7 @@ destination</string>
               </widget>
              </item>
              <item>
-              <widget class="QLabel" name="lbl_envelope_release_4">
+              <widget class="QLabel" name="lbl_envelope_release_6">
                <property name="minimumSize">
                 <size>
                  <width>0</width>
@@ -2879,7 +3220,7 @@ destination</string>
             </layout>
            </item>
            <item>
-            <spacer name="horizontalSpacer_3">
+            <spacer name="horizontalSpacer_8">
              <property name="orientation">
               <enum>Qt::Horizontal</enum>
              </property>
@@ -2934,13 +3275,13 @@ destination</string>
          <property name="minimumSize">
           <size>
            <width>300</width>
-           <height>120</height>
+           <height>100</height>
           </size>
          </property>
          <property name="maximumSize">
           <size>
            <width>600</width>
-           <height>150</height>
+           <height>120</height>
           </size>
          </property>
         </widget>
@@ -2956,13 +3297,13 @@ destination</string>
          <property name="minimumSize">
           <size>
            <width>300</width>
-           <height>120</height>
+           <height>100</height>
           </size>
          </property>
          <property name="maximumSize">
           <size>
            <width>600</width>
-           <height>150</height>
+           <height>120</height>
           </size>
          </property>
         </widget>
@@ -2978,13 +3319,13 @@ destination</string>
          <property name="minimumSize">
           <size>
            <width>300</width>
-           <height>120</height>
+           <height>100</height>
           </size>
          </property>
          <property name="maximumSize">
           <size>
            <width>600</width>
-           <height>150</height>
+           <height>120</height>
           </size>
          </property>
         </widget>
@@ -3000,19 +3341,19 @@ destination</string>
          <property name="minimumSize">
           <size>
            <width>300</width>
-           <height>120</height>
+           <height>100</height>
           </size>
          </property>
          <property name="maximumSize">
           <size>
            <width>600</width>
-           <height>150</height>
+           <height>120</height>
           </size>
          </property>
         </widget>
        </item>
        <item>
-        <widget class="DropPlotWidget" name="plot_mixer" native="true">
+        <widget class="DropPlotWidget" name="plot_volume" native="true">
          <property name="sizePolicy">
           <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
            <horstretch>0</horstretch>
@@ -3022,13 +3363,57 @@ destination</string>
          <property name="minimumSize">
           <size>
            <width>300</width>
-           <height>120</height>
+           <height>100</height>
           </size>
          </property>
          <property name="maximumSize">
           <size>
            <width>600</width>
-           <height>150</height>
+           <height>120</height>
+          </size>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="DropPlotWidget" name="plot_mix_0" native="true">
+         <property name="sizePolicy">
+          <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
+           <horstretch>0</horstretch>
+           <verstretch>0</verstretch>
+          </sizepolicy>
+         </property>
+         <property name="minimumSize">
+          <size>
+           <width>300</width>
+           <height>100</height>
+          </size>
+         </property>
+         <property name="maximumSize">
+          <size>
+           <width>600</width>
+           <height>120</height>
+          </size>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="DropPlotWidget" name="plot_mix_1" native="true">
+         <property name="sizePolicy">
+          <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
+           <horstretch>0</horstretch>
+           <verstretch>0</verstretch>
+          </sizepolicy>
+         </property>
+         <property name="minimumSize">
+          <size>
+           <width>300</width>
+           <height>100</height>
+          </size>
+         </property>
+         <property name="maximumSize">
+          <size>
+           <width>600</width>
+           <height>120</height>
           </size>
          </property>
         </widget>
@@ -3050,6 +3435,19 @@ destination</string>
          <string>Oscilloscope</string>
         </property>
         <layout class="QVBoxLayout" name="verticalLayout_5">
+         <item>
+          <spacer name="verticalSpacer_9">
+           <property name="orientation">
+            <enum>Qt::Vertical</enum>
+           </property>
+           <property name="sizeHint" stdset="0">
+            <size>
+             <width>20</width>
+             <height>40</height>
+            </size>
+           </property>
+          </spacer>
+         </item>
          <item>
           <widget class="DropPlotWidget" name="plot_oscilloscope" native="true">
            <property name="sizePolicy">
@@ -3194,7 +3592,7 @@ destination</string>
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>1896</width>
+     <width>1582</width>
      <height>21</height>
     </rect>
    </property>
@@ -3205,7 +3603,13 @@ destination</string>
     <addaction name="action_open_wavetable"/>
     <addaction name="action_load_config"/>
    </widget>
+   <widget class="QMenu" name="menuAppearance">
+    <property name="title">
+     <string>Appearance</string>
+    </property>
+   </widget>
    <addaction name="menuFile"/>
+   <addaction name="menuAppearance"/>
   </widget>
   <widget class="QStatusBar" name="statusbar"/>
   <action name="actionRead_all_values">

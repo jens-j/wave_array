@@ -629,9 +629,9 @@ QListView
 
 QListView::disabled 
 {
-	background-color: #656565;
+	background-color: #2d2d2d;
 	color: #1b1b1b;
-    border: 1px solid #656565;
+    border: 1px solid #2d2d2d;
 
 }
 
@@ -825,6 +825,71 @@ QSlider::add-page:horizontal:disabled
 
 
 QSlider::handle:horizontal:disabled 
+{
+	background-color: #eee;
+	border: 1px solid #aaa;
+	border-radius: 3px;
+
+}
+
+/* QSlider::groove:vertical 
+{
+	background-color: #131313;
+	height: 3px;
+
+}
+
+
+QSlider::sub-page:vertical 
+{
+	background-color: #b78620;
+
+}
+
+
+QSlider::add-page:vertical 
+{
+	background-color: #131313;
+
+} */
+
+
+QSlider::handle:vertical 
+{
+	background-color: #b78620;
+	width: 14px;
+	margin-top: -6px;
+	margin-bottom: -6px;
+	border-radius: 6px;
+
+}
+
+
+QSlider::handle:vertical:hover 
+{
+	background-color: #d89e25;
+	border-radius: 6px;
+
+}
+
+
+/* QSlider::sub-page:vertical:disabled 
+{
+	background-color: #bbb;
+	border-color: #999;
+
+}
+
+
+QSlider::add-page:vertical:disabled 
+{
+	background-color: #eee;
+	border-color: #999;
+
+} */
+
+
+QSlider::handle:vertical:disabled 
 {
 	background-color: #eee;
 	border: 1px solid #aaa;

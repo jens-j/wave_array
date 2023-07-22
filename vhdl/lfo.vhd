@@ -17,6 +17,7 @@ entity lfo is
         reset                   : in  std_logic;
         config                  : in  t_config;
         next_sample             : in  std_logic;
+        osc_inputs              : in  t_osc_input_array(0 to N_VOICES - 1);
         lfo_out                 : out t_ctrl_value_array(0 to N_OUTPUTS - 1)
     );
 end entity;
@@ -56,6 +57,8 @@ architecture arch of lfo is
         phase_mul               : unsigned(CTRL_SIZE + 24 downto 0);
         phase_delta             : unsigned(LFO_PHASE_SIZE - 1 downto 0);
         phase_raw               : signed(LFO_PHASE_SIZE - 1 downto 0);
+        sync                    : std_logic_vector(N_OUTPUTS - 1 downto 0);
+        osc_enable              : std_logic_vector(N_OUTPUTS - 1 downto 0);
     end record;
 
     constant REG_INIT : t_mixer_reg := (
@@ -75,7 +78,9 @@ architecture arch of lfo is
         read_counter            => N_OUTPUTS - 1,
         phase_mul               => (others => '0'),
         phase_delta             => (others => '0'),
-        phase_raw               => (others => '0')
+        phase_raw               => (others => '0'),
+        sync                    => (others => '0'),
+        osc_enable              => (others => '0')
     );
 
     -- Clip the cordic output.
@@ -138,6 +143,14 @@ begin
         v_lfo_velocity_squared := r.lfo_velocity_clipped * r.lfo_velocity_clipped;
         r_in.lfo_velocity <= v_lfo_velocity_squared(2 * CTRL_SIZE - 2 downto CTRL_SIZE - 1);
 
+        -- Detect edge of voice enable to use as sync pulse.
+        for i in 0 to N_OUTPUTS - 1 loop 
+            r_in.osc_enable(i) <= osc_inputs(i).enable;
+            if config.lfo_trigger = '1' and osc_inputs(i).enable = '1' and r.osc_enable(i) = '0' then 
+                r_in.sync(i) <= '1';
+            end if;
+        end loop;
+
         if r.state = idle and next_sample = '1' then
 
             -- Load new output samples from buffer.
@@ -151,12 +164,11 @@ begin
 
         elsif r.state = running then
 
-            r_in.valid_shift(0) <= '1';
-
             -- Pipeline stage 0: multiply LFO velocity control value with constant. 
             r_in.phase_mul <= unsigned(r.lfo_velocity) * LFO_VELOCITY_STEP;
 
             if r.index_shift(0) < N_OUTPUTS - 1 then
+                r_in.valid_shift(0) <= '1';
                 r_in.index_shift(0) <= r.index_shift(0) + 1;
             else 
                 r_in.state <= idle;
@@ -176,10 +188,15 @@ begin
             r_in.phase_raw <= r.phase(r.index_shift(PIPE_SUM_ACC - 1)) + signed(r.phase_delta);
         end if;
 
-        -- Pipeline stage 3: clip accumulator.
+        -- Pipeline stage 3: clip accumulator. Reset phase if a sync pulse is received.
         if r.valid_shift(PIPE_SUM_CLIP - 1) = '1' then 
 
-            if r.phase_raw >= shift_left(to_signed(1, LFO_PHASE_SIZE), LFO_PHASE_FRAC) then
+            if r.sync(r.index_shift(PIPE_SUM_CLIP - 1)) = '1' then 
+
+                r_in.sync(r.index_shift(PIPE_SUM_CLIP - 1)) <= '0';
+                r_in.phase(r.index_shift(PIPE_SUM_CLIP - 1)) <= (others => '0');
+
+            elsif r.phase_raw >= shift_left(to_signed(1, LFO_PHASE_SIZE), LFO_PHASE_FRAC) then
 
                 r_in.phase(r.index_shift(PIPE_SUM_CLIP - 1)) <= 
                     r.phase_raw - shift_left(to_signed(1, LFO_PHASE_SIZE), LFO_PHASE_FRAC + 1);
