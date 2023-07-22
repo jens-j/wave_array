@@ -25,6 +25,7 @@ class WaveArray:
 
     REG_LFO_VELOCITY            = 0x00000500
     REG_LFO_WAVE                = 0x00000501
+    REG_LFO_TRIGGER             = 0x00000502
 
     REG_FILTER_CUTOFF           = 0x00000600
     REG_FILTER_RESONANCE        = 0x00000601
@@ -47,6 +48,7 @@ class WaveArray:
     REG_TABLE_BASE              = 0x00003000
     REG_FRAME_CTRL_BASE         = 0x00004000
     REG_MIX_CTRL_BASE           = 0x00005000
+    REG_FREQ_CTRL_BASE          = 0x00006000 
 
     def __init__(self, ao_callback, wave_callback, port='COM4'):
         self.dev = UartProtocol(port, 1000_000, ao_callback, wave_callback)
@@ -70,7 +72,7 @@ class WaveArray:
         return self.dev.read(self.REG_ADDR_FAULT)
 
     def write(self, address, value):
-        print(f'[{address:08X}] <= {value:04X}')
+        # print(f'[{address:08X}] <= {value:04X}')
         self.dev.write(address, value) 
 
     def read(self, address, log=True):
@@ -85,7 +87,7 @@ class WaveArray:
 
     def write_mod_source(self, destination, index, source):
         address = self.REG_MOD_MAP_BASE + destination * 8 + index * 2
-        print(f'mod enable {destination} {index} {source} {address:08X}')
+        # print(f'mod enable {destination} {index} {source} {address:08X}')
         self.write(address, source)
 
     def read_mod_amount(self, destination, index):
@@ -122,8 +124,7 @@ class WaveArray:
             burst_address += 128
 
         return data
-
-
+    
 
 def main():
 

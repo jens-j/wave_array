@@ -6,7 +6,7 @@ import logging
 import struct
 from functools                import partial
 from random                   import randint, random
-from datetime                 import datetime
+from time                     import time
 
 import pyqtgraph              as pg
 import numpy                  as np
@@ -30,14 +30,17 @@ class WaveArrayGui(QtWidgets.QMainWindow):
     PLOT_FREQUENCY = 50
     PLOT_PERIOD_MS = 1000 // PLOT_FREQUENCY
 
-    PLOT_T       = 5 # Seconds.
+    PLOT_T       = 4 # Seconds.
     PLOT_SAMPLES = PLOT_T * PLOT_FREQUENCY
 
     logger = logging.getLogger()
 
-    def __init__(self):
+    def __init__(self, application):
 
         QtWidgets.QMainWindow.__init__(self)
+
+        self.application = application
+
         self.setWindowTitle('Wave Array')
 
         self.auto_offload_enable = False
@@ -64,27 +67,26 @@ class WaveArrayGui(QtWidgets.QMainWindow):
         self.curves_resonance = [None] * self.client.n_voices
         self.curves_frame_0 = [None] * self.client.n_voices
         self.curves_frame_1 = [None] * self.client.n_voices
-        self.curves_mixer = [None] * self.client.n_voices
+        self.curves_mix_0 = [None] * self.client.n_voices
+        self.curves_mix_1 = [None] * self.client.n_voices
+        self.curves_volume = [None] * self.client.n_voices
         self.curve_x = np.arange(0, self.PLOT_T, self.PLOT_T / self.PLOT_SAMPLES)[::-1] # Constant used for plotting.
 
         module_path = os.path.dirname(os.path.abspath(__file__))
         self.table_dir = os.path.join(module_path, '../../../data/wavetables/')
 
-        self.t_hk = datetime.now()
-        self.t_plot = datetime.now()
+        self.t_hk = time()
+        self.t_plot = time()
 
         # Initialize the GUI.
         module_path = os.path.dirname(os.path.abspath(__file__))
         ui_path     = os.path.join(module_path, '../../../qt')
         self.ui     = uic.loadUi(os.path.join(ui_path, 'wavearray.ui'))
+
         self.generate_voice_ui()
         self.generate_mod_matrix()
         self.initialize_plots()
-
-        # table_path = os.path.join(module_path, '../../../data') 
-        # self.open_wavetable(filename=os.path.join(table_path, 'saw_square.table'))
-        # self.open_wavetable(filename=os.path.join(table_path, 'basic.table'))
-
+        self.load_stylesheets()
         self.load_wavetables()
 
         # Load initial values.
@@ -92,18 +94,24 @@ class WaveArrayGui(QtWidgets.QMainWindow):
 
         # Connect signals.
         self.ui.btn_enable_hk.clicked.connect(self.btn_enable_hk_clicked)
-        self.ui.box_hk_rate.valueChanged.connect(self.box_hk_rate_changed)
         self.ui.btn_enable_oscilloscope.clicked.connect(self.btn_enable_oscilloscope_clicked)
-        self.ui.box_oscilloscope_rate.valueChanged.connect(self.box_oscilloscope_rate_changed)
         self.ui.btn_reg_read.released.connect(self.btn_reg_read_clicked)
         self.ui.btn_reg_write.released.connect(self.btn_reg_write_clicked)
-        self.ui.action_load_config.triggered.connect(self.load_config)
+        self.ui.btn_enable_lfo_trigger.clicked.connect(self.btn_enable_lfo_trigger_clicked)
+
+        self.ui.box_hk_rate.valueChanged.connect(self.box_hk_rate_changed)
+        self.ui.box_oscilloscope_rate.valueChanged.connect(self.box_oscilloscope_rate_changed)
         self.ui.box_filter_select.currentIndexChanged.connect(self.filter_select_changed)
         self.ui.box_lfo_waveform.currentIndexChanged.connect(self.lfo_waveform_changed)
+
+        self.ui.action_load_config.triggered.connect(self.load_config)
+
         self.ui.slider_mix_0_position.sliderMoved.connect(partial(self.mix_amount_changed, 0))
         self.ui.slider_mix_1_position.sliderMoved.connect(partial(self.mix_amount_changed, 1))
         self.ui.slider_frame_0_position.sliderMoved.connect(partial(self.frame_position_changed, 0))
         self.ui.slider_frame_1_position.sliderMoved.connect(partial(self.frame_position_changed, 1))
+        self.ui.slider_pitch_0.sliderMoved.connect(partial(self.freq_amount_changed, 0))
+        self.ui.slider_pitch_1.sliderMoved.connect(partial(self.freq_amount_changed, 1))
         self.ui.slider_lfo_velocity.sliderMoved.connect(self.lfo_velocity_changed)
         self.ui.slider_filter_cutoff.sliderMoved.connect(self.filter_cutoff_changed)
         self.ui.slider_filter_resonance.sliderMoved.connect(self.filter_resonance_changed)
@@ -113,6 +121,7 @@ class WaveArrayGui(QtWidgets.QMainWindow):
         self.ui.slider_envelope_release.sliderMoved.connect(self.envelope_release_changed)
         self.ui.slider_mod_amount.sliderMoved.connect(self.set_mod_amount)
         
+        # Connect mod matrix signals.
         for destination in range(ModMap.MODD_LEN):
             for source in range(ModMap.MODS_LEN - 1): 
                 button = self.mod_layout.itemAtPosition(destination, source).widget()
@@ -132,6 +141,7 @@ class WaveArrayGui(QtWidgets.QMainWindow):
         if self.auto_offload_enable:
             self.status = Status(self.client, packet=packet)   
 
+
     def wave_offload_handler(self, packet):
 
         if self.auto_offload_enable:
@@ -143,7 +153,9 @@ class WaveArrayGui(QtWidgets.QMainWindow):
                     
     def update_plots(self):
         
-        # t = datetime.now()
+        t = time()
+        # self.logger.info(f'plot T = {(t - self.t_plot)}')
+        self.t_plot = t
 
         self.ui.lbl_voice_enabled.setText(f'{self.status.voice_enabled:04X}')
         self.ui.lbl_voice_active.setText(f'{self.status.voice_active:04X}')
@@ -163,21 +175,33 @@ class WaveArrayGui(QtWidgets.QMainWindow):
 
             self.curves_pot[i].setData(self.curve_x, np.concatenate(
                 (self.curves_pot[i].getData()[1][1:], [self.status.mod_sources[ModMap.MODS_POT][i]])))
+
             self.curves_envelope[i].setData(self.curve_x, np.concatenate(
                 (self.curves_envelope[i].getData()[1][1:], [self.status.mod_sources[ModMap.MODS_ENVELOPE][i]])))
+
             self.curves_lfo[i].setData(self.curve_x, np.concatenate(
                 (self.curves_lfo[i].getData()[1][1:], [self.status.mod_sources[ModMap.MODS_LFO][i]])))
             
             self.curves_cutoff[i].setData(self.curve_x, np.concatenate(
                 (self.curves_cutoff[i].getData()[1][1:], [self.status.mod_destinations[ModMap.MODD_CUTOFF][i]])))
+
             self.curves_resonance[i].setData(self.curve_x, np.concatenate(
                 (self.curves_resonance[i].getData()[1][1:], [self.status.mod_destinations[ModMap.MODD_RESONANCE][i]])))
+
             self.curves_frame_0[i].setData(self.curve_x, np.concatenate(
                 (self.curves_frame_0[i].getData()[1][1:], [self.status.mod_destinations[ModMap.MODD_OSC_0_FRAME][i]])))
+
             self.curves_frame_1[i].setData(self.curve_x, np.concatenate(
                 (self.curves_frame_1[i].getData()[1][1:], [self.status.mod_destinations[ModMap.MODD_OSC_1_FRAME][i]])))
-            self.curves_mixer[i].setData(self.curve_x, np.concatenate(
-                (self.curves_mixer[i].getData()[1][1:], [self.status.mod_destinations[ModMap.MODD_VOLUME][i]])))
+
+            self.curves_mix_0[i].setData(self.curve_x, np.concatenate(
+                (self.curves_mix_0[i].getData()[1][1:], [self.status.mod_destinations[ModMap.MODD_OSC_0_MIX][i]])))
+
+            self.curves_mix_1[i].setData(self.curve_x, np.concatenate(
+                (self.curves_mix_1[i].getData()[1][1:], [self.status.mod_destinations[ModMap.MODD_OSC_1_MIX][i]])))
+
+            self.curves_volume[i].setData(self.curve_x, np.concatenate(
+                (self.curves_volume[i].getData()[1][1:], [self.status.mod_destinations[ModMap.MODD_VOLUME][i]])))
 
             # Update both wavetable plots.
             for j in range(2):
@@ -224,6 +248,9 @@ class WaveArrayGui(QtWidgets.QMainWindow):
         enabled = self.client.read(WaveArray.REG_WAVE_ENABLE)
         self.ui.btn_enable_oscilloscope.setChecked(enabled)
 
+        enabled = self.client.read(WaveArray.REG_LFO_TRIGGER)
+        self.ui.btn_enable_lfo_trigger.setChecked(enabled)
+
         period = self.client.read(WaveArray.REG_WAVE_PERIOD)
         rate = 100E6 / (period * 1024)
         self.ui.box_oscilloscope_rate.setValue(int(rate))
@@ -250,6 +277,14 @@ class WaveArrayGui(QtWidgets.QMainWindow):
         position = self.client.read(WaveArray.REG_FRAME_CTRL_BASE + 1)
         self.ui.slider_frame_1_position.setValue(position)
         self.ui.lbl_position_1.setText(f'0x{position:04X}')
+
+        frequency = self.client.read(WaveArray.REG_FREQ_CTRL_BASE)
+        self.ui.slider_pitch_0.setValue(frequency)
+        self.ui.lbl_pitch_0.setText(f'0x{frequency:04X}')
+
+        frequency = self.client.read(WaveArray.REG_FREQ_CTRL_BASE + 1)
+        self.ui.slider_pitch_1.setValue(frequency)
+        self.ui.lbl_pitch_1.setText(f'0x{frequency:04X}')
 
         velocity = self.client.read(WaveArray.REG_LFO_VELOCITY)
         self.ui.slider_lfo_velocity.setValue(velocity)
@@ -309,7 +344,8 @@ class WaveArrayGui(QtWidgets.QMainWindow):
                 else:
                     self.voice_active_buttons.append(btn)
 
-            self.ui.group_voices.layout().insertLayout(2, layout, 0) # Skip labels and separator.
+            count = self.ui.group_voices.layout().count()
+            self.ui.group_voices.layout().insertLayout(count - 1, layout, 0) # Insert at the end but before spacer.
 
         # self.ui.group_voices.layout().addItem(QSpacerItem(20, 40, QSizePolicy.Minimum, QSizePolicy.Expanding))
 
@@ -325,67 +361,94 @@ class WaveArrayGui(QtWidgets.QMainWindow):
 
     def initialize_plots(self):
 
+        bg_color = (0x3a, 0x3a, 0x3a)
+
         # Add callback to wavetable write when a table is dropped on the oscillator plots.
         self.ui.plot_waveform_0.addDropCallback(self.write_wavetable)
         self.ui.plot_waveform_1.addDropCallback(self.write_wavetable)
         
-        self.ui.plot_cutoff.setBackground('w')
+        self.ui.plot_cutoff.setBackground(bg_color)
         self.ui.plot_cutoff.setTitle('filter cutoff')
-        self.ui.plot_cutoff.setYRange(0, 2**15, padding=0)
+        self.ui.plot_cutoff.setYRange(-1, 2**15, padding=0)
         self.ui.plot_cutoff.hideAxis('left')
+        self.ui.plot_cutoff.hideAxis('bottom')
 
-        self.ui.plot_resonance.setBackground('w')
+        self.ui.plot_resonance.setBackground(bg_color)
         self.ui.plot_resonance.setTitle('filter resonance')
-        self.ui.plot_resonance.setYRange(0, 2**15, padding=0)
+        self.ui.plot_resonance.setYRange(-1, 2**15, padding=0)
         self.ui.plot_resonance.hideAxis('left')
+        self.ui.plot_resonance.hideAxis('bottom')
 
-        self.ui.plot_frame_0.setBackground('w')
-        self.ui.plot_frame_0.setTitle('wavetable frame')
-        self.ui.plot_frame_0.setYRange(0, 2**15, padding=0)
+        self.ui.plot_frame_0.setBackground(bg_color)
+        self.ui.plot_frame_0.setTitle('wavetable A frame')
+        self.ui.plot_frame_0.setYRange(-1, 2**15, padding=0)
         self.ui.plot_frame_0.hideAxis('left')
+        self.ui.plot_frame_0.hideAxis('bottom')
 
-        self.ui.plot_frame_1.setBackground('w')
-        self.ui.plot_frame_1.setTitle('wavetable frame')
-        self.ui.plot_frame_1.setYRange(0, 2**15, padding=0)
+        self.ui.plot_frame_1.setBackground(bg_color)
+        self.ui.plot_frame_1.setTitle('wavetable B frame')
+        self.ui.plot_frame_1.setYRange(-1, 2**15, padding=0)
         self.ui.plot_frame_1.hideAxis('left')
+        self.ui.plot_frame_1.hideAxis('bottom')
 
-        self.ui.plot_mixer.setBackground('w')
-        self.ui.plot_mixer.setTitle('mixer')
-        self.ui.plot_mixer.setYRange(0, 2**15, padding=0)
-        self.ui.plot_mixer.hideAxis('left')
+        self.ui.plot_mix_0.setBackground(bg_color)
+        self.ui.plot_mix_0.setTitle('wavetable A mix')
+        self.ui.plot_mix_0.setYRange(-1, 2**15, padding=0)
+        self.ui.plot_mix_0.hideAxis('left')
+        self.ui.plot_mix_0.hideAxis('bottom')
+
+        self.ui.plot_mix_1.setBackground(bg_color)
+        self.ui.plot_mix_1.setTitle('wavetable B mix')
+        self.ui.plot_mix_1.setYRange(-1, 2**15, padding=0)
+        self.ui.plot_mix_1.hideAxis('left')
+        self.ui.plot_mix_1.hideAxis('bottom')
+
+        self.ui.plot_volume.setBackground(bg_color)
+        self.ui.plot_volume.setTitle('volume')
+        self.ui.plot_volume.setYRange(-1, 2**15, padding=0)
+        self.ui.plot_volume.hideAxis('left')
+        self.ui.plot_volume.hideAxis('bottom')
         
-        self.ui.plot_pot.setBackground('w')
+        self.ui.plot_pot.setBackground(bg_color)
         self.ui.plot_pot.setTitle('potentiometer')
-        self.ui.plot_pot.setYRange(0, 2**15, padding=0)
+        self.ui.plot_pot.setYRange(-1, 2**15, padding=0)
         self.ui.plot_pot.hideAxis('left')
+        self.ui.plot_pot.hideAxis('bottom')
 
-        self.ui.plot_envelope.setBackground('w')
+        self.ui.plot_envelope.setBackground(bg_color)
         self.ui.plot_envelope.setTitle('envelope')
-        self.ui.plot_envelope.setYRange(0, 2**15, padding=0)
+        self.ui.plot_envelope.setYRange(-1, 2**15, padding=0)
         self.ui.plot_envelope.hideAxis('left')
+        self.ui.plot_envelope.hideAxis('bottom')
 
-        self.ui.plot_lfo.setBackground('w')
+        self.ui.plot_lfo.setBackground(bg_color)
         self.ui.plot_lfo.setTitle('LFO')
         self.ui.plot_lfo.setYRange(-2**15, 2**15, padding=0)
         self.ui.plot_lfo.hideAxis('left')
+        self.ui.plot_lfo.hideAxis('bottom')
 
-        self.ui.plot_waveform_0.setBackground('w')
+        self.ui.plot_waveform_0.setBackground(bg_color)
         self.ui.plot_waveform_0.setTitle('wavetable A')
         self.ui.plot_waveform_0.setYRange(-2**15, 2**15, padding=0)
         self.ui.plot_waveform_0.hideAxis('left')
         self.ui.plot_waveform_0.hideAxis('bottom')
 
-        self.ui.plot_waveform_1.setBackground('w')
+        self.ui.plot_waveform_1.setBackground(bg_color)
         self.ui.plot_waveform_1.setTitle('wavetable B')
         self.ui.plot_waveform_1.setYRange(-2**15, 2**15, padding=0)
         self.ui.plot_waveform_1.hideAxis('left')
         self.ui.plot_waveform_1.hideAxis('bottom')
 
-        self.ui.plot_oscilloscope.setBackground('w')
+        self.ui.plot_oscilloscope.setBackground(bg_color)
         self.ui.plot_oscilloscope.setTitle('oscilloscope')
         self.ui.plot_oscilloscope.hideAxis('left')
         self.ui.plot_oscilloscope.hideAxis('bottom')
         # self.ui.plot_oscilloscope.setYRange(-2**15, 2**15, padding=0)
+
+        self.plot_widgets = [self.ui.plot_waveform_0, self.ui.plot_cutoff, self.ui.plot_resonance, self.ui.plot_frame_0, 
+                             self.ui.plot_frame_1, self.ui.plot_mix_0, self.ui.plot_mix_1, self.ui.plot_volume, 
+                             self.ui.plot_pot, self.ui.plot_envelope, self.ui.plot_lfo, self.ui.plot_waveform_0, 
+                             self.ui.plot_waveform_1, self.ui.plot_oscilloscope]
 
         hue = random() / self.client.n_voices
 
@@ -415,7 +478,13 @@ class WaveArrayGui(QtWidgets.QMainWindow):
             self.curves_frame_1[i] = self.ui.plot_frame_1.plot(
                 self.curve_x, np.zeros(self.PLOT_SAMPLES), name=f'voice {i}', pen=pen)
 
-            self.curves_mixer[i] = self.ui.plot_mixer.plot(
+            self.curves_mix_0[i] = self.ui.plot_mix_0.plot(
+                self.curve_x, np.zeros(self.PLOT_SAMPLES), name=f'voice {i}', pen=pen)
+
+            self.curves_mix_1[i] = self.ui.plot_mix_1.plot(
+                self.curve_x, np.zeros(self.PLOT_SAMPLES), name=f'voice {i}', pen=pen)
+
+            self.curves_volume[i] = self.ui.plot_volume.plot(
                 self.curve_x, np.zeros(self.PLOT_SAMPLES), name=f'voice {i}', pen=pen)
 
             self.curves_waveforms[0][i] = self.ui.plot_waveform_0.plot(np.zeros(2048), name=f'voice {i}', pen=pen)
@@ -433,7 +502,7 @@ class WaveArrayGui(QtWidgets.QMainWindow):
     def load_wavetables(self):
 
         module_path = os.path.dirname(os.path.abspath(__file__))
-        table_path     = os.path.join(module_path, '../../../data/wavetables')
+        table_path  = os.path.join(module_path, '../../../data/wavetables')
 
         for filename in os.listdir(self.table_dir):
 
@@ -448,6 +517,26 @@ class WaveArrayGui(QtWidgets.QMainWindow):
             else:
                 label = QListWidgetItem(parts[0])
                 self.ui.list_tables.addItem(label)
+
+    
+    # Load available stylesheet names from directory and add a menu item for each.
+    def load_stylesheets(self):
+
+        module_path = os.path.dirname(os.path.abspath(__file__))
+        sheet_path  = os.path.join(module_path, '../../../qt')
+
+        for filename in os.listdir(sheet_path):
+
+            parts = filename.split('.')
+            if len(parts) != 2:
+                continue
+            if parts[1] != 'qss':
+                continue
+
+            self.ui.menuAppearance.addAction(parts[0], self.appearanceActionClicked)
+
+
+
 
 
     # Write a wavetable to the SDRAM. Currently only one wavetable is stored per oscillator.
@@ -496,7 +585,7 @@ class WaveArrayGui(QtWidgets.QMainWindow):
 
         self.ui.slider_mod_amount.setValue(int(amount))  
         self.ui.lbl_mod_select.setText(
-            f'{ModMap.MODS[source]}\n->\n{ModMap.MODD[destination]}')       
+            f'{ModMap.MODS[source]}\nto\n{ModMap.MODD[destination]}')       
 
         # Add new mod mapping.
         if state:
@@ -516,6 +605,9 @@ class WaveArrayGui(QtWidgets.QMainWindow):
 
     def btn_enable_oscilloscope_clicked(self, checked):
         self.client.write(WaveArray.REG_WAVE_ENABLE, int(checked))
+
+    def btn_enable_lfo_trigger_clicked(self, checked):
+        self.client.write(WaveArray.REG_LFO_TRIGGER, int(checked))   
 
     def box_oscilloscope_rate_changed(self, rate):
         period = 100E6 / (1024 * rate)
@@ -550,6 +642,11 @@ class WaveArrayGui(QtWidgets.QMainWindow):
         lbl = getattr(self.ui, f'lbl_position_{index}')
         lbl.setText(f'0x{control_value:04X}')
 
+    def freq_amount_changed(self, index, control_value):
+        self.client.write(WaveArray.REG_FREQ_CTRL_BASE + index, control_value)
+        lbl = getattr(self.ui, f'lbl_pitch_{index}')
+        lbl.setText(f'0x{control_value:04X}')
+
     def filter_cutoff_changed(self, control_value):
         self.client.write(WaveArray.REG_FILTER_CUTOFF, control_value)
         self.ui.lbl_cutoff.setText(f'0x{control_value:04X}')
@@ -574,6 +671,48 @@ class WaveArrayGui(QtWidgets.QMainWindow):
         self.client.write(WaveArray.REG_ENVELOPE_RELEASE, control_value)
         self.ui.lbl_release.setText(f'0x{control_value:04X}')
 
+    def appearanceActionClicked(self):
+
+        name = self.sender().text() + '.qss'
+        module_path = os.path.dirname(os.path.abspath(__file__))
+        style_path = os.path.join(module_path, '../../../qt/', name)
+
+        with open(style_path) as f:
+
+            self.application.setStyleSheet(f.read())
+            # Set plot backgrounds to stylesheet background color.
+
+        section = False
+        color = (20, 20, 20)
+        color_string = None
+
+        # Extract background color from stylesheet and use it as plot background.
+        with open(style_path) as f:
+            for line in f:
+
+                if not section and line == 'QWidget\n':
+                    section = True
+                
+                if section:
+
+                    if line == '}\n':
+                        break 
+
+                    if 'background-color' in line:
+                        color_string = line.split(':')[1].strip().strip(';')
+                        
+                        if color_string[0] != '#':
+                            break 
+
+                        raw_color = int(color_string[1:7], 16)
+                        print(hex(raw_color))
+                        color = ((raw_color >> 16) % 0x100, (raw_color >> 8) % 0x100, raw_color % 0x100)
+                        break
+            
+        if color:
+            for plot in self.plot_widgets:
+                plot.setBackground(color)
+
         
 def main():
 
@@ -591,7 +730,7 @@ def main():
         application.setStyleSheet(f.read())
 
     try:
-        gui = WaveArrayGui()
+        gui = WaveArrayGui(application)
         gui.show()
         application.exec_()
 

@@ -29,6 +29,8 @@ class ModMap:
     MODD_OSC_1_FRAME        = 4
     MODD_OSC_0_MIX          = 5
     MODD_OSC_1_MIX          = 6
+    MODD_OSC_0_FREQ         = 7
+    MODD_OSC_1_FREQ         = 8
 
     MODS_NONE               = 0
     MODS_POT                = 1
@@ -36,7 +38,7 @@ class ModMap:
     MODS_LFO                = 3
 
     MODS_LEN                = 4
-    MODD_LEN                = 7
+    MODD_LEN                = 9
     MODS_LEN_LOG2           = int(np.ceil(np.log2(MODS_LEN)))
     MODD_LEN_LOG2           = int(np.ceil(np.log2(MODD_LEN)))
 
@@ -48,7 +50,9 @@ class ModMap:
         MODD_OSC_0_FRAME    : 'osc_0_frame',     
         MODD_OSC_1_FRAME    : 'osc_1_frame',     
         MODD_OSC_0_MIX      : 'osc_0_mix',     
-        MODD_OSC_1_MIX      : 'osc_1_mix'
+        MODD_OSC_1_MIX      : 'osc_1_mix',
+        MODD_OSC_0_FREQ     : 'osc_0_freq',     
+        MODD_OSC_1_FREQ     : 'osc_1_freq'
     }                  
 
     # Modulation source strings.
@@ -68,8 +72,6 @@ class ModMap:
         self.map = self._load()
 
     def print(self):
-
-        print(len(ModMap.MODD.keys()))
         
         for d in range(len(ModMap.MODD.keys())):
 
@@ -110,8 +112,6 @@ class ModMap:
 
         i = self._find_source(destination, source)
 
-        print(f"get_mapping(destination, source) = {i}")
-
         if i != None:
             amount = self.client.read_mod_amount(source, i)
             return (True, amount)
@@ -140,7 +140,6 @@ class ModMap:
     def _find_source(self, destination, source):
 
         for i in range(self.MAX_SOURCES):
-
             if self.map[destination][i].source == source:
                 return i 
 
@@ -149,14 +148,7 @@ class ModMap:
     # Find first empty map slot index. Returns None if not available.
     def _find_slot(self, destination):
 
-        self.print()
-        print(destination)
-
-
         for i in range(self.MAX_SOURCES):
-
-            print(self.map[destination][i].source)
-
             if self.map[destination][i].source == 0:
                 return i 
 
@@ -168,13 +160,9 @@ class ModMap:
         map = {}
         
         for d in self.MODD.keys():
-
             map[d] = [None] * self.MAX_SOURCES
 
             for i in range(self.MAX_SOURCES):
-
-                print(f'{d} {i}')
-
                 source = self.client.read_mod_source(d, i)
                 amount = self.client.read_mod_amount(d, i)
                 map[d][i] = Map(d, source, amount) 
