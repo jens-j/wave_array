@@ -14,7 +14,7 @@ entity oscillator_stack is
         reset                   : in  std_logic;
         config                  : in  t_config;
         next_sample             : in  std_logic; -- Next sample trigger.
-        osc_inputs              : in  t_osc_input_array(0 to N_VOICES - 1);
+        osc_inputs              : in  t_pitched_osc_inputs;
         dma2table               : in  t_dma2table_array(0 to N_TABLES - 1);
         table2dma               : out t_table2dma_array(0 to N_TABLES - 1);
         mod_destinations        : in  t_modd_array; -- 2D array of frame control values for each table, for each voice.
@@ -47,7 +47,7 @@ begin
             reset                   => reset,
             config                  => config,
             next_sample             => next_sample,
-            osc_inputs              => osc_inputs,
+            osc_inputs              => osc_inputs(n),
             dma2table               => dma2table(n),
             table2dma               => table2dma(n),
             frame_control           => mod_destinations(MODD_OSC_0_FRAME + n),

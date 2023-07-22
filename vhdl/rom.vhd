@@ -10,21 +10,23 @@ library wave;
 use wave.wave_array_pkg.all;
 
 
-entity lin2log_rom is
+entity rom is
     generic (
-        init_file               : string := "log.hex"
+        WIDTH                   : integer;
+        DEPTH_LOG2              : integer;
+        INIT_FILE               : string := "log.hex"
     );
     port (
         clk                     : in  std_logic;
-        address                 : in  std_logic_vector(9 downto 0);
-        data                    : out std_logic_vector(31 downto 0)
+        address                 : in  std_logic_vector(DEPTH_LOG2 - 1 downto 0);
+        data                    : out std_logic_vector(WIDTH - 1 downto 0)
     );
 end entity;
 
-architecture arch of lin2log_rom is
+architecture arch of rom is
 
-    type t_memory is array(0 to 1023)
-        of std_logic_vector(31 downto 0);
+    type t_memory is array(0 to 2**DEPTH_LOG2 - 1)
+        of std_logic_vector(WIDTH - 1 downto 0);
 
     impure function init_coeff_rom (file_name : in string) return t_memory is
         FILE ram_file : text;
@@ -40,7 +42,7 @@ architecture arch of lin2log_rom is
    end function;
 
     signal s_memory : t_memory := init_coeff_rom(init_file);
-    signal s_output_reg : std_logic_vector(31 downto 0);
+    signal s_output_reg : std_logic_vector(WIDTH - 1 downto 0);
 
     attribute syn_ramstyle : string;
     attribute syn_ramstyle of s_memory : signal is "no_rw_check";

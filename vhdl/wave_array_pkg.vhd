@@ -28,9 +28,9 @@ package wave_array_pkg is
 
     constant N_TABLES               : positive := 2; -- Number of parallel wave tables.
     constant N_TABLES_LOG2          : natural  := integer(ceil(log2(real(N_TABLES))));
-    constant N_VOICES               : positive := 16 -- Number of parallel oscillators per table.
+    constant N_VOICES               : positive := 8 -- Number of parallel oscillators per table.
     --pragma synthesis_off
-                                      / 4 -- Use only 4 voices in simulation to keep the wave view smaller.
+                                      / 2 -- Use only 4 voices in simulation to keep the wave view smaller.
     --pragma synthesis_on
     ;
     constant N_VOICES_LOG2          : natural  := integer(ceil(log2(real(N_VOICES))));
@@ -134,6 +134,8 @@ package wave_array_pkg is
     constant MODD_OSC_1_FRAME       : natural := 4;
     constant MODD_OSC_0_MIX         : natural := 5;
     constant MODD_OSC_1_MIX         : natural := 6;
+    constant MODD_OSC_0_FREQ        : natural := 7;
+    constant MODD_OSC_1_FREQ        : natural := 8;
 
     constant MODS_NONE              : natural := 0;
     constant MODS_POT               : natural := 1;
@@ -141,7 +143,7 @@ package wave_array_pkg is
     constant MODS_LFO               : natural := 3;
 
     constant MODS_LEN               : natural := 4;
-    constant MODD_LEN               : natural := 7;
+    constant MODD_LEN               : natural := 9;
     constant MODS_LEN_LOG2          : natural := integer(ceil(log2(real(MODS_LEN))));
     constant MODD_LEN_LOG2          : natural := integer(ceil(log2(real(MODD_LEN))));
 
@@ -165,24 +167,16 @@ package wave_array_pkg is
     constant REG_LED                : unsigned := x"0000002"; -- rw 1 bit           | On-board led register.
     constant REG_VOICES             : unsigned := x"0000003"; -- ro 16 bit unsigned | Number of voices.
 
-    constant REG_DBG_WAVE_STATE_OFFLOAD : unsigned := x"0000100"; -- ro 16 bit          | Wave offload state.
-    constant REG_DBG_WAVE_STATE_SAMPLE  : unsigned := x"0000101"; -- ro 16 bit          | Wave sample state.
-    constant REG_DBG_WAVE_FIFO          : unsigned := x"0000102"; -- ro 11 bit unsigned | Wave offload fifo count.
-    constant REG_DBG_WAVE_TIMER         : unsigned := x"0000103"; -- ro 16 bit unsigned | Wave offload timer value.
-    constant REG_DBG_WAVE_FLAGS         : unsigned := x"0000104"; -- ro  6 bit          | Wave offload fifo_overflow & fifo_underflow & wave_req & wave_ready flags & fifo_empty & fifo_full.    
-    constant REG_DBG_UART_FLAGS         : unsigned := x"0000110"; -- ro  4 bit          | s2u_fifo_full & u2s_fifo_full & hk2u_fifo_full & wave2u_fifo_full.    
-    constant REG_DBG_NEW_PERIOD         : unsigned := x"0000120"; -- rw 16 bit          | New_period sticky bits, write to clear.    
-
-
-    constant REG_TABLE_BASE_L       : unsigned := x"0000200"; -- rw 16 bit unsigned | Bit 15 downto 0 of the wavetable base SDRAM address.
-    constant REG_TABLE_BASE_H       : unsigned := x"0000201"; -- rw  7 bit unsigned | Bit 22 downto 16 of the wavetable base SDRAM address.
-    constant REG_TABLE_FRAMES       : unsigned := x"0000202"; -- rw  4 bit unsigned | Log2 of the number of frames in the wavetable. Cannot be > WAVE_MAX_FRAMES_LOG2.
-    constant REG_TABLE_NEW          : unsigned := x"0000203"; -- wo  1 bit          | Writing to this register triggers initialization of the wavetable BRAMS.
+    constant REG_DBG_WAVE_TIMER     : unsigned := x"0000103"; -- ro 16 bit unsigned | Wave offload timer value.
+    constant REG_DBG_WAVE_FLAGS     : unsigned := x"0000104"; -- ro  6 bit          | Wave offload fifo_overflow & fifo_underflow & wave_req & wave_ready flags & fifo_empty & fifo_full.    
+    constant REG_DBG_UART_FLAGS     : unsigned := x"0000110"; -- ro  4 bit          | s2u_fifo_full & u2s_fifo_full & hk2u_fifo_full & wave2u_fifo_full.    
+    constant REG_DBG_NEW_PERIOD     : unsigned := x"0000120"; -- rw 16 bit          | New_period sticky bits, write to clear.    
 
     constant REG_POTENTIOMETER      : unsigned := x"0000400"; -- ro 12 bit unsigned | Potentiometer value. 
 
     constant REG_LFO_VELOCITY       : unsigned := x"0000500"; -- rw 15 bit unsigned | LFO velocity control value. 
     constant REG_LFO_WAVE           : unsigned := x"0000501"; -- rw 16 bit unsigned | Select LFO waveform. Clipped to LFO_N_WAVEFORMS - 1.
+    constant REG_LFO_TRIGGER        : unsigned := x"0000502"; -- rw  1 bit          | Write '1' to enable LFO sync to voices. 
 
     constant REG_FILTER_CUTOFF      : unsigned := x"0000600"; -- rw 15 bit unsigned | Filter cutoff control value. 
     constant REG_FILTER_RESONANCE   : unsigned := x"0000601"; -- rw 15 bit unsigned | Filter resonance control value. 
@@ -204,8 +198,9 @@ package wave_array_pkg is
     -- Base addresses for stuff that has multiple similar registers.
     constant REG_MOD_MAP_BASE       : unsigned := x"0001000"; -- Mod mapping starts here. Ordered major to minor, [destination, source (address, value)]
     constant REG_MOD_DEST_BASE      : unsigned := x"0002000"; -- ro 16 bit signed   | Modulation destinations start here. Ordered major to minor, [destination, voice].
-    constant REG_FRAME_CTRL_BASE    : unsigned := x"0004000"; -- wo 15 bit unsigned | Frame control base value for each wavetable.    
-    constant REG_MIX_CTRL_BASE      : unsigned := x"0005000"; -- wo 15 bit unsigned | Table mixer control base value for each wavetable.    
+    constant REG_FRAME_CTRL_BASE    : unsigned := x"0004000"; -- rw 15 bit unsigned | Frame control base value for each wavetable.    
+    constant REG_MIX_CTRL_BASE      : unsigned := x"0005000"; -- rw 15 bit unsigned | Table mixer control base value for each wavetable. 
+    constant REG_FREQ_CTRL_BASE     : unsigned := x"0006000"; -- rw 16 bit signed   | Oscillator frequency mod control base value for each voice.    
 
     -- Wavetable registers base address. Contiguous blocks of 4 registers for each wavetable.
     constant REG_TABLE_BASE         : unsigned := x"0003000"; -- rw 16 bit unsigned | Bit 15 downto 0 of the wavetable base SDRAM address.
@@ -314,6 +309,7 @@ package wave_array_pkg is
         lfo_wave_select         : integer range 0 to LFO_N_WAVEFORMS - 1;
         filter_select           : integer range 0 to 4;
         lfo_velocity            : t_ctrl_value;
+        lfo_trigger             : std_logic;
         envelope_attack         : t_ctrl_value;
         envelope_decay          : t_ctrl_value;
         envelope_sustain        : t_ctrl_value;
@@ -401,6 +397,8 @@ package wave_array_pkg is
     type t_register_input_array is array (natural range <>) of t_register_input;
     type t_register_output_array is array (natural range <>) of t_register_output;
 
+    type t_pitched_osc_inputs is array (0 to N_TABLES - 1) of t_osc_input_array(0 to N_VOICES - 1);
+
     constant MOD_MAPPING_INIT : t_mod_mapping := (
         source                  => MODS_NONE,
         amount                  => (others => '0')
@@ -420,7 +418,9 @@ package wave_array_pkg is
                                     3 => x"0000",
                                     4 => x"0000",
                                     5 => x"7FFF",
-                                    6 => x"7FFF"),
+                                    6 => x"7FFF",
+                                    7 => x"0000",
+                                    8 => x"0000"),
 
         mod_mapping             => (others => (others => MOD_MAPPING_INIT)),
         hk_enable               => '0',
@@ -429,6 +429,7 @@ package wave_array_pkg is
         wave_period             => x"078f", -- 1935 ~= 20 ms => 50 Hz.
         lfo_wave_select         => 0,
         lfo_velocity            => (others => '0'),
+        lfo_trigger             => '0',
         filter_select           => 0, -- Lowpass
         envelope_attack         => x"0010",
         envelope_decay          => x"0020",

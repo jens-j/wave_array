@@ -11,9 +11,6 @@ library xil_defaultlib;
 -- A 1024 entry LUT is used with linear interpolation based on the remaining 6 lsb.
 -- Interpolation is performed by adding shifted values of B - A to A.
 entity lin2log is
-    generic (
-        init_file               : string := "log.hex"
-    );
     port (
         clk                     : in  std_logic;
         reset                   : in  std_logic;
@@ -63,9 +60,11 @@ architecture arch of lin2log is
     
 begin 
 
-    rom : entity wave.lin2log_rom
+    rom : entity wave.rom
     generic map (
-        init_file               => init_file
+        WIDTH                   => 32,
+        DEPTH_LOG2              => 10,
+        INIT_FILE               => GET_INPUT_FILE_PATH & "log.hex"
     )
     port map (
         clk                     => clk,
@@ -125,7 +124,7 @@ begin
         -- Interpolate between A and B by adding shifted values of B - A to A.
         when interpolate => 
 
-            if r.diff_ab(r.counter) = '1' then 
+            if r.value_d(r.counter) = '1' then 
                 r_in.accumulator <= r.accumulator + resize(shift_left(r.diff_ab, r.counter), 37);
             end if;
 

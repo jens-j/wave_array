@@ -50,6 +50,7 @@ begin
         variable v_modd_destination : integer range 0 to MODD_LEN - 1;
         variable v_modd_voice : integer range 0 to N_VOICES - 1;
         variable v_table_index : integer range 0 to N_TABLES - 1;
+        variable v_voice_index : integer range 0 to N_VOICES - 1;
     begin
 
         r_in <= r;
@@ -104,18 +105,6 @@ begin
             elsif register_input.address = REG_VOICES then
                 r_in.register_output.read_data <= std_logic_vector(to_unsigned(N_VOICES, REGISTER_WIDTH));
 
-            elsif register_input.address = REG_TABLE_BASE_L then
-                r_in.register_output.read_data <=
-                    std_logic_vector(r.config.dma_input(0).base_address(REGISTER_WIDTH - 1 downto 0));
-
-            elsif register_input.address = REG_TABLE_BASE_H then
-                r_in.register_output.read_data(SDRAM_DEPTH_LOG2 - REGISTER_WIDTH - 1 downto 0) <=
-                    std_logic_vector(r.config.dma_input(0).base_address(SDRAM_DEPTH_LOG2 - 1 downto REGISTER_WIDTH));
-
-            elsif register_input.address = REG_TABLE_FRAMES then
-                r_in.register_output.read_data <= 
-                    std_logic_vector(to_unsigned(r.config.dma_input(0).frames_log2, REGISTER_WIDTH));
-
             elsif register_input.address = REG_POTENTIOMETER then
                 r_in.register_output.read_data(ADC_SAMPLE_SIZE - 1 downto 0) <= status.pot_value;
 
@@ -124,6 +113,9 @@ begin
 
             elsif register_input.address = REG_LFO_WAVE then
                 r_in.register_output.read_data <= std_logic_vector(to_unsigned(r.config.lfo_wave_select, REGISTER_WIDTH));
+
+            elsif register_input.address = REG_LFO_TRIGGER then
+                r_in.register_output.read_data(0) <= r.config.lfo_trigger;
 
             elsif register_input.address = REG_FILTER_CUTOFF then
                 r_in.register_output.read_data <= std_logic_vector(r.config.base_ctrl(MODD_FILTER_CUTOFF));
@@ -149,7 +141,16 @@ begin
             elsif register_input.address = REG_MIXER_CTRL then
                 r_in.register_output.read_data <= std_logic_vector(r.config.base_ctrl(MODD_MIXER));
 
-            
+            -- Read oscillator frequency mod control base value registers.
+            elsif register_input.address >= REG_FREQ_CTRL_BASE 
+                    and register_input.address < REG_FREQ_CTRL_BASE + N_TABLES then
+
+                v_rel_address := register_input.address - REG_FREQ_CTRL_BASE;
+
+                v_voice_index := to_integer(unsigned(v_rel_address(N_VOICES_LOG2 - 1 downto 0)));
+                r_in.register_output.read_data <= std_logic_vector(
+                    r.config.base_ctrl(MODD_OSC_0_FREQ + v_voice_index));
+
             -- Read table mixer control value registers.
             elsif register_input.address >= REG_MIX_CTRL_BASE 
                     and register_input.address < REG_MIX_CTRL_BASE + N_TABLES then
@@ -159,7 +160,6 @@ begin
                 v_table_index := to_integer(unsigned(v_rel_address(N_TABLES_LOG2 - 1 downto 0)));
                 r_in.register_output.read_data <= std_logic_vector(
                     r.config.base_ctrl(MODD_OSC_0_MIX + v_table_index));
-
 
             -- Read frame control value registers.
             elsif register_input.address >= REG_FRAME_CTRL_BASE 
@@ -197,7 +197,6 @@ begin
                 when others => 
                     r_in.register_output.valid <= '0';
                 end case;
-
 
                 -- Read mod mapping registers.
                 elsif register_input.address >= REG_MOD_MAP_BASE 
@@ -272,6 +271,9 @@ begin
                 r_in.config.lfo_wave_select <= minimum(LFO_N_WAVEFORMS - 1, 
                     to_integer(unsigned(register_input.write_data)));
 
+            elsif register_input.address = REG_LFO_TRIGGER then
+                r_in.config.lfo_trigger <= register_input.write_data(0);
+
             elsif register_input.address = REG_FILTER_CUTOFF then
                 r_in.config.base_ctrl(MODD_FILTER_CUTOFF) <= signed(register_input.write_data);
 
@@ -299,6 +301,17 @@ begin
 
             elsif register_input.address = REG_MIXER_CTRL then
                 r_in.config.base_ctrl(MODD_MIXER) <= signed(register_input.write_data); 
+
+            
+            -- oscillator frequency mod control base value registers.
+            -- One for each wavetable.
+            elsif register_input.address >= REG_FREQ_CTRL_BASE and 
+                    register_input.address < REG_FREQ_CTRL_BASE + N_VOICES then
+
+                v_rel_address := register_input.address - REG_FREQ_CTRL_BASE;
+                v_voice_index := to_integer(unsigned(v_rel_address(N_VOICES_LOG2 - 1 downto 0)));
+                
+                r_in.config.base_ctrl(MODD_OSC_0_FREQ + v_voice_index) <= signed(register_input.write_data);
 
             -- Table mixer control base value registers.
             -- One for each wavetable.
