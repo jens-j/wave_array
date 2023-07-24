@@ -115,7 +115,7 @@ begin
         m_axis_dout_tdata       => s_dout_tdata
     );
 
-    combinatorial : process (r, next_sample, config, s_dout_tvalid, s_dout_tdata)
+    combinatorial : process (r, next_sample, config, osc_inputs, s_dout_tvalid, s_dout_tdata)
         variable v_lfo_velocity_squared : unsigned(2 * CTRL_SIZE - 1 downto 0);
     begin
 

@@ -44,7 +44,6 @@ package wave_array_pkg is
     constant SAMPLE_RATE            : integer := 48_000;
 
     constant FRAMES_MAX_LOG2        : integer := 4;
-    constant FRAMES_MAX_LOG2_LOG2   : integer := integer(ceil(log2(real(FRAMES_MAX_LOG2)))); -- Needed for register width.
     constant FRAMES_MAX             : integer := 2**FRAMES_MAX_LOG2;
 
     -- Constants relating to mipmap table of a single frame.

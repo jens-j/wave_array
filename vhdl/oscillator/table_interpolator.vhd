@@ -504,46 +504,31 @@ begin
             -- (D - A) * B + C = (sampleB - sampleA) * frac(position) + sampleA.
             -- The input samples are also shifted right by one bit to leave some headroom to
             -- avoid overflow in the interpolation filter and/or the low pass filter.
-            s_frame_interp_a <= std_logic_vector(shift_right(unsigned(s_wave_read_data_a), 1));
+            s_frame_interp_a <= std_logic_vector(shift_right(signed(s_wave_read_data_a), 1));
             
             s_frame_interp_c <= 
                 (1 downto 0 => s_wave_read_data_a(SAMPLE_SIZE - 1)) -- sign extention
                 & s_wave_read_data_a                                -- operand
                 & (0 to OSC_SAMPLE_FRAC - 2 => '0');                -- shift
 
-            s_frame_interp_d <= std_logic_vector(shift_right(unsigned(s_wave_read_data_b), 1));
+            s_frame_interp_d <= std_logic_vector(shift_right(signed(s_wave_read_data_b), 1));
             s_frame_interp_b <= '0' & std_logic_vector(s_frame_position(r.osc_counter(1))); -- Add zero msb to make B unsigned.
-
-            -- s_frame_interp_a <= s_wave_read_data_b((r.frame_0_index + 1) * SAMPLE_SIZE - 1
-            --                         downto r.frame_0_index * SAMPLE_SIZE);
-
-            -- -- C needs to be sign extended by one bit because of operand B.
-            -- -- Also append zeros to align with the multiplication.
-            -- s_frame_interp_c <= s_wave_read_data_b((r.frame_0_index + 1) * SAMPLE_SIZE - 1)                        -- sign extention
-            --     & s_wave_read_data_b((r.frame_0_index + 1) * SAMPLE_SIZE - 1 downto r.frame_0_index * SAMPLE_SIZE) -- operand
-            --     & (0 to OSC_SAMPLE_FRAC - 1 => '0');                                                             -- shift
-
-            -- s_frame_interp_d <= s_wave_read_data_b((r.frame_1_index + 1) * SAMPLE_SIZE - 1
-            --                         downto r.frame_1_index * SAMPLE_SIZE);
-
-            -- s_frame_interp_b <= '0' & std_logic_vector(r.frame_position(PIPE_LEN_MEM - 1)); -- Add zero msb to make B unsigned.
-
 
             -- Pipeline stage 1: Read coefficient memory and send to interpolator. The values for the
             -- even and odd coefficient memories are swapped if the phase m is odd.
             if r.odd_phase(PIPE_LEN_MEM) = '1' then
                 s_coeff_interp_a <= s_coeff_odd_douta;
                 s_coeff_interp_d <= s_coeff_even_douta;
-                s_coeff_interp_c <= s_coeff_odd_douta(POLY_COEFF_SIZE - 1) -- Sign extend by one bit to make unsigned.
+                s_coeff_interp_c <= s_coeff_odd_douta(POLY_COEFF_SIZE - 1) -- Sign extend by one bit.
                     & s_coeff_odd_douta & (0 to OSC_COEFF_FRAC - 1 => '0');
             else
                 s_coeff_interp_a <= s_coeff_even_douta;
                 s_coeff_interp_d <= s_coeff_odd_douta;
-                s_coeff_interp_c <= s_coeff_even_douta(POLY_COEFF_SIZE - 1) -- Sign extend by one bit to make unsigned.
+                s_coeff_interp_c <= s_coeff_even_douta(POLY_COEFF_SIZE - 1) -- Sign extend by one bit.
                     & s_coeff_even_douta & (0 to OSC_COEFF_FRAC - 1 => '0');
             end if;
 
-            s_coeff_interp_b <= '0' & std_logic_vector(r.phase_position(PIPE_LEN_MEM - 1));
+            s_coeff_interp_b <= '0' & std_logic_vector(r.phase_position(PIPE_LEN_MEM - 1)); -- Add zero msb to make B unsigned.
 
             -- Pipeline stage 5: Connect linear interpolator outputs to the MACC.
             if r.zero_coeff(PIPE_SUM_INTP) = '0' then
@@ -572,11 +557,6 @@ begin
                 r_in.sample_buffers(r.osc_counter(PIPE_LEN_TOTAL))(r.sample_counter(PIPE_LEN_TOTAL)) 
                     <= t_mono_sample(
                         s_macc_p(SAMPLE_SIZE + POLY_COEFF_SIZE - 4 downto POLY_COEFF_SIZE - 3)); 
-                
-                -- else
-                --     r_in.sample_buffers(r.osc_counter(PIPE_LEN_TOTAL))
-                --         (r.sample_counter(PIPE_LEN_TOTAL)) <= (others => '0');
-                -- end if;
             end if;
 
         -- Mux wave memory address to dma to allow writing the wavetable.

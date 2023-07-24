@@ -74,6 +74,7 @@ begin
         r_in <= r;
 
         s_data_in_valid <= '0';
+        s_data_in <= (others => '0');
         
         osc_outputs <= r.osc_outputs;
 

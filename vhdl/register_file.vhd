@@ -351,8 +351,8 @@ begin
                         unsigned(register_input.write_data(SDRAM_DEPTH_LOG2 - REGISTER_WIDTH - 1 downto 0));
 
                 when "10" => 
-                    r_in.config.dma_input(v_table_index).frames_log2 <= to_integer(unsigned(
-                        register_input.write_data(FRAMES_MAX_LOG2_LOG2 - 1 downto 0)));
+                    r_in.config.dma_input(v_table_index).frames_log2 <= 
+                        minimum(FRAMES_MAX_LOG2, to_integer(unsigned(register_input.write_data)));
                 
                 when others => 
                     r_in.config.dma_input(v_table_index).new_table <= '1';

@@ -1153,6 +1153,12 @@
                   <layout class="QVBoxLayout" name="verticalLayout_58">
                    <item>
                     <widget class="QLabel" name="label_45">
+                     <property name="minimumSize">
+                      <size>
+                       <width>0</width>
+                       <height>14</height>
+                      </size>
+                     </property>
                      <property name="font">
                       <font>
                        <weight>50</weight>
@@ -1169,6 +1175,12 @@
                    </item>
                    <item>
                     <widget class="QLabel" name="label_46">
+                     <property name="minimumSize">
+                      <size>
+                       <width>0</width>
+                       <height>14</height>
+                      </size>
+                     </property>
                      <property name="font">
                       <font>
                        <weight>50</weight>
@@ -1185,6 +1197,12 @@
                    </item>
                    <item>
                     <widget class="QLabel" name="label_48">
+                     <property name="minimumSize">
+                      <size>
+                       <width>0</width>
+                       <height>14</height>
+                      </size>
+                     </property>
                      <property name="font">
                       <font>
                        <weight>50</weight>
@@ -1201,6 +1219,12 @@
                    </item>
                    <item>
                     <widget class="QLabel" name="label_47">
+                     <property name="minimumSize">
+                      <size>
+                       <width>0</width>
+                       <height>14</height>
+                      </size>
+                     </property>
                      <property name="font">
                       <font>
                        <weight>50</weight>
@@ -1217,6 +1241,12 @@
                    </item>
                    <item>
                     <widget class="QLabel" name="label_65">
+                     <property name="minimumSize">
+                      <size>
+                       <width>0</width>
+                       <height>14</height>
+                      </size>
+                     </property>
                      <property name="font">
                       <font>
                        <weight>50</weight>
@@ -1233,6 +1263,12 @@
                    </item>
                    <item>
                     <widget class="QLabel" name="label_66">
+                     <property name="minimumSize">
+                      <size>
+                       <width>0</width>
+                       <height>14</height>
+                      </size>
+                     </property>
                      <property name="font">
                       <font>
                        <weight>50</weight>
@@ -1249,6 +1285,12 @@
                    </item>
                    <item>
                     <widget class="QLabel" name="label_67">
+                     <property name="minimumSize">
+                      <size>
+                       <width>0</width>
+                       <height>14</height>
+                      </size>
+                     </property>
                      <property name="font">
                       <font>
                        <weight>50</weight>
@@ -1265,6 +1307,12 @@
                    </item>
                    <item>
                     <widget class="QLabel" name="label_97">
+                     <property name="minimumSize">
+                      <size>
+                       <width>0</width>
+                       <height>14</height>
+                      </size>
+                     </property>
                      <property name="font">
                       <font>
                        <weight>50</weight>
@@ -1281,6 +1329,12 @@
                    </item>
                    <item>
                     <widget class="QLabel" name="label_98">
+                     <property name="minimumSize">
+                      <size>
+                       <width>0</width>
+                       <height>14</height>
+                      </size>
+                     </property>
                      <property name="font">
                       <font>
                        <weight>50</weight>
@@ -1611,7 +1665,7 @@ destination</string>
            </font>
           </property>
           <property name="title">
-           <string>Table mixer</string>
+           <string>Table Mixer</string>
           </property>
           <property name="alignment">
            <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
@@ -1859,7 +1913,7 @@ destination</string>
            </font>
           </property>
           <property name="title">
-           <string>Frame position</string>
+           <string>Frame Position</string>
           </property>
           <property name="alignment">
            <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
@@ -2107,7 +2161,7 @@ destination</string>
            </font>
           </property>
           <property name="title">
-           <string>Oscillator tuning</string>
+           <string>Oscillator Tuning</string>
           </property>
           <property name="alignment">
            <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
@@ -2273,7 +2327,7 @@ destination</string>
                 </font>
                </property>
                <property name="minimum">
-                <number>-36768</number>
+                <number>-32768</number>
                </property>
                <property name="maximum">
                 <number>32767</number>
