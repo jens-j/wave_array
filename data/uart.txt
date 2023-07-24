@@ -13,18 +13,20 @@ write  00006001     2000                        # write table 1 freq base value
 
 write  00000300     4000                        # Write frame base value 
 #write  00000000     4000                        # Write mixer base value 
-write  00000500     4000                        # Write LFO velocity
+write  00000500     2000                        # Write LFO velocity
 write  00000502     0001                        # Enable LFO trigger
+
+write  00005001     0000                        # Set table 1 mix to 0
 
 # Mod mapping (each destination has 4x2 registers)
 write  00001000     0002                        # Map envelope to filter cutoff 
-write  00001001     4000                        # Set mod amount
+write  00001001     3FFF                        # Set mod amount
 write  00001010     0002                        # Map envelope to mixer
 write  00001011     7FFF                                  
 write  00001018     0003                        # Map lfo to oscillator 0 frame
 write  00001019     3FFF  
-write  00001038     0003                        # Map lfo to oscillator 0 frequency
-write  00001039     1FFF
+write  00001040     0003                        # Map lfo to oscillator 1 frequency
+write  00001041     3FFF
 
 #wait   1000                                     
 #writeb 00000000 00000004 0001000200030004       # write [1,2,3,4] to SDRAM address 0x00000000
@@ -35,7 +37,7 @@ wait   1000
 writef 00000000 00004000                        # write wavetable to the SDRAM at address 0x0
 write  00003000     0000                        # Write low half of table base address 
 write  00003001     0000                        # Write high half of table base address
-write  00003002     0002                        # write frames_log2
+write  00003002     0004                        # write frames_log2
 write  00003003     0001                        # initialize wavetable RAM
 
 wait   1000 
