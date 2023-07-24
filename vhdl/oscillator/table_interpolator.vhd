@@ -57,7 +57,7 @@ architecture arch of table_interpolator is
     type t_state is (idle, init, running, update_table);
     type t_counter_array is array (0 to PIPE_LEN_TOTAL) of integer range 0 to N_VOICES - 1; -- One extra register to use in the writeback stage which is not really part of the pipeline.
     type t_sample_counter_array is array (0 to PIPE_LEN_TOTAL) of integer range 0 to 2;
-    type t_frame_index_array is array (0 to N_VOICES - 1) of natural range 0 to FRAMES_MAX_LOG2 - 1;
+    type t_frame_index_array is array (0 to N_VOICES - 1) of natural range 0 to FRAMES_MAX - 1;
 
     type t_oscillator_reg is record
         state                   : t_state;
@@ -262,9 +262,9 @@ begin
         variable v_frame_interp_d : std_logic_vector(SAMPLE_SIZE - 1 downto 0);
 
         variable v_control_unsigned : t_ctrl_value;
-        variable v_control_index_lsb : natural;
+        variable v_frame_index_lsb : natural;
 
-        variable v_frame_index : natural range 0 to FRAMES_MAX_LOG2 - 1;
+        variable v_frame_index : natural range 0 to FRAMES_MAX - 1;
 
     begin
 
@@ -322,23 +322,22 @@ begin
             else
 
                 -- Pre calculate the lowest bit of the index part of the control value.
-                -- Note that since  the control value is signed, bit 14 is the msb.
-                v_control_index_lsb := CTRL_SIZE - dma2table.frames_log2 - 1;
+                -- Note that since the control value is signed, bit 15 is the msb.
+                v_frame_index_lsb := CTRL_SIZE - dma2table.frames_log2 - 1;
 
                 -- Slice the frame index from the msb part of the control value.
-                v_frame_index := to_integer(unsigned(v_control_unsigned(CTRL_SIZE - 2 downto v_control_index_lsb)));
+                v_frame_index := to_integer(unsigned(v_control_unsigned(CTRL_SIZE - 2 downto v_frame_index_lsb)));
 
                 -- Assign frame indices A & B.
                 s_frame_index_a(i) <= v_frame_index;
 
                 s_frame_index_b(i) <= 
-                    2**dma2table.frames_log2 - 1 when 
-                    v_frame_index > 2**dma2table.frames_log2 - 2 
+                    2**dma2table.frames_log2 - 1 when v_frame_index >= 2**dma2table.frames_log2 - 1 
                     else v_frame_index + 1;
 
                 -- Slice frame position.
                 s_frame_position(i) <= unsigned(
-                    v_control_unsigned(v_control_index_lsb - 1 downto v_control_index_lsb - OSC_SAMPLE_FRAC));
+                    v_control_unsigned(v_frame_index_lsb - 1 downto v_frame_index_lsb - OSC_SAMPLE_FRAC));
             end if;    
                 
         end loop;
