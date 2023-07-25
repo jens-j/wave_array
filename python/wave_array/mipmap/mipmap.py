@@ -47,7 +47,7 @@ class Mipmap:
         # axis.plot(w / (2 * np.pi), 20 * np.log10(np.abs(h)))
 
         # Add the unfiltered L0 spectrum.
-        self.subtables.append(self.waveform)
+        self.subtables.append(self.waveform * Mipmap.SAMPLE_MAX / np.max(np.abs(self.waveform)))
 
         # prefiltering the table is useful for waveforms generated in code. Sampled waveforms
         # should not have to be prefiltered.
@@ -56,7 +56,7 @@ class Mipmap:
             filtered_table = filtered_table * Mipmap.SAMPLE_MAX / np.max(np.abs(filtered_table)) # Normalize to avoid overflow
             self.subtables[0] = filtered_table[offset:-offset].astype(int)
 
-
+        mipmap_table = np.append(mipmap_table, self.subtables[0])
         self.spectra.append(np.fft.rfft(self.waveform / self.SAMPLE_MAX, fft_size))
 
         for level in range(0, self.L0_SIZE_LOG2 - 2):

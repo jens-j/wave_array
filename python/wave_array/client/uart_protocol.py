@@ -22,7 +22,6 @@ class UartProtocol:
         self.logger.info(f'read [{address:04X}]')
         request = struct.pack('>BI', UartType.READ_REQ, address)
         reply = self.command(request)
-        print(reply)
         opcode, data = struct.unpack('>Bh', reply)
         if opcode != UartType.READ_REP:
             raise Uart.UartException(f'received {opcode} instead of {UartType.READ_REP}')

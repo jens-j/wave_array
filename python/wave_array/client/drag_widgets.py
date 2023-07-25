@@ -1,5 +1,5 @@
 from PyQt5.QtCore             import Qt, QMimeData
-from PyQt5.QtGui              import QDrag, QPixmap
+from PyQt5.QtGui              import QDrag, QPixmap, QPainter
 from PyQt5.QtWidgets          import QLabel, QListWidget
 
 import pyqtgraph              as pg
@@ -35,6 +35,15 @@ class DropPlotWidget(pg.PlotWidget):
         super().__init__(parent)
         self.callback = None
         self.setAcceptDrops(True)
+
+    # Re-implement paint to draw border around plot.
+    def paintEvent(self, event):
+        super().paintEvent(event)
+        with QPainter(self.viewport()) as painter:
+            painter.setPen(pg.mkPen(color=(255, 255, 255)))
+            painter.drawRect(self.boundingRect().adjusted(1,1,-1,-1))
+            # print(self.boundingRect().adjusted(1,1,-1,-1))
+        
 
     def dragEnterEvent(self, e):
         e.accept()

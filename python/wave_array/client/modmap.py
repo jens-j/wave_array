@@ -21,6 +21,12 @@ class ModMap:
     # Maximum mod sources mapped to the same destination.
     MAX_SOURCES = 4
 
+    # Frequency control constants.
+    MOD_FREQ_OCTAVES        = 3
+    MOD_FREQ_STEP_OCTAVE    = 2**15 / 3
+    MOD_FREQ_STEP_SEMITONE  = MOD_FREQ_STEP_OCTAVE / 12 # Since the control value is already mapped to exponential, semitones are spaced linearly.
+    MOD_FREQ_STEP_CENT      = MOD_FREQ_STEP_OCTAVE / 12 / 100 # These should actually be mapped logarithmicly here to counter the exponential mapping later.  
+
     # Modulation source and destination indices.
     MODD_CUTOFF             = 0 
     MODD_RESONANCE          = 1 
@@ -77,13 +83,9 @@ class ModMap:
 
             string = f'{d}: {str(self.map[d][0])}'
 
-            # print(string)
-
             for s in range(1, ModMap.MAX_SOURCES):
 
                 string += f', {str(self.map[d][s])}'
-
-            print(string)
 
     def add_mapping(self, destination, source, amount):
 

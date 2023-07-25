@@ -6,7 +6,7 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>1582</width>
+    <width>1604</width>
     <height>912</height>
    </rect>
   </property>
@@ -1748,7 +1748,7 @@ destination</string>
                 </font>
                </property>
                <property name="text">
-                <string>0x0000</string>
+                <string>0%</string>
                </property>
                <property name="alignment">
                 <set>Qt::AlignCenter</set>
@@ -1863,7 +1863,7 @@ destination</string>
                 </font>
                </property>
                <property name="text">
-                <string>0x0000</string>
+                <string>0%</string>
                </property>
                <property name="alignment">
                 <set>Qt::AlignCenter</set>
@@ -1996,7 +1996,7 @@ destination</string>
                 </font>
                </property>
                <property name="text">
-                <string>0x0000</string>
+                <string>0%</string>
                </property>
                <property name="alignment">
                 <set>Qt::AlignCenter</set>
@@ -2111,7 +2111,7 @@ destination</string>
                 </font>
                </property>
                <property name="text">
-                <string>0x0000</string>
+                <string>0%</string>
                </property>
                <property name="alignment">
                 <set>Qt::AlignCenter</set>
@@ -2153,7 +2153,7 @@ destination</string>
          </widget>
         </item>
         <item>
-         <widget class="QGroupBox" name="groupBox_24">
+         <widget class="QGroupBox" name="groupBox_2">
           <property name="font">
            <font>
             <weight>75</weight>
@@ -2161,12 +2161,117 @@ destination</string>
            </font>
           </property>
           <property name="title">
-           <string>Oscillator Tuning</string>
+           <string>Pitch A</string>
           </property>
-          <property name="alignment">
-           <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
-          </property>
-          <layout class="QHBoxLayout" name="horizontalLayout_98">
+          <layout class="QHBoxLayout" name="horizontalLayout_9">
+           <item>
+            <layout class="QVBoxLayout" name="verticalLayout_15">
+             <item>
+              <widget class="QLabel" name="label_11">
+               <property name="font">
+                <font>
+                 <weight>50</weight>
+                 <bold>false</bold>
+                </font>
+               </property>
+               <property name="text">
+                <string>octaves</string>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <widget class="QSpinBox" name="box_octaves_0">
+               <property name="font">
+                <font>
+                 <weight>50</weight>
+                 <bold>false</bold>
+                </font>
+               </property>
+               <property name="minimum">
+                <number>-3</number>
+               </property>
+               <property name="maximum">
+                <number>3</number>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <widget class="Line" name="line_2">
+               <property name="orientation">
+                <enum>Qt::Horizontal</enum>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <widget class="QLabel" name="label_12">
+               <property name="font">
+                <font>
+                 <weight>50</weight>
+                 <bold>false</bold>
+                </font>
+               </property>
+               <property name="text">
+                <string>semitones</string>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <widget class="QSpinBox" name="box_semitones_0">
+               <property name="font">
+                <font>
+                 <weight>50</weight>
+                 <bold>false</bold>
+                </font>
+               </property>
+               <property name="minimum">
+                <number>-12</number>
+               </property>
+               <property name="maximum">
+                <number>12</number>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <widget class="Line" name="line_3">
+               <property name="orientation">
+                <enum>Qt::Horizontal</enum>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <spacer name="verticalSpacer_5">
+               <property name="orientation">
+                <enum>Qt::Vertical</enum>
+               </property>
+               <property name="sizeHint" stdset="0">
+                <size>
+                 <width>20</width>
+                 <height>40</height>
+                </size>
+               </property>
+              </spacer>
+             </item>
+             <item>
+              <widget class="QPushButton" name="btn_reset_pitch_0">
+               <property name="minimumSize">
+                <size>
+                 <width>20</width>
+                 <height>0</height>
+                </size>
+               </property>
+               <property name="font">
+                <font>
+                 <weight>50</weight>
+                 <bold>false</bold>
+                </font>
+               </property>
+               <property name="text">
+                <string>reset</string>
+               </property>
+              </widget>
+             </item>
+            </layout>
+           </item>
            <item>
             <layout class="QVBoxLayout" name="verticalLayout_94">
              <item>
@@ -2212,10 +2317,10 @@ destination</string>
                 </font>
                </property>
                <property name="minimum">
-                <number>-32768</number>
+                <number>-100</number>
                </property>
                <property name="maximum">
-                <number>32767</number>
+                <number>100</number>
                </property>
                <property name="orientation">
                 <enum>Qt::Vertical</enum>
@@ -2224,7 +2329,7 @@ destination</string>
                 <enum>QSlider::TicksBothSides</enum>
                </property>
                <property name="tickInterval">
-                <number>8192</number>
+                <number>20</number>
                </property>
               </widget>
              </item>
@@ -2244,7 +2349,7 @@ destination</string>
                 </font>
                </property>
                <property name="text">
-                <string>0x0000</string>
+                <string>0 ct</string>
                </property>
                <property name="alignment">
                 <set>Qt::AlignCenter</set>
@@ -2273,10 +2378,133 @@ destination</string>
                 </font>
                </property>
                <property name="text">
-                <string>A</string>
+                <string>detune</string>
                </property>
                <property name="alignment">
                 <set>Qt::AlignCenter</set>
+               </property>
+              </widget>
+             </item>
+            </layout>
+           </item>
+          </layout>
+         </widget>
+        </item>
+        <item>
+         <widget class="QGroupBox" name="groupBox_10">
+          <property name="font">
+           <font>
+            <weight>75</weight>
+            <bold>true</bold>
+           </font>
+          </property>
+          <property name="title">
+           <string>Pitch B</string>
+          </property>
+          <layout class="QHBoxLayout" name="horizontalLayout_11">
+           <item>
+            <layout class="QVBoxLayout" name="verticalLayout_17">
+             <item>
+              <widget class="QLabel" name="label_15">
+               <property name="font">
+                <font>
+                 <weight>50</weight>
+                 <bold>false</bold>
+                </font>
+               </property>
+               <property name="text">
+                <string>octaves</string>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <widget class="QSpinBox" name="box_octaves_1">
+               <property name="font">
+                <font>
+                 <weight>50</weight>
+                 <bold>false</bold>
+                </font>
+               </property>
+               <property name="minimum">
+                <number>-3</number>
+               </property>
+               <property name="maximum">
+                <number>3</number>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <widget class="Line" name="line_4">
+               <property name="orientation">
+                <enum>Qt::Horizontal</enum>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <widget class="QLabel" name="label_16">
+               <property name="font">
+                <font>
+                 <weight>50</weight>
+                 <bold>false</bold>
+                </font>
+               </property>
+               <property name="text">
+                <string>semitones</string>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <widget class="QSpinBox" name="box_semitones_1">
+               <property name="font">
+                <font>
+                 <weight>50</weight>
+                 <bold>false</bold>
+                </font>
+               </property>
+               <property name="minimum">
+                <number>-12</number>
+               </property>
+               <property name="maximum">
+                <number>12</number>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <widget class="Line" name="line_6">
+               <property name="orientation">
+                <enum>Qt::Horizontal</enum>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <spacer name="verticalSpacer_10">
+               <property name="orientation">
+                <enum>Qt::Vertical</enum>
+               </property>
+               <property name="sizeHint" stdset="0">
+                <size>
+                 <width>20</width>
+                 <height>40</height>
+                </size>
+               </property>
+              </spacer>
+             </item>
+             <item>
+              <widget class="QPushButton" name="btn_reset_pitch_1">
+               <property name="minimumSize">
+                <size>
+                 <width>20</width>
+                 <height>0</height>
+                </size>
+               </property>
+               <property name="font">
+                <font>
+                 <weight>50</weight>
+                 <bold>false</bold>
+                </font>
+               </property>
+               <property name="text">
+                <string>reset</string>
                </property>
               </widget>
              </item>
@@ -2327,10 +2555,10 @@ destination</string>
                 </font>
                </property>
                <property name="minimum">
-                <number>-32768</number>
+                <number>-100</number>
                </property>
                <property name="maximum">
-                <number>32767</number>
+                <number>100</number>
                </property>
                <property name="orientation">
                 <enum>Qt::Vertical</enum>
@@ -2339,7 +2567,7 @@ destination</string>
                 <enum>QSlider::TicksBothSides</enum>
                </property>
                <property name="tickInterval">
-                <number>8192</number>
+                <number>20</number>
                </property>
               </widget>
              </item>
@@ -2359,7 +2587,7 @@ destination</string>
                 </font>
                </property>
                <property name="text">
-                <string>0x0000</string>
+                <string>0 ct</string>
                </property>
                <property name="alignment">
                 <set>Qt::AlignCenter</set>
@@ -2388,7 +2616,7 @@ destination</string>
                 </font>
                </property>
                <property name="text">
-                <string>B</string>
+                <string>detune</string>
                </property>
                <property name="alignment">
                 <set>Qt::AlignCenter</set>
@@ -2399,19 +2627,6 @@ destination</string>
            </item>
           </layout>
          </widget>
-        </item>
-        <item>
-         <spacer name="horizontalSpacer_9">
-          <property name="orientation">
-           <enum>Qt::Horizontal</enum>
-          </property>
-          <property name="sizeHint" stdset="0">
-           <size>
-            <width>40</width>
-            <height>20</height>
-           </size>
-          </property>
-         </spacer>
         </item>
        </layout>
       </item>
@@ -2509,7 +2724,7 @@ destination</string>
                 </font>
                </property>
                <property name="text">
-                <string>0x0000</string>
+                <string>0%</string>
                </property>
                <property name="alignment">
                 <set>Qt::AlignCenter</set>
@@ -2642,7 +2857,7 @@ destination</string>
                 </font>
                </property>
                <property name="text">
-                <string>0x0000</string>
+                <string>0%</string>
                </property>
                <property name="alignment">
                 <set>Qt::AlignCenter</set>
@@ -2757,7 +2972,7 @@ destination</string>
                 </font>
                </property>
                <property name="text">
-                <string>0x0000</string>
+                <string>0%</string>
                </property>
                <property name="alignment">
                 <set>Qt::AlignCenter</set>
@@ -2890,7 +3105,7 @@ destination</string>
                 </font>
                </property>
                <property name="text">
-                <string>0x0000</string>
+                <string>0%</string>
                </property>
                <property name="alignment">
                 <set>Qt::AlignCenter</set>
@@ -3005,7 +3220,7 @@ destination</string>
                 </font>
                </property>
                <property name="text">
-                <string>0x0000</string>
+                <string>0%</string>
                </property>
                <property name="alignment">
                 <set>Qt::AlignCenter</set>
@@ -3120,7 +3335,7 @@ destination</string>
                 </font>
                </property>
                <property name="text">
-                <string>0x0000</string>
+                <string>0%</string>
                </property>
                <property name="alignment">
                 <set>Qt::AlignCenter</set>
@@ -3235,7 +3450,7 @@ destination</string>
                 </font>
                </property>
                <property name="text">
-                <string>0x0000</string>
+                <string>0%</string>
                </property>
                <property name="alignment">
                 <set>Qt::AlignCenter</set>
@@ -3646,7 +3861,7 @@ destination</string>
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>1582</width>
+     <width>1604</width>
      <height>21</height>
     </rect>
    </property>

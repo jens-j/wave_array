@@ -13,6 +13,7 @@ class WaveTable:
 
         assert len(data) % 4096 == 0, f'Invalid wavetable length {len(data)}'
 
+        self.frames = []
         self.n_frames = len(data) // 4096
         self.n_frames_log2 = int(np.log2(self.n_frames))
 

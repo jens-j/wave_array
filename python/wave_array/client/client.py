@@ -77,8 +77,8 @@ class WaveArray:
 
     def read(self, address, log=True):
         value = np.uint16(self.dev.read(address))
-        if log: 
-            print(f'read [{address:08X}] = {value:04X}')
+        # if log: 
+        #     print(f'read [{address:08X}] = {value:04X}')
         return value
 
     def read_mod_source(self, destination, index):
