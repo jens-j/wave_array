@@ -30,6 +30,7 @@ architecture arch of pitch_modulator is
         osc_outputs_buffer      : t_pitched_osc_inputs;
         count_voice_in          : integer range 0 to N_VOICES - 1;
         count_table_in          : integer range 0 to N_TABLES - 1;
+        count_mult_out          : integer range 0 to 2;
         count_voice_out         : integer range 0 to N_VOICES - 1;
         count_table_out         : integer range 0 to N_TABLES - 1;
     end record;
@@ -40,6 +41,7 @@ architecture arch of pitch_modulator is
         osc_outputs_buffer      => (others => (others => (enable => '0', velocity => (others => '0')))),
         count_voice_in          => 0,
         count_table_in          => 0,
+        count_mult_out          => 0,
         count_voice_out         => 0,
         count_table_out         => 0
     );
@@ -86,6 +88,7 @@ begin
                 r_in.osc_outputs <= r.osc_outputs_buffer;
                 r_in.count_voice_in <= 0;
                 r_in.count_table_in <= 0;
+                r_in.count_mult_out <= 0;
                 r_in.count_voice_out <= 0;
                 r_in.count_table_out <= 0;
                 r_in.state <= map_exp;
@@ -119,17 +122,31 @@ begin
             -- Multiply input velocity with (converted) control value.
             -- Converted control value is signed 2.14 bit fixed point. So normalize by shifting right 14 bits.
             v_mult_result := osc_inputs(r.count_voice_out).velocity * unsigned(s_data_out);
-
-            r_in.osc_outputs_buffer(r.count_table_out)(r.count_voice_out).enable <= osc_inputs(r.count_voice_out).enable;
             r_in.osc_outputs_buffer(r.count_table_out)(r.count_voice_out).velocity
                 <= v_mult_result(t_osc_phase'length + CTRL_SIZE - 3 downto CTRL_SIZE - 2);
 
-            if r.count_voice_out < N_VOICES - 1 then 
-                r_in.count_voice_out <= r.count_voice_out + 1;
+        -- Multiply with the same exponential factor to get higher range.
+        elsif r.count_mult_out > 0 then 
+
+            v_mult_result := r.osc_outputs_buffer(r.count_table_out)(r.count_voice_out).velocity * unsigned(s_data_out);
+            r_in.osc_outputs_buffer(r.count_table_out)(r.count_voice_out).velocity
+                <= v_mult_result(t_osc_phase'length + CTRL_SIZE - 3 downto CTRL_SIZE - 2);
+
+        end if;
+
+        if s_data_out_valid = '1' or r.count_mult_out > 0 then 
+
+            if r.count_mult_out < 2 then 
+                r_in.count_mult_out <= r.count_mult_out + 1;
             else 
-                if r.count_table_out < N_TABLES - 1 then 
-                    r_in.count_voice_out <= 0;
-                    r_in.count_table_out <= r.count_table_out + 1;
+                r_in.count_mult_out <= 0;
+                if r.count_voice_out < N_VOICES - 1 then 
+                    r_in.count_voice_out <= r.count_voice_out + 1;
+                else 
+                    if r.count_table_out < N_TABLES - 1 then 
+                        r_in.count_voice_out <= 0;
+                        r_in.count_table_out <= r.count_table_out + 1;
+                    end if;
                 end if;
             end if;
         end if;
