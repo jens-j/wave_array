@@ -73,6 +73,10 @@ architecture arch of table_interpolator is
         table2dma               : t_table2dma;
         prev_phase              : t_osc_phase_array(0 to N_VOICES - 1);
 
+        frame_index_a           : t_frame_index_array; 
+        frame_index_b           : t_frame_index_array; 
+        frame_position          : t_frame_position_array(0 to N_VOICES - 1);
+
         -- Writeback pipeline registers (9 cycles).
         sample_counter          : t_sample_counter_array;  -- Count the two output samples plus one for pipeline winddown.
         osc_counter             : t_counter_array; -- Count oscillators (outer loop). Registered PIPE_LEN_TOTAL times to be used for writeback.
@@ -103,6 +107,9 @@ architecture arch of table_interpolator is
         coeff_base_address      => (others => '0'),
         table2dma               => (ack => '0'),
         prev_phase              => (others => (others => '0')),
+        frame_index_a           => (others => 0),
+        frame_index_b           => (others => 0),
+        frame_position          => (others => (others => '0')),
         sample_counter          => (others => 0),
         osc_counter             => (others => 0),
         writeback               => (others => '0'),
@@ -148,10 +155,6 @@ architecture arch of table_interpolator is
     signal s_coeff_even_douta   : std_logic_vector(POLY_COEFF_SIZE - 1 downto 0);
     signal s_coeff_odd_addra    : std_logic_vector(POLY_N_LOG2 + POLY_M_LOG2 - 2 downto 0);
     signal s_coeff_odd_douta    : std_logic_vector(POLY_COEFF_SIZE - 1 downto 0);
-
-    signal s_frame_index_a      : t_frame_index_array;
-    signal s_frame_index_b      : t_frame_index_array;
-    signal s_frame_position     : t_frame_position_array(0 to N_VOICES - 1);
 
 begin
 
@@ -252,8 +255,7 @@ begin
 
     combinatorial : process (r, osc_inputs, addrgen_input, next_sample, dma2table, frame_control,
                              s_frame_interp_p, s_coeff_interp_p, s_macc_p,
-                             s_wave_read_data_a, s_wave_read_data_b, s_coeff_even_douta, s_coeff_odd_douta,
-                             s_frame_index_a, s_frame_index_b, s_frame_position)
+                             s_wave_read_data_a, s_wave_read_data_b, s_coeff_even_douta, s_coeff_odd_douta)
 
         variable v_level : t_mipmap_level;
         variable v_odd_phase_0 : std_logic;
@@ -293,9 +295,6 @@ begin
         s_coeff_odd_addra  <= (others => '0');
         s_coeff_even_addra <= (others => '0');
 
-        s_frame_index_a <= (others => 0);
-        s_frame_index_b <= (others => 0);
-
         v_level := addrgen_input(r.osc_counter(0)).mipmap_level;
 
         -- Split control value into frame index and position.
@@ -306,16 +305,16 @@ begin
 
             -- Calculate frame A and B indices and frame position.
             if dma2table.frames_log2 = 0 then -- Special case: dont do any frame interpolation.
-                s_frame_index_a(i) <= 0;
-                s_frame_index_b(i) <= 0;
-                s_frame_position(i) <= (others => '0');
+                r_in.frame_index_a(i) <= 0;
+                r_in.frame_index_b(i) <= 0;
+                r_in.frame_position(i) <= (others => '0');
             
             elsif dma2table.frames_log2 = 1 then -- Special case: always interpolate between frames 0 & 1.
-                s_frame_index_a(i) <= 0;
-                s_frame_index_b(i) <= 1;
+                r_in.frame_index_a(i) <= 0;
+                r_in.frame_index_b(i) <= 1;
                 
                 -- Use MSBs of frame_control as frame_position (msb is always 0)..
-                s_frame_position(i) <= unsigned(v_control_unsigned(CTRL_SIZE - 2 downto CTRL_SIZE - OSC_SAMPLE_FRAC - 1));
+                r_in.frame_position(i) <= unsigned(v_control_unsigned(CTRL_SIZE - 2 downto CTRL_SIZE - OSC_SAMPLE_FRAC - 1));
 
             -- Normal case: The last 1 / frames_log2 part of the control range is effectively clipped. 
             -- This allows the table size to be a power of two.
@@ -329,14 +328,14 @@ begin
                 v_frame_index := to_integer(unsigned(v_control_unsigned(CTRL_SIZE - 2 downto v_frame_index_lsb)));
 
                 -- Assign frame indices A & B.
-                s_frame_index_a(i) <= v_frame_index;
+                r_in.frame_index_a(i) <= v_frame_index;
 
-                s_frame_index_b(i) <= 
+                r_in.frame_index_b(i) <= 
                     2**dma2table.frames_log2 - 1 when v_frame_index >= 2**dma2table.frames_log2 - 1 
                     else v_frame_index + 1;
 
                 -- Slice frame position.
-                s_frame_position(i) <= unsigned(
+                r_in.frame_position(i) <= unsigned(
                     v_control_unsigned(v_frame_index_lsb - 1 downto v_frame_index_lsb - OSC_SAMPLE_FRAC));
             end if;    
                 
@@ -457,10 +456,10 @@ begin
             end if;
 
             -- Pipeline stage 0: Wave memory access.
-            s_wave_address_a <=  std_logic_vector(to_unsigned(s_frame_index_a(r.osc_counter(0)), FRAMES_MAX_LOG2)) 
+            s_wave_address_a <=  std_logic_vector(to_unsigned(r.frame_index_a(r.osc_counter(0)), FRAMES_MAX_LOG2)) 
                 & std_logic_vector(r.mipmap_address);
 
-            s_wave_address_b <=  std_logic_vector(to_unsigned(s_frame_index_b(r.osc_counter(0)), FRAMES_MAX_LOG2)) 
+            s_wave_address_b <=  std_logic_vector(to_unsigned(r.frame_index_b(r.osc_counter(0)), FRAMES_MAX_LOG2)) 
                 & std_logic_vector(r.mipmap_address);
 
             -- Pipeline stage 0: Coefficient memory access.
@@ -511,7 +510,7 @@ begin
                 & (0 to OSC_SAMPLE_FRAC - 2 => '0');                -- shift
 
             s_frame_interp_d <= std_logic_vector(shift_right(signed(s_wave_read_data_b), 1));
-            s_frame_interp_b <= '0' & std_logic_vector(s_frame_position(r.osc_counter(1))); -- Add zero msb to make B unsigned.
+            s_frame_interp_b <= '0' & std_logic_vector(r.frame_position(r.osc_counter(1))); -- Add zero msb to make B unsigned.
 
             -- Pipeline stage 1: Read coefficient memory and send to interpolator. The values for the
             -- even and odd coefficient memories are swapped if the phase m is odd.

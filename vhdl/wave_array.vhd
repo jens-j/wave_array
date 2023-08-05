@@ -63,8 +63,8 @@ architecture arch of wave_array is
     signal s_system_clk         : std_logic;
     signal s_sdram_clk          : std_logic;
     signal s_i2s_clk            : std_logic;
-    signal s_reset_al           : std_logic;
-    signal s_reset_ah           : std_logic;
+    signal s_system_reset       : std_logic; -- Active high.
+    signal s_i2s_reset          : std_logic; -- Active high.
     signal s_pll_locked         : std_logic;
     signal s_sdram_clk_enable   : std_logic;
 
@@ -80,6 +80,7 @@ architecture arch of wave_array is
     signal s_register_output    : t_register_output;
     signal s_status             : t_status;
     signal s_config             : t_config;
+    signal s_software_reset     : std_logic;
 
     signal s_sdram_inputs       : t_sdram_input_array(0 to N_TABLES); -- 1 for the UART and 1 for each wavetable.
     signal s_sdram_outputs      : t_sdram_output_array(0 to N_TABLES);
@@ -112,16 +113,12 @@ architecture arch of wave_array is
 
 begin
 
-    -- Connect reset signals.
-    s_reset_ah <= not BTN_RESET;
-    s_reset_al <= BTN_RESET;
-
     -- Connect outputs.
     gen_voice_led : for i in 0 to minimum(4, N_VOICES - 1) generate
         LEDS(15 - i) <= s_voices(i).enable;
     end generate;
 
-    LEDS(1) <= s_reset_ah;
+    LEDS(1) <= s_system_reset;
     LEDS(0) <= s_config.led;
 
     I2S_SCLK <= s_i2s_clk;
@@ -154,7 +151,7 @@ begin
 
     clk_subsys : entity wave.clk_subsystem
     port map (
-        reset                   => s_reset_ah,
+        reset                   => '0',             -- The reset system uses the clock.,
         ext_clk                 => EXT_CLK,         -- 100 MHz.
         system_clk              => s_system_clk,    -- 100 MHz.
         i2s_clk                 => s_i2s_clk,       -- 1.5360175 MHz.
@@ -163,10 +160,20 @@ begin
         pll_locked              => s_pll_locked
     );
 
+    reset_subsys : entity wave.reset_subsystem
+    port map (
+        system_clk              => s_system_clk,  
+        i2s_clk                 => s_i2s_clk,
+        BTN_RESET               => BTN_RESET,
+        software_reset          => s_software_reset,
+        system_reset            => s_system_reset,
+        i2s_reset               => s_i2s_reset
+    );
+
     midi_slave : entity midi.midi_slave
     port map (
         clk                     => s_system_clk,
-        reset                   => s_reset_ah,
+        reset                   => s_system_reset,
         uart_rx                 => MIDI_RX,
         midi_channel            => SWITCHES(3 downto 0),
         envelope_active         => s_envelope_active,
@@ -178,7 +185,7 @@ begin
     uart_subsys : entity uart.uart_subsystem
     port map (
         clk                     => s_system_clk,
-        reset                   => s_reset_ah,
+        reset                   => s_system_reset,
         register_input          => s_register_input,
         register_output         => s_register_output,
         sdram_input             => s_sdram_inputs(0),
@@ -197,7 +204,7 @@ begin
     hk_offload : entity wave.hk_offload
     port map (
         clk                     => s_system_clk,
-        reset                   => s_reset_ah,
+        reset                   => s_system_reset,
         config                  => s_config,
         status                  => s_status,
         hk_write_enable         => s_hk_write_enable,
@@ -208,7 +215,7 @@ begin
     wave_offload : entity wave.wave_offload
     port map (
         clk                     => s_system_clk,
-        reset                   => s_reset_ah,
+        reset                   => s_system_reset,
         config                  => s_config,
         next_sample             => s_next_sample,
         new_period              => s_new_period,
@@ -227,10 +234,11 @@ begin
     reg_file : entity wave.register_file
     port map (
         clk                     => s_system_clk,
-        reset                   => s_reset_ah,
+        reset                   => s_system_reset,
         register_output         => s_register_output,
         register_input          => s_register_input,
         new_period              => s_new_period,
+        software_reset          => s_software_reset,
         status                  => s_status,
         config                  => s_config
     );
@@ -238,7 +246,7 @@ begin
     synth_subsys : entity wave.synth_subsystem
     port map(
         clk                     => s_system_clk,
-        reset                   => s_reset_ah,
+        reset                   => s_system_reset,
         config                  => s_config,
         next_sample             => s_next_sample,
         pot_value               => s_pot_value,
@@ -256,7 +264,8 @@ begin
     port map (
         system_clk              => s_system_clk,
         i2s_clk                 => s_i2s_clk,
-        reset                   => s_reset_ah,
+        system_reset            => s_system_reset,
+        i2s_reset               => s_i2s_reset,
         sample_in               => s_sample,
         next_sample             => s_next_sample,
         sdata                   => I2S_SDATA,
@@ -266,7 +275,7 @@ begin
     input : entity wave.input_subsystem
     port map (
         clk                     => s_system_clk,
-        reset                   => s_reset_ah,
+        reset                   => s_system_reset,
         vauxp3                  => XADC_3P,
         vauxn3                  => XADC_3N,
         average                 => SWITCHES(11 downto 10),
@@ -277,7 +286,7 @@ begin
     seven_segment : entity wave.seven_segment
     port map (
         clk                     => s_system_clk,
-        reset                   => s_reset_ah,
+        reset                   => s_system_reset,
         display_data            => s_display_data,
         segments                => DISPLAY_SEGMENTS,
         anodes                  => DISPLAY_ANODES
@@ -290,7 +299,7 @@ begin
     port map (
         clk                     => s_system_clk,
         sdram_clk               => s_sdram_clk,
-        reset                   => s_reset_ah,
+        reset                   => s_system_reset,
         pll_locked              => s_pll_locked,
         sdram_clk_enable        => s_sdram_clk_enable,
         sdram_inputs            => s_sdram_inputs,

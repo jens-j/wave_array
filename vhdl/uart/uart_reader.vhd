@@ -122,7 +122,7 @@ begin
         file_open(input_file, FILENAME,  read_mode);
 
         wait until reset = '0';
-        wait for 1 us; -- Wait for pll lock.
+        wait for 20 us; -- Wait for pll lock and reset pulse.
 
         while not endfile(input_file) loop
 

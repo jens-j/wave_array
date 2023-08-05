@@ -30,9 +30,10 @@ architecture arch of pitch_modulator is
         osc_outputs_buffer      : t_pitched_osc_inputs;
         count_voice_in          : integer range 0 to N_VOICES - 1;
         count_table_in          : integer range 0 to N_TABLES - 1;
-        count_mult_out          : integer range 0 to 2;
+        count_pipeline          : integer range 0 to 3;
         count_voice_out         : integer range 0 to N_VOICES - 1;
         count_table_out         : integer range 0 to N_TABLES - 1;
+        mult_buffer             : t_osc_phase;
     end record;
 
     constant REG_INIT : t_pitch_mod_reg := (
@@ -41,9 +42,10 @@ architecture arch of pitch_modulator is
         osc_outputs_buffer      => (others => (others => (enable => '0', velocity => (others => '0')))),
         count_voice_in          => 0,
         count_table_in          => 0,
-        count_mult_out          => 0,
+        count_pipeline          => 0,
         count_voice_out         => 0,
-        count_table_out         => 0
+        count_table_out         => 0,
+        mult_buffer             => (others => '0')
     );
 
     signal r, r_in              : t_pitch_mod_reg;
@@ -88,7 +90,7 @@ begin
                 r_in.osc_outputs <= r.osc_outputs_buffer;
                 r_in.count_voice_in <= 0;
                 r_in.count_table_in <= 0;
-                r_in.count_mult_out <= 0;
+                r_in.count_pipeline <= 0;
                 r_in.count_voice_out <= 0;
                 r_in.count_table_out <= 0;
                 r_in.state <= map_exp;
@@ -116,30 +118,31 @@ begin
 
         end case;
 
-        -- Wait until converted control values appear and multiply with input velocities.
+        -- Wait until converted control values appear and multiply three times with input velocities.
         if s_data_out_valid = '1' then 
 
             -- Multiply input velocity with (converted) control value.
             -- Converted control value is signed 2.14 bit fixed point. So normalize by shifting right 14 bits.
             v_mult_result := osc_inputs(r.count_voice_out).velocity * unsigned(s_data_out);
-            r_in.osc_outputs_buffer(r.count_table_out)(r.count_voice_out).velocity
-                <= v_mult_result(t_osc_phase'length + CTRL_SIZE - 3 downto CTRL_SIZE - 2);
+            r_in.mult_buffer <= v_mult_result(t_osc_phase'length + CTRL_SIZE - 3 downto CTRL_SIZE - 2);
+
+        -- Write back result.
+        elsif r.count_pipeline = 3 then 
+            r_in.osc_outputs_buffer(r.count_table_out)(r.count_voice_out).velocity <= r.mult_buffer;
 
         -- Multiply with the same exponential factor to get higher range.
-        elsif r.count_mult_out > 0 then 
-
-            v_mult_result := r.osc_outputs_buffer(r.count_table_out)(r.count_voice_out).velocity * unsigned(s_data_out);
-            r_in.osc_outputs_buffer(r.count_table_out)(r.count_voice_out).velocity
-                <= v_mult_result(t_osc_phase'length + CTRL_SIZE - 3 downto CTRL_SIZE - 2);
-
+        else
+            v_mult_result := r.mult_buffer * unsigned(s_data_out);
+            r_in.mult_buffer <= v_mult_result(t_osc_phase'length + CTRL_SIZE - 3 downto CTRL_SIZE - 2);
         end if;
 
-        if s_data_out_valid = '1' or r.count_mult_out > 0 then 
+        -- Increment counters.
+        if s_data_out_valid = '1' or r.count_pipeline > 0 then 
 
-            if r.count_mult_out < 2 then 
-                r_in.count_mult_out <= r.count_mult_out + 1;
+            if r.count_pipeline < 3 then 
+                r_in.count_pipeline <= r.count_pipeline + 1;
             else 
-                r_in.count_mult_out <= 0;
+                r_in.count_pipeline <= 0;
                 if r.count_voice_out < N_VOICES - 1 then 
                     r_in.count_voice_out <= r.count_voice_out + 1;
                 else 

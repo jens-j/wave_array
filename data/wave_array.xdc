@@ -1,9 +1,11 @@
 
-create_clock -add -name system_clk -period 10.00 -waveform {0 5} [get_ports EXT_CLK]
-create_clock -add -name i2s_clk -period 651.00 -waveform {0 5} [get_pins clk_subsys/i2s_bufg/O]
-create_clock -add -name sdram_clk -period 10.00 -waveform {0 5} [get_pins clk_subsys/sys_clk_gen/sdram_clk]
+# create_clock -period 10.000 -name system_clk -waveform {0.000 5.000} -add [get_ports EXT_CLK]
+create_clock -period 651.000 -name i2s_clk -waveform {0.000 5.000} -add [get_pins clk_subsys/i2s_bufg/O]
+# create_clock -period 10.000 -name sdram_clk -waveform {0.000 5.000} -add [get_pins clk_subsys/sys_clk_gen/sdram_clk]
 
-# create_generated_clock -name i2s_clk -source [get_ports EXT_CLK] -divide_by 118 -multiply_by 7.25 [get_pins clk_subsystem/i2s_bufg/O]
+# Define false paths in CDC FFs for the reset system.
+set_false_path -to [get_cells reset_subsys/*_ff/input_r_reg]
+
 
 ## Bank = 35, Pin name = IO_L12P_T1_MRCC_35, Sch name = CLK100MHZ
 set_property PACKAGE_PIN E3 [get_ports EXT_CLK]
@@ -14,20 +16,17 @@ set_property PACKAGE_PIN C12 [get_ports BTN_RESET]
 set_property IOSTANDARD LVCMOS33 [get_ports BTN_RESET]
 
 ## Bank = 35, Pin name = IO_L23P_T3_35, Sch name = JC1
-set_property PACKAGE_PIN K2 [get_ports {I2S_SCLK}]
-set_property IOSTANDARD LVCMOS33 [get_ports {I2S_SCLK}]
+set_property PACKAGE_PIN K2 [get_ports I2S_SCLK]
+set_property IOSTANDARD LVCMOS33 [get_ports I2S_SCLK]
 ## Bank = 35, Pin name = IO_L6P_T0_35, Sch name = JC2
-set_property PACKAGE_PIN E7 [get_ports {I2S_WSEL}]
-set_property IOSTANDARD LVCMOS33 [get_ports {I2S_WSEL}]
+set_property PACKAGE_PIN E7 [get_ports I2S_WSEL]
+set_property IOSTANDARD LVCMOS33 [get_ports I2S_WSEL]
 ## Bank = 35, Pin name = IO_L22P_T3_35, Sch name = JC3
-set_property PACKAGE_PIN J3 [get_ports {I2S_SDATA}]
-set_property IOSTANDARD LVCMOS33 [get_ports {I2S_SDATA}]
+set_property PACKAGE_PIN J3 [get_ports I2S_SDATA]
+set_property IOSTANDARD LVCMOS33 [get_ports I2S_SDATA]
 ## Bank = 35, Pin name = IO_L21P_T3_DQS_35, Sch name = JC4
-set_property PACKAGE_PIN J4 [get_ports {MIDI_RX}]
-set_property IOSTANDARD LVCMOS33 [get_ports {MIDI_RX}]
-## Bank = 35, Pin name = IO_L23N_T3_35, Sch name = JC7
-#set_property PACKAGE_PIN K1 [get_ports {DEBUG_UART_TX}]
-#set_property IOSTANDARD LVCMOS33 [get_ports {DEBUG_UART_TX}]
+set_property PACKAGE_PIN J4 [get_ports MIDI_RX]
+set_property IOSTANDARD LVCMOS33 [get_ports MIDI_RX]
 
 ## USB-RS232 Interface (Nexys labels from the PC perspective)
 ## Bank = 35, Pin name = IO_L7P_T1_AD6P_35, Sch name = UART_TXD_IN
@@ -187,8 +186,7 @@ set_property IOSTANDARD LVCMOS33 [get_ports {DISPLAY_ANODES[7]}]
 
 ## Pmod Header JXADC (schematic numbers do not match pcb print and example project [1,2,3,4] -> [3,10,2,11])
 ## Bank = 15, Pin name = IO_L9P_T1_DQS_AD3P_15,Sch name = XADC1_P -> XA1_P
-set_property PACKAGE_PIN A13 [get_ports {XADC_3P}]
-set_property IOSTANDARD LVCMOS33 [get_ports {XADC_3P}]
+set_property IOSTANDARD LVCMOS33 [get_ports XADC_3P]
 ## Bank = 15, Pin name = IO_L8P_T1_AD10P_15,Sch name = XADC2_P -> XA2_P
 #set_property PACKAGE_PIN A15 [get_ports {XADC_10P}]
 #set_property IOSTANDARD LVCMOS33 [get_ports {XADC_10P}]
@@ -199,8 +197,9 @@ set_property IOSTANDARD LVCMOS33 [get_ports {XADC_3P}]
 #set_property PACKAGE_PIN B18 [get_ports {XADC_11P}]
 #set_property IOSTANDARD LVCMOS33 [get_ports {XADC_11P}]
 ## Bank = 15, Pin name = IO_L9N_T1_DQS_AD3N_15,Sch name = XADC1_N -> XA1_N
-set_property PACKAGE_PIN A14 [get_ports {XADC_3N}]
-set_property IOSTANDARD LVCMOS33 [get_ports {XADC_3N}]
+set_property PACKAGE_PIN A13 [get_ports XADC_3P]
+set_property PACKAGE_PIN A14 [get_ports XADC_3N]
+set_property IOSTANDARD LVCMOS33 [get_ports XADC_3N]
 ## Bank = 15, Pin name = IO_L8N_T1_AD10N_15,Sch name = XADC2_N -> XA2_N
 #set_property PACKAGE_PIN A16 [get_ports {XADC_10N}]
 #set_property IOSTANDARD LVCMOS33 [get_ports {XADC_10N}]
@@ -358,3 +357,5 @@ set_property IOSTANDARD LVCMOS33 [get_ports {SDRAM_ADDRESS[21]}]
 ## Bank = 14, Pin name = IO_L23N_T3_A02_D18_14, Sch name = CRAM_A22
 set_property PACKAGE_PIN U13 [get_ports {SDRAM_ADDRESS[22]}]
 set_property IOSTANDARD LVCMOS33 [get_ports {SDRAM_ADDRESS[22]}]
+
+

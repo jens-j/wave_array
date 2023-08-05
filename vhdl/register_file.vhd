@@ -14,6 +14,7 @@ entity register_file is
         register_input          : in  t_register_input;
         register_output         : out t_register_output;
         new_period              : in  std_logic_vector(N_VOICES - 1 downto 0);
+        software_reset          : out std_logic;
 
         status                  : in  t_status;
         config                  : out t_config
@@ -23,6 +24,7 @@ end entity;
 architecture arch of register_file is
 
     type t_packet_engine_reg is record
+        software_reset          : std_logic;
         config                  : t_config;
         register_output         : t_register_output;
         faults                  : std_logic_vector(15 downto 0);
@@ -30,6 +32,7 @@ architecture arch of register_file is
     end record;
 
     constant REG_INIT : t_packet_engine_reg := (
+        software_reset          => '0',
         config                  => CONFIG_INIT,
         register_output         => ('0', '0', (others => '0')),
         faults                  => (others => '0'),
@@ -42,6 +45,7 @@ begin
 
     register_output             <= r.register_output;
     config                      <= r.config;
+    software_reset              <= r.software_reset;
 
     comb_process : process (r, register_input, status, new_period)
         variable v_rel_address : unsigned(ADDR_DEPTH_LOG2 - 1 downto 0);
@@ -54,6 +58,7 @@ begin
     begin
 
         r_in <= r;
+        r_in.software_reset <= '0';
         r_in.register_output <= ('0', '0', (others => '0'));
 
         for i in 0 to N_TABLES - 1 loop 
@@ -244,6 +249,9 @@ begin
             r_in.register_output.valid <= '1';
 
             if register_input.address = REG_LED then
+                r_in.software_reset <= '0';
+
+            elsif register_input.address = REG_LED then
                 r_in.config.led <= register_input.write_data(0);
 
             elsif register_input.address = REG_FAULT then

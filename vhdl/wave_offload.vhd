@@ -137,7 +137,9 @@ begin
         when sample_running => 
 
             if r.next_sample = '1' then 
-                if new_period(r.lowest_voice) = '1' then
+
+                -- Collect samples until the start of a new period or until the fifo is full.
+                if new_period(r.lowest_voice) = '1' or s_fifo_full = '1' then
                     r_in.wave_ready <= '1';
                     r_in.wave_length <= r.sample_count;
                     r_in.state_sample <= sample_idle;

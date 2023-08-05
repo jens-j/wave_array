@@ -13,7 +13,8 @@ entity i2s_interface is
     port (
         system_clk              : in  std_logic;
         i2s_clk                 : in  std_logic; -- I2S serial clock
-        reset                   : in  std_logic;
+        system_reset            : in  std_logic;
+        i2s_reset               : in  std_logic;
         sample_in               : in  t_stereo_sample;
         next_sample             : out std_logic; -- strobe to request next sample
         -- I2S outputs
@@ -48,7 +49,7 @@ begin
 
     fifo : entity xil_defaultlib.i2s_fifo
     port map (
-        rst                         => reset,
+        rst                         => i2s_reset,
         wr_clk                      => system_clk,
         rd_clk                      => i2s_clk,
         din                         => s_fifo_din,
@@ -63,7 +64,7 @@ begin
     i2s_serializer : entity i2s.i2s_serializer
     port map (
         clk                         => i2s_clk,
-        reset                       => reset,
+        i2s_reset                   => i2s_reset,
         sample_in                   => s_serializer_sample_in,
         next_sample                 => s_serializer_next_sample,
         sdata                       => sdata,
@@ -102,7 +103,7 @@ begin
     reg_proc : process (system_clk)
     begin
         if rising_edge(system_clk) then
-            if reset = '1' then
+            if system_reset = '1' then
                 r <= REG_INIT;
             else
                 r <= r_in;
