@@ -93,11 +93,12 @@ class WaveArrayGui(QtWidgets.QMainWindow):
         self.load_config()
 
         # Connect signals.
-        self.ui.btn_enable_hk.released.connect(self.btn_enable_hk_clicked)
-        self.ui.btn_enable_oscilloscope.released.connect(self.btn_enable_oscilloscope_clicked)
+        self.ui.btn_enable_hk.clicked.connect(self.btn_enable_hk_clicked)
+        self.ui.btn_enable_oscilloscope.clicked.connect(self.btn_enable_oscilloscope_clicked)
+        self.ui.btn_enable_lfo_trigger.clicked.connect(self.btn_enable_lfo_trigger_clicked)
+        
         self.ui.btn_reg_read.released.connect(self.btn_reg_read_clicked)
         self.ui.btn_reg_write.released.connect(self.btn_reg_write_clicked)
-        self.ui.btn_enable_lfo_trigger.released.connect(self.btn_enable_lfo_trigger_clicked)
         self.ui.btn_reset_pitch_0.released.connect(partial(self.btn_reset_pitch_clicked, 0))
         self.ui.btn_reset_pitch_1.released.connect(partial(self.btn_reset_pitch_clicked, 1))
 
@@ -111,6 +112,7 @@ class WaveArrayGui(QtWidgets.QMainWindow):
         self.ui.box_semitones_1.valueChanged.connect(partial(self.pitch_changed, 1))
 
         self.ui.action_load_config.triggered.connect(self.load_config)
+        self.ui.action_reset.triggered.connect(self.software_reset)
 
         self.ui.slider_mix_0_position.sliderMoved.connect(partial(self.mix_amount_changed, 0))
         self.ui.slider_mix_1_position.sliderMoved.connect(partial(self.mix_amount_changed, 1))
@@ -237,7 +239,18 @@ class WaveArrayGui(QtWidgets.QMainWindow):
                     d_max = 2**(15 - wavetable.n_frames_log2) - 1
                     
                     self.curves_waveforms[j][i].setData(wavetable.frames[index_a] 
-                        + np.int16(d * np.int32(wavetable.frames[index_b] - wavetable.frames[index_a]) // d_max))      
+                        + np.int16(d * np.int32(wavetable.frames[index_b] - wavetable.frames[index_a]) // d_max))     
+
+
+    # Perform a software reset on the fpga and reload the gui.
+    def software_reset(self):
+
+        try:
+            self.client.write(WaveArray.REG_RESET, 1) # This will timeout.
+        except:
+            pass 
+
+        self.load_config()
 
 
     # Read device settings and update GUI elements accordingly.
@@ -623,10 +636,6 @@ class WaveArrayGui(QtWidgets.QMainWindow):
                                  + slider_cent.value() * ModMap.MOD_FREQ_STEP_CENT
         
         pitch_control = max(-2**15, min(2**15 - 1, pitch_control))
-
-        print(pitch_control)
-        print(np.int16(pitch_control))
-        print(hex(np.int16(pitch_control)))
         
         self.client.write(WaveArray.REG_FREQ_CTRL_BASE + index, np.int16(pitch_control))
 

@@ -3488,21 +3488,21 @@ destination</string>
              </item>
             </layout>
            </item>
-           <item>
-            <spacer name="horizontalSpacer_8">
-             <property name="orientation">
-              <enum>Qt::Horizontal</enum>
-             </property>
-             <property name="sizeHint" stdset="0">
-              <size>
-               <width>40</width>
-               <height>20</height>
-              </size>
-             </property>
-            </spacer>
-           </item>
           </layout>
          </widget>
+        </item>
+        <item>
+         <spacer name="horizontalSpacer_8">
+          <property name="orientation">
+           <enum>Qt::Horizontal</enum>
+          </property>
+          <property name="sizeHint" stdset="0">
+           <size>
+            <width>40</width>
+            <height>20</height>
+           </size>
+          </property>
+         </spacer>
         </item>
        </layout>
       </item>
@@ -3871,6 +3871,7 @@ destination</string>
     </property>
     <addaction name="action_open_wavetable"/>
     <addaction name="action_load_config"/>
+    <addaction name="action_reset"/>
    </widget>
    <widget class="QMenu" name="menuAppearance">
     <property name="title">
@@ -3894,6 +3895,11 @@ destination</string>
   <action name="action_load_config">
    <property name="text">
     <string>Load Parameters</string>
+   </property>
+  </action>
+  <action name="action_reset">
+   <property name="text">
+    <string>Reset Device</string>
    </property>
   </action>
  </widget>
