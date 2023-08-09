@@ -20,4 +20,8 @@ package uart_pkg is
     constant UART_AO_HK             : std_logic_vector(7 downto 0) := x"00";
     constant UART_AO_WAVE           : std_logic_vector(7 downto 0) := x"01";
 
+    -- UART error codes.
+    constant UART_ERR_TIMEOUT       : std_logic_vector(7 downto 0) := x"00";
+    constant UART_ERR_READ_FAULT    : std_logic_vector(7 downto 0) := x"01";
+    constant UART_ERR_WRITE_FAULT   : std_logic_vector(7 downto 0) := x"02";
 end package;

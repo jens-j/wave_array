@@ -44,19 +44,27 @@ entity uart_packet_engine is
         wave_data               : in  std_logic_vector(15 downto 0);
         wave_full               : out std_logic;
 
-        debug_flags             : out std_logic_vector(3 downto 0)
+        debug_flags             : out std_logic_vector(3 downto 0);
+        debug_state             : out integer;
+        debug_hk_fifo_count     : out integer
     );
 end entity;
 
 architecture arch of uart_packet_engine is
 
-    -- Make watchdog timer wide enough for 1 second.
+    -- Make watchdog timer wide enough for 0.1 second.
     constant WDT_WIDTH : integer := integer(ceil(log2(real(SYS_FREQ))));
 
     type t_state is (idle, read_word, read_reg_0, read_reg_1, read_reg_2,
         read_reg_3, write_reg_0, write_reg_1, write_reg_2, read_block_0, read_block_1, read_block_2,
-        read_block_3, write_block_0, write_block_1, write_block_2, write_block_3,
-        offload_hk, offload_wave_0, offload_wave_1, offload_wave_2, offload_wave_3, offload_wave_4);
+        read_block_3, write_block_0, write_block_1, write_block_2, write_block_3, write_block_4,
+        offload_hk, offload_wave_0, offload_wave_1, offload_wave_2, offload_wave_3, offload_wave_4,
+        send_error_rep);
+
+    -- Somehow this FSM is not recognized by vivado. So not sure what the encoding would be otherwise.
+    -- Probably grey but that is not very readable.
+    attribute enum_encoding : string;
+    attribute enum_encoding of t_state : type is "11111 00001 00010 00011 00100 00101 00110 00111 01000 01001 01010 01011 01100 01101 01110 01111 10000 10001 10010 10011 10100 10101 10110 10111 11000";
 
     type t_packet_engine_reg is record
         state                   : t_state;
@@ -70,7 +78,8 @@ architecture arch of uart_packet_engine is
         sdram_address           : unsigned(SDRAM_DEPTH_LOG2 - 1 downto 0);
         timeout                 : std_logic;
         byte_counter            : integer range 0 to 2 * SDRAM_MAX_BURST - 1;
-        burst_counter           : integer;
+        fifo_counter            : integer range 1 to 2 * SDRAM_MAX_BURST;
+        block_counter           : integer;
         word_buffer             : std_logic_vector(31 downto 0); -- Buffer used to receive words byte for byte.
         address                 : unsigned(31 downto 0); -- Address field buffer.
         watchdog                : unsigned(WDT_WIDTH downto 0);
@@ -78,6 +87,7 @@ architecture arch of uart_packet_engine is
         hk_count                : integer range 0 to HK_PACKET_BYTES - 1;
         wave_count              : integer range 0 to 2**CTRL_SIZE - 1;
         length_lsb              : std_logic_vector(7 downto 0);
+        error_code              : std_logic_vector(7 downto 0);
     end record;
 
     constant REG_INIT : t_packet_engine_reg := (
@@ -92,17 +102,27 @@ architecture arch of uart_packet_engine is
         sdram_address           => (others => '0'),
         timeout                 => '0',
         byte_counter            => 0,
-        burst_counter           => 0,
+        fifo_counter            => 1,
+        block_counter           => 0,
         word_buffer             => (others => '0'),
         address                 => (others => '0'),
         watchdog                => (others => '0'),
         uart_count              => 0,
         hk_count                => 0,
         wave_count              => 0,
-        length_lsb              => (others => '0')
+        length_lsb              => (others => '0'),
+        error_code              => x"00"
     );
 
     signal r, r_in              : t_packet_engine_reg;
+
+    
+    -- -- Somehow this FSM is not recognized by vivado. So not sure what the encoding would be otherwise.
+    -- -- Probably grey but that is not very readable.
+    -- attribute fsm_encoding_r : string;
+    -- attribute fsm_encoding_r of r.state : type is "sequential";
+    -- attribute fsm_encoding_r_in : string;
+    -- attribute fsm_encoding_r_in of r_in.state : type is "sequential";
 
     signal s_s2u_fifo_din       : std_logic_vector(15 downto 0);
     signal s_s2u_fifo_wr_en     : std_logic;
@@ -226,9 +246,11 @@ begin
         r_in.register_input <= ('0', '0', (others => '0'), (others => '0'));
         r_in.sdram_read_enable <= '0';
         r_in.sdram_write_enable <= '0';
-        r_in.sdram_burst_length <= 1;
         r_in.sdram_address <= (others => '0');
         r_in.timeout <= '0';
+
+        debug_state <= t_state'pos(r.state);
+        debug_hk_fifo_count <= to_integer(unsigned(s_hk2u_fifo_rd_count));
 
         -- Default fifo inputs.
         s_s2u_fifo_wr_en <= '0';
@@ -378,7 +400,8 @@ begin
 
                 if register_output.fault = '1' then
                     r_in.tx_data <= UART_ERROR_REP;
-                    r_in.state <= idle;
+                    r_in.error_code <= UART_ERR_READ_FAULT;
+                    r_in.state <= send_error_rep;
                 else
                     r_in.tx_data <= UART_READ_REP;
                     r_in.word_buffer(15 downto 0) <= register_output.read_data; -- Buffer read data.
@@ -416,8 +439,14 @@ begin
         elsif r.state = write_reg_2 then
             if register_output.valid = '1' then
                 r_in.tx_write_enable <= '1';
-                r_in.tx_data <= UART_ERROR_REP when register_output.fault = '1' else UART_WRITE_REP;
-                r_in.state <= idle;
+                if register_output.fault = '1' then 
+                    r_in.tx_data <= UART_ERROR_REP;
+                    r_in.error_code <= UART_ERR_WRITE_FAULT;
+                    r_in.state <= send_error_rep;
+                else
+                    r_in.tx_data <= UART_WRITE_REP;
+                    r_in.state <= idle;
+                end if;                
             end if;
 
         -- Read the 4 byte lenth field from the rx fifo.
@@ -466,59 +495,91 @@ begin
                 end if;
             end if;
 
+        -- Store the address field.
         -- Read the 4 byte length field from the rx fifo.
         elsif r.state = write_block_0 then
             r_in.address <= unsigned(r.word_buffer);
             r_in.byte_counter <= 3;
-            r_in.burst_counter <= 1;
+            r_in.fifo_counter <= 1;
+            
             r_in.next_state <= write_block_1;
             r_in.state <= read_word;
 
-        -- Move data from the UART RX fifo to the SDRAM fifo.
+        -- Store the length field.
         elsif r.state = write_block_1 then
+            r_in.block_counter <= to_integer(unsigned(r.word_buffer));
+            r_in.state <= write_block_2;
+
+        -- Move data from the UART RX fifo to the SDRAM fifo.
+        -- Start a SDRAM burst if max 128 words are in the fifo (256 bytes).
+        elsif r.state = write_block_2 then
 
             if rx_empty = '0' then
                 rx_read_enable <= '1';
-                s_u2s_fifo_wr_en <= '1';
+                s_u2s_fifo_wr_en <= '1'; 
 
-                -- burst_counter counts bytes while the burst length is given in 16 bit words.
-                if r.burst_counter = 2 * to_integer(unsigned(r.word_buffer)) then
-                    r_in.state <= write_block_2;
+                -- A full burst of 128 words is in the fifo
+                if r.fifo_counter = 2 * SDRAM_MAX_BURST then 
+                    r_in.sdram_burst_length <= SDRAM_MAX_BURST;
+                    r_in.block_counter <= r.block_counter - SDRAM_MAX_BURST;
+                    r_in.state <= write_block_3;
+                    
+                -- block is smaller than 128 words or this is the last (non-full) burst in a block.
+                elsif r.fifo_counter = 2 * r.block_counter then
+                    r_in.sdram_burst_length <= r.block_counter;
+                    r_in.block_counter <= 0;
+                    r_in.state <= write_block_3;
                 else
-                    r_in.burst_counter <= r.burst_counter + 1;
+                    r_in.fifo_counter <= r.fifo_counter + 1;
                 end if;
             end if;
 
+            
+
         -- Issue SDRAM write and wait for ack.
-        elsif r.state = write_block_2 then
+        elsif r.state = write_block_3 then
             if sdram_output.ack = '1' then
-                r_in.state <= write_block_3;
+                r_in.address <= r.address + to_unsigned(SDRAM_MAX_BURST, 32);
+                r_in.state <= write_block_4;
             else
                 r_in.sdram_write_enable <= '1';
-                r_in.sdram_burst_length <= to_integer(unsigned(r.word_buffer));
                 r_in.sdram_address <= r.address(SDRAM_DEPTH_LOG2 - 1 downto 0);
             end if;
 
         -- Wait for the SDRAM arbiter to read all data from the async fifo.
-        elsif r.state = write_block_3 then
+        -- Continue with next burst if block is not yet completed.
+        elsif r.state = write_block_4 then
             if sdram_output.done = '1' then
-                r_in.state <= idle;
-                r_in.tx_write_enable <= '1';
-                r_in.tx_data <= UART_WRITE_BLOCK_REP;
+                if r.block_counter = 0 then 
+                    r_in.state <= idle;
+                    r_in.tx_write_enable <= '1';
+                    r_in.tx_data <= UART_WRITE_BLOCK_REP;
+                else 
+                    r_in.fifo_counter <= 1;
+                    r_in.state <= write_block_2;
+                end if;
             end if;
+
+        -- Send the error code that is part of an error response and return to the idle state.
+        elsif r.state = send_error_rep then
+            r_in.tx_write_enable <= '1';
+            r_in.tx_data <= r.error_code;
+            r_in.state <= idle;
         end if;
 
-        -- If a message takes more than a second an error response is send the state is set to idle.
-        if r.state /= idle then
-            if r.watchdog(WDT_WIDTH) = '0' then
-                r_in.watchdog <= r.watchdog + 1;
-            else
-                r_in.tx_write_enable <= '1';
-                r_in.tx_data <= UART_ERROR_REP;
-                r_in.timeout <= '1'; -- Strobe error flag.
-                r_in.state <= idle;
-            end if;
-        end if;
+        -- -- If a message takes more than a second an error response is sent.
+        -- if r.state /= idle then
+        --     if r.watchdog(WDT_WIDTH) = '0' then
+        --         r_in.watchdog <= r.watchdog + 1;
+        --     else
+        --         r_in.watchdog <= (others => '0');
+        --         r_in.tx_write_enable <= '1';
+        --         r_in.tx_data <= UART_ERROR_REP;
+        --         r_in.timeout <= '1'; -- Strobe error flag.
+        --         r_in.error_code <= UART_ERR_TIMEOUT;
+        --         r_in.state <= send_error_rep;
+        --     end if;
+        -- end if;
 
     end process;
 

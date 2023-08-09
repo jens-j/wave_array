@@ -110,6 +110,8 @@ architecture arch of wave_array is
     signal s_debug_wave_timer   : std_logic_vector(15 downto 0);
     signal s_debug_wave_flags   : std_logic_vector(5 downto 0);
     signal s_debug_uart_flags   : std_logic_vector(3 downto 0);
+    signal s_debug_uart_state   : integer;
+    signal s_debug_hk_fifo_count: integer;
 
 begin
 
@@ -125,8 +127,8 @@ begin
     SDRAM_CLK <= s_sdram_clk;
 
     -- 7 segment display.
-    s_display_data <=
-        (15 downto 0 => '0') & std_logic_vector(s_mod_destinations(MODD_OSC_0_FRAME)(0));
+    s_display_data <= std_logic_vector(to_unsigned(s_debug_uart_state, 16))
+        & std_logic_vector(to_unsigned(s_debug_hk_fifo_count, 16));
 
         -- std_logic_vector(to_unsigned(s_voices(0).note.octave, 4))           -- 1 char octave
         -- & std_logic_vector(to_unsigned(s_voices(0).note.key, 4))            -- 1 char note
@@ -198,7 +200,9 @@ begin
         wave_full               => s_wave_full,
         UART_RX                 => UART_RX,
         UART_TX                 => UART_TX,
-        debug_flags             => s_debug_uart_flags
+        debug_flags             => s_debug_uart_flags,
+        debug_state             => s_debug_uart_state,
+        debug_hk_fifo_count     => s_debug_hk_fifo_count
     );
 
     hk_offload : entity wave.hk_offload

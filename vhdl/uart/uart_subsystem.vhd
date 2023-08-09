@@ -37,7 +37,9 @@ entity uart_subsystem is
         UART_RX                 : in  std_logic;
         UART_TX                 : out std_logic;
 
-        debug_flags             : out std_logic_vector(3 downto 0)
+        debug_flags             : out std_logic_vector(3 downto 0);
+        debug_state             : out integer;
+        debug_hk_fifo_count     : out integer
     );
 end entity;
 
@@ -85,7 +87,9 @@ begin
         wave_write_enable       => wave_write_enable,
         wave_data               => wave_data,
         wave_full               => wave_full,
-        debug_flags             => debug_flags
+        debug_flags             => debug_flags,
+        debug_state             => debug_state,
+        debug_hk_fifo_count     => debug_hk_fifo_count
     );
 
 
