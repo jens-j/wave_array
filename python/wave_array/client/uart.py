@@ -78,6 +78,10 @@ class Uart:
             b += self.uart.read(size=(amount - len(b)))
             if len(b) >= amount:
                 return b
+            
+            if timeout:
+                self.logger.info('waiting for more bytes to read...')
+
             time.sleep(0.001)
 
         raise UartException(f'Read timeout ({b})')
@@ -129,9 +133,9 @@ class Uart:
                     # print(data)
                     # print(packet)
 
-                    if struct.unpack('<B', channel)[0] == AutoOffloadType.AO_HK:
+                    if struct.unpack('<B', channel)[0] == AutoOffloadType.AO_HK and self.hk_callback != None:
                         self.hk_callback(packet)
-                    elif struct.unpack('<B', channel)[0] == AutoOffloadType.AO_WAVE:
+                    elif struct.unpack('<B', channel)[0] == AutoOffloadType.AO_WAVE and self.wave_callback != None:
                         self.wave_callback(packet)
                     else: 
                         self.logger.warning(f'unknown auto offload channel received from device: {channel}')

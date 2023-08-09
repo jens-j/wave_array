@@ -523,7 +523,7 @@ begin
                     r_in.sdram_burst_length <= SDRAM_MAX_BURST;
                     r_in.block_counter <= r.block_counter - SDRAM_MAX_BURST;
                     r_in.state <= write_block_3;
-                    
+
                 -- block is smaller than 128 words or this is the last (non-full) burst in a block.
                 elsif r.fifo_counter = 2 * r.block_counter then
                     r_in.sdram_burst_length <= r.block_counter;
@@ -533,8 +533,6 @@ begin
                     r_in.fifo_counter <= r.fifo_counter + 1;
                 end if;
             end if;
-
-            
 
         -- Issue SDRAM write and wait for ack.
         elsif r.state = write_block_3 then

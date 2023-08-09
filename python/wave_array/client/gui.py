@@ -6,7 +6,7 @@ import logging
 import struct
 from functools                import partial
 from random                   import randint, random
-from time                     import time
+from time                     import time, sleep
 
 import pyqtgraph              as pg
 import numpy                  as np
@@ -46,7 +46,7 @@ class WaveArrayGui(QtWidgets.QMainWindow):
         self.auto_offload_enable = False
 
         # Create client object.
-        self.client = WaveArray(self.hk_offload_handler, self.wave_offload_handler)
+        self.client = WaveArray(hk_callback=self.hk_offload_handler, wave_callback=self.wave_offload_handler)
         
         self.mod_source = None 
         self.mod_destination = None
@@ -157,6 +157,8 @@ class WaveArrayGui(QtWidgets.QMainWindow):
             length = struct.unpack('<h', packet[2:4])[0]
             data = np.array(struct.unpack(f'<{length}h', packet[4:]))
             self.oscilloscope_samples = data
+
+            print(f'wave {length}')
 
                     
     def update_plots(self):
@@ -542,10 +544,10 @@ class WaveArrayGui(QtWidgets.QMainWindow):
             parts = filename.split('.')
 
             if len(parts) > 2:
-                log.warning(f'Illegal wavetable file name {filename}')
+                self.logger.warning(f'Illegal wavetable file name {filename}')
 
             elif parts[1] != 'table':
-                log.warning(f'Wavetable file name has wrong extension {filename}')
+                self.logger.warning(f'Wavetable file name has wrong extension {filename}')
 
             else:
                 label = QListWidgetItem(parts[0])
@@ -572,6 +574,8 @@ class WaveArrayGui(QtWidgets.QMainWindow):
     # Write a wavetable to the SDRAM. Currently only one wavetable is stored per oscillator.
     def write_wavetable(self, table_name, index):
 
+        self.logger.info(f'Write table [{index}] <= \"{table_name}\"')
+
         filepath = self.table_dir + table_name + '.table'
 
         with open(filepath, 'r') as f:
@@ -586,6 +590,15 @@ class WaveArrayGui(QtWidgets.QMainWindow):
 
         # Write table to sdram.
         self.client.write_sdram(0, data)
+
+        self.client.read(WaveArray.REG_DBG_UART_FLAGS)
+
+        # try:
+        self.client.write(WaveArray.REG_LED, 1)
+        # except:
+        #     pass
+
+        # 
 
         # Update table registers.
         self.client.write(WaveArray.REG_TABLE_BASE + offset    , (address >> 16) & 0xFFFF)

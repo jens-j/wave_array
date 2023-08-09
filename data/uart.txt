@@ -34,10 +34,10 @@ write  00001041     3FFF
 #read   00000100                                 # read uart count
 
 wait   1000
-writef 00000000 00004000                        # write wavetable to the SDRAM at address 0x0
+writef 00000000 00002000                        # write wavetable to the SDRAM at address 0x0
 write  00003000     0000                        # Write low half of table base address 
 write  00003001     0000                        # Write high half of table base address
-write  00003002     0004                        # write frames_log2
+write  00003002     0001                        # write frames_log2
 write  00003003     0001                        # initialize wavetable RAM
 
 wait   1000 

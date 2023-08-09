@@ -3,7 +3,7 @@ import struct
 
 import numpy as np
 
-from wave_array.client.uart import Uart, UartType
+from wave_array.client.uart import Uart, UartType, UartException
 
 
 class UartProtocol:
@@ -19,23 +19,29 @@ class UartProtocol:
 
 
     def read(self, address):
-        self.logger.info(f'read [{address:04X}]')
+        
         request = struct.pack('>BI', UartType.READ_REQ, address)
-        reply = self.command(request)
+        reply = self.command(request)         
+        
         opcode, data = struct.unpack('>Bh', reply)
-        if opcode != UartType.READ_REP:
-            raise Uart.UartException(f'received {opcode} instead of {UartType.READ_REP}')
 
+        if opcode != UartType.READ_REP:
+            raise UartException(f'received {opcode} instead of {UartType.READ_REP}')
+
+        self.logger.info(f'read  [{address:04X}] => {data:04X}')
         return np.uint16(data)
 
 
     def write(self, address, data):
-        self.logger.info(f'write [{address:04X}] <= {data:04X}')
         request = struct.pack('>BIh', UartType.WRITE_REQ, address, np.int16(data))
         reply = self.command(request)
         opcode, = struct.unpack('>B', reply)
-        if opcode != UartType.WRITE_REP:
-            raise Uart.UartException(f'received {opcode} instead of {UartType.WRITE_REP}')
+        if opcode == UartType.ERROR_REP:
+            raise UartException(f'write recieved error reply with code {opcode}')
+        elif opcode != UartType.WRITE_REP:
+            raise UartException(f'received {opcode} instead of {UartType.WRITE_REP}')
+        
+        self.logger.info(f'write [{address:04X}] <= {data:04X}')
 
 
     def read_block(self, address, length):
@@ -43,7 +49,7 @@ class UartProtocol:
         reply = self.command(request)
         reply = list(struct.unpack(f'>B{length}h', reply))
         if reply[0] != UartType.READ_BLOCK_REP:
-            raise Uart.UartException(f'received {reply[0]} instead of {UartType.READ_BLOCK_REP}')
+            raise UartException(f'received {reply[0]} instead of {UartType.READ_BLOCK_REP}')
 
         return list(reply)[1:]
 
@@ -55,14 +61,23 @@ class UartProtocol:
         reply = self.command(request)
         opcode, = struct.unpack('>B', reply)
         if opcode != UartType.WRITE_BLOCK_REP:
-            raise Uart.UartException(f'received {opcode} instead of {UartType.WRITE_BLOCK_REP}')
+            raise UartException(f'received {opcode} instead of {UartType.WRITE_BLOCK_REP}')
 
 
     # Write request and read response.
     def command(self, request):
 
         self.logger.debug(f'send: {request.hex()}')
+        
         self.uart.write_req(request)        
         response = self.uart.read_rep()
+
         self.logger.debug(f'recv ({len(response)}): {response.hex()}')
+
+        # Check for error reply.
+        if response[0] == UartType.ERROR_REP:
+            # self.logger.error('error reply received')
+            _, code = struct.unpack('>BB', response)
+            raise UartException(f'received error response with code {code}')
+        
         return response

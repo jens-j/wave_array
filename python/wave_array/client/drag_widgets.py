@@ -60,7 +60,5 @@ class DropPlotWidget(pg.PlotWidget):
     def dropEvent(self, e):
         index = self.parent().layout().indexOf(self) - 1 # Skip table list.
         table_name = e.mimeData().text()
-        print(f'{index} <= {table_name}')
         e.accept()
-
         self.callback(table_name, index)

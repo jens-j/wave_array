@@ -1,5 +1,7 @@
+import os
 import time
 import logging
+from threading import Thread
 from wave_array.client.uart_protocol import UartProtocol
 
 import numpy as np
@@ -50,33 +52,39 @@ class WaveArray:
     REG_MIX_CTRL_BASE           = 0x00005000
     REG_FREQ_CTRL_BASE          = 0x00006000 
 
-    def __init__(self, ao_callback, wave_callback, port='COM4'):
-        self.dev = UartProtocol(port, 1000_000, ao_callback, wave_callback)
+    def __init__(self, hk_callback=None, wave_callback=None, port='COM4'):
+        self.protocol = UartProtocol(port, 1000_000, hk_callback, wave_callback)
 
-        self.n_voices = self.dev.read(self.REG_VOICES)
+        # Stop HK to clear the input buffer.
+        hk_enable = self.protocol.read(self.REG_HK_ENABLE)
+        self.protocol.write(self.REG_HK_ENABLE, 0)
+        self.protocol.uart.uart.reset_input_buffer()
+        self.protocol.write(self.REG_HK_ENABLE, hk_enable)
+
+        self.n_voices = self.protocol.read(self.REG_VOICES)
         self.n_voices_log2 = int(np.ceil(np.log2(self.n_voices)))
 
     def stop(self):
-        self.dev.stop()
+        self.protocol.stop()
 
     def reset(self):
-        self.dev.write(self.REG_ADDR_RESET, 0x01)
+        self.protocol.write(self.REG_RESET, 0x01)
 
     def set_led(self, enable):
-        self.dev.write(self.REG_ADDR_LED, int(enable))
+        self.protocol.write(self.REG_LED, int(enable))
 
     def get_led(self):
-        return bool(self.dev.read(self.REG_ADDR_LED))
+        return bool(self.protocol.read(self.REG_LED))
 
     def read_faults(self):
-        return self.dev.read(self.REG_ADDR_FAULT)
+        return self.protocol.read(self.REG_FAULT)
 
     def write(self, address, value):
         # print(f'[{address:08X}] <= {value:04X}')
-        self.dev.write(address, value) 
+        self.protocol.write(address, value) 
 
     def read(self, address, log=True):
-        value = np.uint16(self.dev.read(address))
+        value = np.uint16(self.protocol.read(address))
         # if log: 
         #     print(f'read [{address:08X}] = {value:04X}')
         return value
@@ -102,25 +110,20 @@ class WaveArray:
         address = self.REG_MOD_DEST_BASE + destination * 2**self.n_voices_log2 + voice
         return self.read(address)
 
-    def write_sdram(self, address, data):
-        burst_address = address
+    def write_sdram(self, address, data):       
+        # Stop HK during write.
+        hk_enable = self.protocol.read(self.REG_HK_ENABLE)
+        self.protocol.write(self.REG_HK_ENABLE, 0)
+        self.protocol.write_block(address, data)
+        self.protocol.write(self.REG_HK_ENABLE, hk_enable)
 
-        for i in range(len(data) // 128):
-            burst_data = data[i * 128:(i + 1) * 128]
-
-            print(f'[{burst_address:08X}] <=',
-                f'{burst_data[0] & 0xFFFF:04X}, {burst_data[1] & 0xFFFF:04X}, {burst_data[2] & 0xFFFF:04X}, ...', 
-                f'{burst_data[-3] & 0xFFFF:04X}, {burst_data[-2] & 0xFFFF:04X}, {burst_data[-1] & 0xFFFF:04X}')
-
-            self.dev.write_block(burst_address, burst_data)
-            burst_address += 128
 
     def read_sdram(self, address, length):
         data = np.zeros(length).astype('int16')
         burst_address = address
 
         for i in range(len(data) // 128):
-            data[i * 128:(i + 1) * 128] = self.dev.read_block(burst_address, 128)
+            data[i * 128:(i + 1) * 128] = self.protocol.read_block(burst_address, 128)
             burst_address += 128
 
         return data
@@ -133,12 +136,37 @@ def main():
 
     wave_array = WaveArray()
 
-    wave_array.set_led(True)
-    wave_array.get_led()
+    # wave_array.set_led(True)
+    # wave_array.get_led()
 
-    wave_array.write(WaveArray.REG_FILTER_CUTOFF, 0x2000)
-    wave_array.write(WaveArray.REG_FILTER_RESONANCE, 0x4000)
+    wave_array.read(WaveArray.REG_HK_ENABLE)
 
+    module_path = os.path.dirname(os.path.abspath(__file__))
+    table_path = os.path.join(module_path, '../../../data/wavetables/saw.table')
+
+    with open(table_path, 'r') as f:
+        raw_data = f.read().split('\n')
+
+    raw_data = list(filter(lambda x: x != '', raw_data))
+    data = np.array([int(x, 16) for x in raw_data]).astype('int16')
+    log.info(f'data length = {len(data)}')
+    
+    print(data)
+
+    wave_array.write_sdram(0, data)
+
+    log.info('sdram write complete')
+
+
+    # try:
+    #     wave_array.read(WaveArray.REG_FAULT)
+    #     # wave_array.write(WaveArray.REG_FAULT, 0)
+    # except:
+    #     pass 
+
+    # wave_array.write(WaveArray.REG_LED, 0)
+    # wave_array.read(WaveArray.REG_LED)
+    
 
 if __name__ == '__main__':
     main()
