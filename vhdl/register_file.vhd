@@ -86,6 +86,10 @@ begin
             elsif register_input.address = REG_DBG_WAVE_TIMER then
                 r_in.register_output.read_data <= status.debug_wave_timer; 
 
+            elsif register_input.address = REG_DBG_WAVE_FIFO then
+                r_in.register_output.read_data(11 downto 0) <= 
+                    std_logic_vector(to_unsigned(status.debug_wave_fifo_count, 12)); 
+
             elsif register_input.address = REG_DBG_WAVE_FLAGS then
                 r_in.register_output.read_data(5 downto 0) <= status.debug_wave_flags; 
 

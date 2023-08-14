@@ -36,6 +36,8 @@ end entity;
 
 architecture arch of wave_offload is 
 
+    constant MAX_SAMPLE_COUNT   : integer := 2044; -- Spare some room in the uart fifo (2048) for the header.
+
     type t_state_offload is (offload_idle, offload_wave_0, offload_wave_1, offload_wave_2);
     type t_state_sample is (sample_idle, sample_running);
 
@@ -127,9 +129,11 @@ begin
         case r.state_sample is 
         when sample_idle => 
 
-            if r.next_sample = '1' and new_period(lowest_voice) = '1' and r.wave_ready = '0' then 
+            if config.wave_enable = '1' and r.next_sample = '1' and new_period(lowest_voice) = '1' 
+                    and r.wave_ready = '0' then 
+
                 s_fifo_write_enable <= '1';
-                r_in.lowest_voice <= lowest_voice;
+                r_in.lowest_voice <= lowest_voice; -- In case this changes while sampling.
                 r_in.sample_count <= 1;
                 r_in.state_sample <= sample_running; 
             end if; 
@@ -139,17 +143,17 @@ begin
             if r.next_sample = '1' then 
 
                 -- Collect samples until the start of a new period or until the fifo is full.
-                if new_period(r.lowest_voice) = '1' or s_fifo_full = '1' then
-                    r_in.wave_ready <= '1';
-                    r_in.wave_length <= r.sample_count;
-                    r_in.state_sample <= sample_idle;
-                else 
-                    if s_fifo_full = '1' then 
+                if new_period(r.lowest_voice) = '1' 
+                        or s_fifo_count = std_logic_vector(to_unsigned(MAX_SAMPLE_COUNT, 12)) then
+
+                    if s_fifo_count = std_logic_vector(to_unsigned(MAX_SAMPLE_COUNT, 12)) then 
                         r_in.fifo_overflow <= '1';
                     end if;
 
+                    r_in.wave_ready <= '1';
+                    r_in.state_sample <= sample_idle;
+                else
                     s_fifo_write_enable <= '1';
-                    r_in.sample_count <= r.sample_count + 1;
                 end if;
             end if;
         end case;
@@ -160,7 +164,6 @@ begin
             
             if config.wave_enable = '1' and r.wave_req = '1' and r.wave_ready = '1' then 
                 r_in.wave_req <= '0';
-                r_in.offload_count <= r.wave_length;
                 r_in.state_offload <= offload_wave_0;
             end if;
 
@@ -175,7 +178,7 @@ begin
         when offload_wave_1 =>
 
             r_in.wave_write_enable <= '1';
-            v_length := std_logic_vector(to_unsigned(r.offload_count, CTRL_SIZE));
+            v_length := x"0" & s_fifo_count;
             r_in.wave_data <= v_length(7 downto 0) & v_length(15 downto 8); -- Switch bytes for little endian transfer.
             r_in.state_offload <= offload_wave_2;
 
@@ -183,19 +186,14 @@ begin
         when offload_wave_2 =>
 
             if s_fifo_empty = '1' then 
-                r_in.fifo_underflow <= '1';
-            end if;
-
-            r_in.wave_write_enable <= '1';
-            s_fifo_read_enable <= '1';
-            r_in.wave_data <= s_fifo_read_data(7 downto 0) & s_fifo_read_data(15 downto 8); -- Switch bytes for little endian transfer.
-            
-            if r.offload_count > 1 then 
-                r_in.offload_count <= r.offload_count - 1;
-            else 
                 r_in.wave_ready <= '0';
                 r_in.state_offload <= offload_idle;
+            else 
+                r_in.wave_write_enable <= '1';
+                s_fifo_read_enable <= '1';
+                r_in.wave_data <= s_fifo_read_data(7 downto 0) & s_fifo_read_data(15 downto 8); -- Switch bytes for little endian transfer.
             end if;
+
         end case;
 
         -- Increment wave timer.

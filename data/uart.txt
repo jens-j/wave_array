@@ -11,8 +11,6 @@ write  00000600     4000                        # write filter cutoff
 write  00000601     2000                        # write filter resonance
 write  00006001     2000                        # write table 1 freq base value
 
-write  00000300     4000                        # Write frame base value 
-#write  00000000     4000                        # Write mixer base value 
 write  00000500     2000                        # Write LFO velocity
 write  00000502     0001                        # Enable LFO trigger
 

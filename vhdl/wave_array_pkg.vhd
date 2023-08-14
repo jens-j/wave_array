@@ -168,6 +168,7 @@ package wave_array_pkg is
 
     constant REG_DBG_WAVE_TIMER     : unsigned := x"0000103"; -- ro 16 bit unsigned | Wave offload timer value.
     constant REG_DBG_WAVE_FLAGS     : unsigned := x"0000104"; -- ro  6 bit          | Wave offload fifo_overflow & fifo_underflow & wave_req & wave_ready & fifo_empty & fifo_full.    
+    constant REG_DBG_WAVE_FIFO      : unsigned := x"0000105"; -- ro 12 bit unsigned | Wave offload sample buffer fifo count.          
     constant REG_DBG_UART_FLAGS     : unsigned := x"0000110"; -- ro  4 bit          | s2u_fifo_full & u2s_fifo_full & hk2u_fifo_full & wave2u_fifo_full.    
     constant REG_DBG_NEW_PERIOD     : unsigned := x"0000120"; -- rw 16 bit          | New_period sticky bits, write to clear.    
 
@@ -325,7 +326,7 @@ package wave_array_pkg is
         mod_destinations        : t_modd_array;
         debug_wave_state_offload: integer;
         debug_wave_state_sample : integer;
-        debug_wave_fifo_count   : integer range 0 to 2047;
+        debug_wave_fifo_count   : integer;
         debug_wave_timer        : std_logic_vector(15 downto 0); -- Only 16 lsb.
         debug_wave_flags        : std_logic_vector(5 downto 0); -- Flags: wave_req & wave_ready & fifo_empty & fifo_full.
         debug_uart_flags        : std_logic_vector(3 downto 0); -- Fifo full flags: sdram2uart & uart2sdram & hk & wave.
