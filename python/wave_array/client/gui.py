@@ -60,7 +60,7 @@ class WaveArrayGui(QtWidgets.QMainWindow):
 
         self.curve_oscilloscope = None
         self.curves_waveforms = [[None] * self.client.n_voices, [None] * self.client.n_voices]
-        self.curves_pot = [None] * self.client.n_voices
+        self.curve_pot = [None]
         self.curves_lfo = [None] * self.client.n_voices
         self.curves_envelope = [None] * self.client.n_voices
         self.curves_cutoff = [None] * self.client.n_voices
@@ -158,7 +158,9 @@ class WaveArrayGui(QtWidgets.QMainWindow):
             data = np.array(struct.unpack(f'<{length}h', packet[4:]))
             self.oscilloscope_samples = data
 
-            print(f'wave {length}')
+            # print(packet)
+            # print(f'wave {length}')
+            # print(data)
 
                     
     def update_plots(self):
@@ -180,11 +182,11 @@ class WaveArrayGui(QtWidgets.QMainWindow):
 
 
         self.curve_oscilloscope.setData(self.oscilloscope_samples)
+
+        self.curve_pot.setData(self.curve_x, np.concatenate(
+            (self.curve_pot.getData()[1][1:], [self.status.mod_sources[ModMap.MODS_POT][i]])))
         
         for i in range(self.client.n_voices):
-
-            self.curves_pot[i].setData(self.curve_x, np.concatenate(
-                (self.curves_pot[i].getData()[1][1:], [self.status.mod_sources[ModMap.MODS_POT][i]])))
 
             self.curves_envelope[i].setData(self.curve_x, np.concatenate(
                 (self.curves_envelope[i].getData()[1][1:], [self.status.mod_sources[ModMap.MODS_ENVELOPE][i]])))
@@ -492,8 +494,9 @@ class WaveArrayGui(QtWidgets.QMainWindow):
 
             pen = pg.mkPen(color=pg.hsvColor((hue + i / self.client.n_voices) % 1.0))
 
-            self.curves_pot[i] = self.ui.plot_pot.plot(
-                self.curve_x, np.zeros(self.PLOT_SAMPLES), name=f'voice {i}', pen=pen)
+            if i == 0:
+                self.curve_pot = self.ui.plot_pot.plot(
+                    self.curve_x, np.zeros(self.PLOT_SAMPLES), name=f'voice {i}', pen=pen)
 
             self.curves_envelope[i] = self.ui.plot_envelope.plot(
                 self.curve_x, np.zeros(self.PLOT_SAMPLES), name=f'voice {i}', pen=pen)
@@ -571,7 +574,7 @@ class WaveArrayGui(QtWidgets.QMainWindow):
             self.ui.menuAppearance.addAction(parts[0], self.appearanceActionClicked)
 
 
-    # Write a wavetable to the SDRAM. Currently only one wavetable is stored per oscillator.
+    # Write a wavetable to the SDRAM. Currently only one wavetable is stored in SDRAM per oscillator.
     def write_wavetable(self, table_name, index):
 
         self.logger.info(f'Write table [{index}] <= \"{table_name}\"')
@@ -590,15 +593,6 @@ class WaveArrayGui(QtWidgets.QMainWindow):
 
         # Write table to sdram.
         self.client.write_sdram(0, data)
-
-        self.client.read(WaveArray.REG_DBG_UART_FLAGS)
-
-        # try:
-        self.client.write(WaveArray.REG_LED, 1)
-        # except:
-        #     pass
-
-        # 
 
         # Update table registers.
         self.client.write(WaveArray.REG_TABLE_BASE + offset    , (address >> 16) & 0xFFFF)

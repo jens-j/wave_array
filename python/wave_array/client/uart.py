@@ -37,7 +37,7 @@ class Uart:
 
         self.hk_callback = hk_callback
         self.wave_callback = wave_callback
-        self.uart = serial.Serial(port, baudrate=baudrate, timeout=self.T_SLEEP)
+        self.uart = serial.Serial(port, baudrate=baudrate, timeout=1)
         self.rep_queue = Queue()
         self.ao_queue = Queue()
         self.stop_thread = False
