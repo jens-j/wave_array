@@ -61,6 +61,9 @@ package wave_array_pkg is
     constant OSC_SAMPLE_FRAC        : integer := 8; -- Fractional bits used for sample interpolation
     constant OSC_COEFF_FRAC         : integer := 8; -- Fractional bits used for coefficient interpolation.
 
+    constant UNISON_MAX_LOG2        : integer := 4;
+    constant UNISON_MAX             : integer := 2**UNISON_MAX_LOG2;
+
     -- Oscillator polyphase interpolation filter coefficient.
     constant POLY_COEFF_SIZE        : integer := 16;
     constant POLY_M_LOG2            : integer := 7;
@@ -165,6 +168,7 @@ package wave_array_pkg is
     constant REG_FAULT              : unsigned := x"0000001"; -- rw 16 bit          | Fault flags.
     constant REG_LED                : unsigned := x"0000002"; -- rw 1 bit           | On-board led register.
     constant REG_VOICES             : unsigned := x"0000003"; -- ro 16 bit unsigned | Number of voices.
+    constant REG_POTENTIOMETER      : unsigned := x"0000004"; -- ro 12 bit unsigned | Potentiometer value. 
 
     constant REG_DBG_WAVE_TIMER     : unsigned := x"0000103"; -- ro 16 bit unsigned | Wave offload timer value.
     constant REG_DBG_WAVE_FLAGS     : unsigned := x"0000104"; -- ro  6 bit          | Wave offload fifo_overflow & fifo_underflow & wave_req & wave_ready & fifo_empty & fifo_full.    
@@ -172,7 +176,9 @@ package wave_array_pkg is
     constant REG_DBG_UART_FLAGS     : unsigned := x"0000110"; -- ro  4 bit          | s2u_fifo_full & u2s_fifo_full & hk2u_fifo_full & wave2u_fifo_full.    
     constant REG_DBG_NEW_PERIOD     : unsigned := x"0000120"; -- rw 16 bit          | New_period sticky bits, write to clear.    
 
-    constant REG_POTENTIOMETER      : unsigned := x"0000400"; -- ro 12 bit unsigned | Potentiometer value. 
+    constant REG_BINAURAL           : unsigned := x"0000200"; -- rw 1 bit           | Enable binaural mode.
+    constant REG_UNISON_N           : unsigned := x"0000201"; -- rw 4 bit           | Number of unison voices - 1 (so [1 - 16]).
+    constant REG_UNISON_SPREAD      : unsigned := x"0000202"; -- rw 16 bit          | Unison spread base control value. Maps ±1 octave.   
 
     constant REG_LFO_VELOCITY       : unsigned := x"0000500"; -- rw 15 bit unsigned | LFO velocity control value. 
     constant REG_LFO_WAVE           : unsigned := x"0000501"; -- rw 16 bit unsigned | Select LFO waveform. Clipped to LFO_N_WAVEFORMS - 1.
