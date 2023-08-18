@@ -29,7 +29,7 @@ class Status:
                 f'Incorrect status packet length {len(packet)} instead of {self.PACKET_BYTES}'
 
             # Check if opcode and channel are correct.
-            assert packet[0] == UartType.AUTO_OFFLOAD and packet[1] == 0, \
+            assert struct.unpack('<B', packet[0:1])[0] == UartType.AUTO_OFFLOAD and struct.unpack('<B', packet[1:2])[0] == 0, \
                 f'Incorrect header for status packet {packet[0]:04X}'  
 
             self.packet = packet

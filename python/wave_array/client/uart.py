@@ -33,10 +33,10 @@ class Uart:
     T_SLEEP = 0.001 # s
     T_TIMEOUT = 5
 
-    def __init__(self, port, baudrate, hk_callback, wave_callback):
+    def __init__(self, port, baudrate, hk_signal, wave_signal):
 
-        self.hk_callback = hk_callback
-        self.wave_callback = wave_callback
+        self.hk_signal = hk_signal
+        self.wave_signal = wave_signal
         self.uart = serial.Serial(port, baudrate=baudrate, timeout=1)
         self.rep_queue = Queue()
         self.ao_queue = Queue()
@@ -46,6 +46,9 @@ class Uart:
         self.uart.reset_output_buffer()
         
         self.thread = Thread(target=self._run)
+        
+
+    def start(self):
         self.thread.start()
 
     
@@ -133,10 +136,10 @@ class Uart:
                     # print(data)
                     # print(packet)
 
-                    if struct.unpack('<B', channel)[0] == AutoOffloadType.AO_HK and self.hk_callback != None:
-                        self.hk_callback(packet)
-                    elif struct.unpack('<B', channel)[0] == AutoOffloadType.AO_WAVE and self.wave_callback != None:
-                        self.wave_callback(packet)
+                    if struct.unpack('<B', channel)[0] == AutoOffloadType.AO_HK and self.hk_signal != None:
+                        self.hk_signal.received.emit(packet)
+                    elif struct.unpack('<B', channel)[0] == AutoOffloadType.AO_WAVE and self.wave_signal != None:
+                        self.wave_signal.received.emit(packet)
                     else: 
                         self.logger.warning(f'unknown auto offload channel received from device: {channel}')
 

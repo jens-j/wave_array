@@ -11,7 +11,7 @@ from time                     import time, sleep
 import pyqtgraph              as pg
 import numpy                  as np
 from PyQt5                    import QtWidgets, uic
-from PyQt5.QtCore             import QSize, QSettings, Qt, QTimer
+from PyQt5.QtCore             import QObject, QSize, QSettings, Qt, QTimer, pyqtSignal
 from PyQt5.QtWidgets          import QLabel, QApplication, QFileDialog, QVBoxLayout, QRadioButton, QSpacerItem, \
                                      QSizePolicy, QListWidgetItem, QCheckBox
 from PyQt5.QtGui              import QIntValidator
@@ -22,6 +22,11 @@ from wave_array.client.modmap import ModMap, MapException
 from wave_array.client.status import Status
 from wave_array.client.wavetable import WaveTable
 from wave_array.client.drag_widgets import DragListWidget, DropPlotWidget
+
+
+class auto_offload_signal(QObject):
+
+    received = pyqtSignal('QByteArray')
 
 
 
@@ -46,7 +51,9 @@ class WaveArrayGui(QtWidgets.QMainWindow):
         self.auto_offload_enable = False
 
         # Create client object.
-        self.client = WaveArray(hk_callback=self.hk_offload_handler, wave_callback=self.wave_offload_handler)
+        self.hk_signal = auto_offload_signal()
+        self.wave_signal = auto_offload_signal()
+        self.client = WaveArray(self.hk_signal, self.wave_signal)
         
         self.mod_source = None 
         self.mod_destination = None
@@ -93,6 +100,9 @@ class WaveArrayGui(QtWidgets.QMainWindow):
         self.load_config()
 
         # Connect signals.
+        self.hk_signal.received.connect(self.hk_offload_handler)
+        self.wave_signal.received.connect(self.wave_offload_handler)
+
         self.ui.btn_enable_hk.clicked.connect(self.btn_enable_hk_clicked)
         self.ui.btn_enable_oscilloscope.clicked.connect(self.btn_enable_oscilloscope_clicked)
         self.ui.btn_enable_lfo_trigger.clicked.connect(self.btn_enable_lfo_trigger_clicked)
@@ -157,10 +167,6 @@ class WaveArrayGui(QtWidgets.QMainWindow):
             length = struct.unpack('<h', packet[2:4])[0]
             data = np.array(struct.unpack(f'<{length}h', packet[4:]))
             self.oscilloscope_samples = data
-
-            # print(packet)
-            # print(f'wave {length}')
-            # print(data)
 
                     
     def update_plots(self):

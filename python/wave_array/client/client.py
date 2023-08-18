@@ -13,6 +13,7 @@ class WaveArray:
     REG_FAULT                   = 0x00000001
     REG_LED                     = 0x00000002
     REG_VOICES                  = 0x00000003
+    REG_POTENTIOMETER           = 0x00000004
 
     REG_DBG_WAVE_STATE_OFFLOAD  = 0x00000100
     REG_DBG_WAVE_STATE_SAMPLE   = 0x00000101
@@ -21,9 +22,11 @@ class WaveArray:
     REG_DBG_WAVE_FLAGS          = 0x00000104
     REG_DBG_UART_FLAGS          = 0x00000110
 
-    REG_FRAME_CTRL              = 0x00000300
+    REG_BINAURAL                = 0x00000200
+    REG_UNISON_N                = 0x00000201
+    REG_UNISON_SPREAD           = 0x00000202
 
-    REG_POTENTIOMETER           = 0x00000400
+    REG_FRAME_CTRL              = 0x00000300   
 
     REG_LFO_VELOCITY            = 0x00000500
     REG_LFO_WAVE                = 0x00000501
@@ -52,8 +55,8 @@ class WaveArray:
     REG_MIX_CTRL_BASE           = 0x00005000
     REG_FREQ_CTRL_BASE          = 0x00006000 
 
-    def __init__(self, hk_callback=None, wave_callback=None, port='COM4'):
-        self.protocol = UartProtocol(port, 1000_000, hk_callback, wave_callback)
+    def __init__(self, hk_signal, wave_signal, port='COM4'):
+        self.protocol = UartProtocol(port, 1000_000, hk_signal, wave_signal)
 
         # Stop HK to clear the input buffer.
         hk_enable = self.protocol.read(self.REG_HK_ENABLE)
