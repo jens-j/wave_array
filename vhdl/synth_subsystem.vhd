@@ -18,14 +18,14 @@ entity synth_subsystem is
         config                  : in  t_config;
         next_sample             : in  std_logic;
         pot_value               : in  std_logic_vector(ADC_SAMPLE_SIZE - 1 downto 0);
-        voices                  : in  t_voice_array(0 to N_VOICES - 1);
+        voices                  : in  t_voice_array(0 to POLYPHONY_MAX - 1);
         sample                  : out t_stereo_sample;
         sdram_output            : in  t_sdram_output;
         sdram_input             : out t_sdram_input;
-        envelope_active         : out std_logic_vector(N_VOICES - 1 downto 0);
+        envelope_active         : out std_logic_vector(POLYPHONY_MAX - 1 downto 0);
         mod_sources             : out t_mods_array;
         mod_destinations        : out t_modd_array;
-        new_period              : out std_logic_vector(N_VOICES - 1 downto 0) -- High in first cycle of waveform period.
+        new_period              : out std_logic_vector(POLYPHONY_MAX - 1 downto 0) -- High in first cycle of waveform period.
     );
 end entity;
 
@@ -33,13 +33,14 @@ architecture arch of synth_subsystem is
 
     signal s_osc_inputs         : t_osc_input_array(0 to N_VOICES - 1);
     signal s_pitched_osc_inputs : t_pitched_osc_inputs;
-    signal s_osc_samples        : t_mono_sample_array(0 to N_VOICES - 1);
-    signal s_filter_samples     : t_mono_sample_array(0 to N_VOICES - 1);
-    signal s_mixer_sample_out   : t_mono_sample;
+    signal s_osc_samples        : t_mono_sample_array(0 to POLYPHONY_MAX - 1);
+    signal s_filter_samples     : t_mono_sample_array(0 to POLYPHONY_MAX - 1);
+    signal s_mixer_left_sample_out  : t_mono_sample;
+    signal s_mixer_right_sample_out : t_mono_sample;
     signal s_dma2table          : t_dma2table_array(0 to N_TABLES - 1);
     signal s_table2dma          : t_table2dma_array(0 to N_TABLES - 1);
-    signal s_lfo_out            : t_ctrl_value_array(0 to N_VOICES - 1);
-    signal s_envelope_ctrl      : t_ctrl_value_array(0 to N_VOICES - 1);
+    signal s_lfo_out            : t_ctrl_value_array(0 to POLYPHONY_MAX - 1);
+    signal s_envelope_ctrl      : t_ctrl_value_array(0 to POLYPHONY_MAX - 1);
     signal s_mod_sources        : t_mods_array;
     signal s_mod_destinations   : t_modd_array;
     signal s_ctrl_pot           : t_ctrl_value;
@@ -61,7 +62,7 @@ begin
     s_ctrl_pot <= '0' & signed(pot_value) & (CTRL_SIZE - ADC_SAMPLE_SIZE - 2 downto 0 => '0');
 
     -- Connect mod source array.
-    mods_assigne : for i in 0 to N_VOICES - 1 generate
+    mods_assigne : for i in 0 to POLYPHONY_MAX - 1 generate
         s_mod_sources(MODS_NONE)(i)     <= (others => '0');
         s_mod_sources(MODS_POT)(i)      <= s_ctrl_pot;
         s_mod_sources(MODS_ENVELOPE)(i) <= s_envelope_ctrl(i);
@@ -69,10 +70,10 @@ begin
     end generate;
 
     -- This does not synthesize correctly.
-    -- s_mod_sources(MODS_NONE)     <= (0 to N_VOICES - 1 => (others => '0'));
-    -- s_mod_sources(MODS_POT)      <= (0 to N_VOICES - 1 => s_ctrl_pot);
+    -- s_mod_sources(MODS_NONE)     <= (0 to POLYPHONY_MAX - 1 => (others => '0'));
+    -- s_mod_sources(MODS_POT)      <= (0 to POLYPHONY_MAX - 1 => s_ctrl_pot);
     -- s_mod_sources(MODS_ENVELOPE) <= s_envelope_ctrl;
-    -- s_mod_sources(MODS_LFO)      <= (0 to N_VOICES - 1 => s_lfo_out(0));
+    -- s_mod_sources(MODS_LFO)      <= (0 to POLYPHONY_MAX - 1 => s_lfo_out(0));
 
     osc_controller : entity osc.osc_controller
     port map(
@@ -83,7 +84,7 @@ begin
         osc_inputs              => s_osc_inputs
     );
 
-    osc_stack : entity wave.oscillator_stack
+    osc_stack : entity oscillator.oscillator_stack
     port map (
         clk                     => clk,
         reset                   => reset,
@@ -110,7 +111,7 @@ begin
 
     filter : entity wave.state_variable_filter
     generic map (
-        N_INPUTS                => N_VOICES
+        N_INPUTS                => POLYPHONY_MAX
     )
     port map (
         clk                     => clk,
@@ -125,7 +126,7 @@ begin
 
     lfo : entity wave.lfo
     generic map (
-        N_OUTPUTS               => N_VOICES
+        N_OUTPUTS               => POLYPHONY_MAX
     )
     port map (
         clk                     => clk,
@@ -138,7 +139,7 @@ begin
 
     envelope : entity wave.envelope 
     generic map(
-        N_INPUTS                => N_VOICES
+        N_INPUTS                => POLYPHONY_MAX
     )
     port map (
         clk                     => clk,
@@ -150,9 +151,9 @@ begin
         envelope_active         => envelope_active
     );
 
-    mixer : entity wave.voice_mixer
+    mixer_left : entity wave.voice_mixer
     generic map (
-        N_INPUTS                => N_VOICES
+        N_INPUTS                => POLYPHONY_MAX / 2
     )
     port map (
         clk                     => clk,
@@ -160,7 +161,20 @@ begin
         sample_in               => s_filter_samples,
         ctrl_in                 => s_mod_destinations(MODD_MIXER),
         next_sample             => next_sample,
-        sample_out              => s_mixer_sample_out
+        sample_out              => s_mixer_left_sample_out
+    );
+
+    mixer_right : entity wave.voice_mixer
+    generic map (
+        N_INPUTS                => POLYPHONY_MAX / 2
+    )
+    port map (
+        clk                     => clk,
+        reset                   => reset,
+        sample_in               => s_filter_samples,
+        ctrl_in                 => s_mod_destinations(MODD_MIXER),
+        next_sample             => next_sample,
+        sample_out              => s_mixer_right_sample_out
     );
 
     mod_matrix : entity wave.mod_matrix 

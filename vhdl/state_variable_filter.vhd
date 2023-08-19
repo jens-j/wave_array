@@ -29,8 +29,8 @@ entity state_variable_filter is
         reset                   : in  std_logic;
         config                  : in  t_config;
         next_sample             : in  std_logic;
-        cutoff_control          : in  t_ctrl_value_array(0 to N_VOICES - 1);
-        resonance_control       : in  t_ctrl_value_array(0 to N_VOICES - 1);
+        cutoff_control          : in  t_ctrl_value_array(0 to POLYPHONY_MAX - 1);
+        resonance_control       : in  t_ctrl_value_array(0 to POLYPHONY_MAX - 1);
         sample_in               : in  t_mono_sample_array(0 to N_INPUTS - 1);
         sample_out              : out t_mono_sample_array(0 to N_INPUTS - 1) -- FIlter type is selected in config.
     );

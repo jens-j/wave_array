@@ -20,7 +20,7 @@ entity envelope is
         config                  : in  t_config;
         osc_inputs              : in  t_osc_input_array(0 to N_INPUTS - 1);
         ctrl_out                : out t_ctrl_value_array;
-        envelope_active         : out std_logic_vector(N_VOICES - 1 downto 0)
+        envelope_active         : out std_logic_vector(POLYPHONY_MAX - 1 downto 0)
     );
 end entity;
 
