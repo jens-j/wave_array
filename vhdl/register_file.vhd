@@ -23,6 +23,9 @@ end entity;
 
 architecture arch of register_file is
 
+    constant ACTIVE_VOICES_DEFAULT : t_active_voices_array := calculate_active_voices('0');
+    constant ACTIVE_VOICES_BINAURAL : t_active_voices_array := calculate_active_voices('1');
+
     type t_packet_engine_reg is record
         software_reset          : std_logic;
         config                  : t_config;
@@ -55,6 +58,7 @@ begin
         variable v_modd_voice : integer range 0 to N_VOICES - 1;
         variable v_table_index : integer range 0 to N_TABLES - 1;
         variable v_voice_index : integer range 0 to N_VOICES - 1;
+        variable v_unison_n : integer range 1 to UNISON_MAX;
     begin
 
         r_in <= r;
@@ -111,6 +115,15 @@ begin
             elsif register_input.address = REG_WAVE_PERIOD then
                 r_in.register_output.read_data <= std_logic_vector(r.config.wave_period);
 
+            elsif register_input.address = REG_BINAURAL then
+                r_in.register_output.read_data(0) <= r.config.binaural_enable;
+
+            elsif register_input.address = REG_UNISON_N then
+                r_in.register_output.read_data <= std_logic_vector(to_unsigned(r.config.unison_n - 1, REGISTER_WIDTH));
+
+            elsif register_input.address = REG_UNISON_SPREAD then
+                r_in.register_output.read_data(0) <= std_logic_vector(r.config.unison_spread);
+
             elsif register_input.address = REG_VOICES then
                 r_in.register_output.read_data <= std_logic_vector(to_unsigned(N_VOICES, REGISTER_WIDTH));
 
@@ -121,7 +134,8 @@ begin
                 r_in.register_output.read_data <= std_logic_vector(r.config.lfo_velocity);
 
             elsif register_input.address = REG_LFO_WAVE then
-                r_in.register_output.read_data <= std_logic_vector(to_unsigned(r.config.lfo_wave_select, REGISTER_WIDTH));
+                r_in.register_output.read_data <= 
+                    std_logic_vector(to_unsigned(r.config.lfo_wave_select, REGISTER_WIDTH));
 
             elsif register_input.address = REG_LFO_TRIGGER then
                 r_in.register_output.read_data(0) <= r.config.lfo_trigger;
@@ -275,6 +289,32 @@ begin
 
             elsif register_input.address = REG_WAVE_PERIOD then
                 r_in.config.wave_period <= unsigned(register_input.write_data);
+
+            elsif register_input.address = REG_BINAURAL then
+                r_in.config.binaural_enable <= register_input.write_data(0);
+
+                if register_input.write_data(0) = '0' then 
+                    r_in.config.active_voices <= ACTIVE_VOICES_DEFAULT(r.config.unison_n);
+                else 
+                    r_in.config.active_voices <= ACTIVE_VOICES_BINAURAL(r.config.unison_n);
+                end if;
+
+            elsif register_input.address = REG_UNISON_N then
+
+                v_unison_n := minimum(UNISON_MAX, to_integer(unsigned(register_input.write_data)) + 1)
+                r_in.config.unison_n <= v_unison_n;
+
+                if r.config.binaural_enable = '0' then 
+                    r_in.config.active_voices <= ACTIVE_VOICES_DEFAULT(v_unison_n);
+                else 
+                    r_in.config.active_voices <= ACTIVE_VOICES_BINAURAL(v_unison_n);
+                end if;
+
+            elsif register_input.address = REG_UNISON_SPREAD then
+                r_in.config.unison_spread <= signed(register_input.write_data);
+
+            elsif register_input.address = REG_WAVE_PERIOD then
+                r_in.config.binaural_enable <= register_input.write_data(0);
 
             elsif register_input.address = REG_LFO_VELOCITY then
                 r_in.config.lfo_velocity <= signed(register_input.write_data);
