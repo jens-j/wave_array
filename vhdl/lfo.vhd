@@ -17,7 +17,7 @@ entity lfo is
         reset                   : in  std_logic;
         config                  : in  t_config;
         next_sample             : in  std_logic;
-        osc_inputs              : in  t_osc_input_array(0 to POLYPHONY_MAX - 1);
+        osc_inputs              : in  t_osc_input_array(0 to N_OUTPUTS - 1);
         lfo_out                 : out t_ctrl_value_array(0 to N_OUTPUTS - 1)
     );
 end entity;

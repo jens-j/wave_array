@@ -33,7 +33,7 @@ architecture arch of mod_matrix is
     constant ACC_WIDTH          : integer := CTRL_SIZE + MAX_MOD_SOURCES_LOG2 + 1; -- Plus one for base value.
 
     type t_state is (idle, running);
-    type t_accumulator_array is array (0 to N_VOICES - 1) of signed(ACC_WIDTH - 1 downto 0);
+    type t_accumulator_array is array (0 to POLYPHONY_MAX - 1) of signed(ACC_WIDTH - 1 downto 0);
     type t_dest_counter_array is array (0 to PIPE_SUM_MUX_OUT - 1) of integer range 0 to MODD_LEN - 1;
     type t_source_counter_array is array (0 to PIPE_SUM_MUX_OUT - 1) of integer range 0 to MAX_MOD_SOURCES;
     
@@ -44,12 +44,13 @@ architecture arch of mod_matrix is
         mod_dest_buffer         : t_modd_array;
         dest_counter            : t_dest_counter_array;
         source_counter          : t_source_counter_array;
-        source_values           : t_ctrl_value_array(0 to N_VOICES - 1); -- Source operands mux buffer.
-        scaled_source_values    : t_ctrl_value_array(0 to N_VOICES - 1); -- Source operands scaled by multiplying with mod amount.
+        source_values           : t_ctrl_value_array(0 to POLYPHONY_MAX - 1); -- Source operands mux buffer.
+        scaled_source_values    : t_ctrl_value_array(0 to POLYPHONY_MAX - 1); -- Source operands scaled by multiplying with mod amount.
         accumulator             : t_accumulator_array;
-        accumulator_clipped     : t_ctrl_value_array(0 to N_VOICES - 1); 
+        accumulator_clipped     : t_ctrl_value_array(0 to POLYPHONY_MAX - 1); 
         valid_shift             : std_logic_vector(PIPE_SUM_MUX_OUT - 1 downto 0); -- Pipeline valid shift register.
         amount                  : t_ctrl_value;
+        binaural_enable         : std_logic;
     end record;
 
     constant REG_INIT : t_mod_matrix_reg := (
@@ -63,7 +64,8 @@ architecture arch of mod_matrix is
         accumulator             => (others => (others => '0')),
         accumulator_clipped     => (others => (others => '0')),
         valid_shift             => (others => '0'),
-        amount                  => (others => '0')
+        amount                  => (others => '0'),
+        binaural_enable         => '0'
     );
 
     signal r, r_in : t_mod_matrix_reg := REG_INIT;
@@ -99,6 +101,7 @@ begin
                 r_in.mod_dest <= r.mod_dest_buffer;
                 r_in.mod_dest_buffer <= (others => (others => (others => '0')));
 
+                r_in.binaural_enable <= config.binaural_enable;
                 r_in.source_counter <= (others => 0);
                 r_in.dest_counter <= (others => 0);
 
@@ -148,7 +151,7 @@ begin
 
         -- Pipeline stage 1: multiply mod source with mod amount.
         if r.valid_shift(PIPE_SUM_MULT - 1) = '1' then 
-            for i in 0 to N_VOICES - 1 loop
+            for i in 0 to POLYPHONY_MAX - 1 loop
                 v_mult := r.source_values(i) * r.amount;
                 r_in.scaled_source_values(i) <= v_mult(2 * CTRL_SIZE - 2 downto CTRL_SIZE - 1);
 
@@ -158,7 +161,7 @@ begin
         -- Pipeline stage 2: add source control values to accumulators.
         if r.valid_shift(PIPE_SUM_ADD - 1) = '1' then 
 
-            for i in 0 to N_VOICES - 1 loop 
+            for i in 0 to POLYPHONY_MAX - 1 loop 
                 if r.source_counter(PIPE_SUM_ADD - 1) = 0 then 
                     r_in.accumulator(i) <= resize(r.scaled_source_values(i), ACC_WIDTH);
                 else 
@@ -171,7 +174,7 @@ begin
         -- Pipeline stage 3: clip accumulator.
         if r.valid_shift(PIPE_SUM_CLIP - 1) = '1' and r.source_counter(PIPE_SUM_CLIP - 1) = MAX_MOD_SOURCES then 
 
-            for i in 0 to N_VOICES - 1 loop 
+            for i in 0 to POLYPHONY_MAX - 1 loop 
 
                 if r.accumulator(i) > resize(x"7FFF", ACC_WIDTH) then 
                     r_in.accumulator_clipped(i) <= x"7FFF";
@@ -185,9 +188,15 @@ begin
         end if;
 
         -- Pipeline stage 4: output mux.
+        -- In binaural mode, the destiantion control signals are doubled, one for each side.
         if r.valid_shift(PIPE_SUM_MUX_OUT - 1) = '1' and r.source_counter(PIPE_SUM_MUX_OUT - 1) = MAX_MOD_SOURCES then 
 
-            r_in.mod_dest_buffer(r.dest_counter(PIPE_SUM_MUX_OUT - 1)) <= r.accumulator_clipped;
+            if r.binaural_enable = '0' then 
+                r_in.mod_dest_buffer(r.dest_counter(PIPE_SUM_MUX_OUT - 1)) <= r.accumulator_clipped;
+            else 
+                r_in.mod_dest_buffer(2 * r.dest_counter(PIPE_SUM_MUX_OUT - 1)) <= r.accumulator_clipped;
+                r_in.mod_dest_buffer(2 * r.dest_counter(PIPE_SUM_MUX_OUT - 1) + 1) <= r.accumulator_clipped;
+            end if;
         end if;
 
         -- Update shift registers.

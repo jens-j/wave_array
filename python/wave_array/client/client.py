@@ -24,7 +24,6 @@ class WaveArray:
 
     REG_BINAURAL                = 0x00000200
     REG_UNISON_N                = 0x00000201
-    REG_UNISON_SPREAD           = 0x00000202
 
     REG_FRAME_CTRL              = 0x00000300   
 

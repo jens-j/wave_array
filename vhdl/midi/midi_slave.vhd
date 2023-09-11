@@ -13,12 +13,13 @@ entity midi_slave is
     port (
         clk                     : in  std_logic;
         reset                   : in  std_logic;
+        config                  : in  t_config;
         uart_rx                 : in  std_logic;
         midi_channel            : in  std_logic_vector(3 downto 0);
-        envelope_active         : in  std_logic_vector(N_VOICES - 1 downto 0); 
-        voices                  : out t_voice_array(0 to N_VOICES - 1);
+        envelope_active         : in  std_logic_vector(POLYPHONY_MAX - 1 downto 0); 
+        voices                  : out t_voice_array(0 to POLYPHONY_MAX - 1);
         status_byte             : out t_byte;
-        lowest_voice            : out integer range 0 to N_VOICES - 1 -- Voice index of the lowest playing note.
+        lowest_voice            : out integer range 0 to POLYPHONY_MAX - 1 -- Voice index of the lowest playing note.
     );
 end entity;
 
@@ -31,8 +32,8 @@ architecture arch of midi_slave is
     type t_midi_slave_reg is record
         state                   : t_state;
         next_state              : t_state;
-        voices                  : t_voice_array(0 to N_VOICES - 1);
-        voice_select            : integer range 0 to N_VOICES - 1;
+        voices                  : t_voice_array(0 to POLYPHONY_MAX - 1);
+        voice_select            : integer range 0 to POLYPHONY_MAX - 1;
         octave                  : t_midi_octave;
         midi_number             : t_midi_number;
         midi_key                : t_midi_number; -- conversion buffer from midi note to t_midi_key
@@ -40,9 +41,10 @@ architecture arch of midi_slave is
         midi_command            : std_logic_vector(3 downto 0);
         table_velocity          : t_osc_phase;
         lowest_note             : t_midi_number;
-        lowest_voice            : integer range 0 to N_VOICES - 1;
+        lowest_voice            : integer range 0 to POLYPHONY_MAX - 1;
         highest_note            : t_midi_number;
-        highest_voice           : integer range 0 to N_VOICES - 1;
+        highest_voice           : integer range 0 to POLYPHONY_MAX - 1;
+        polyphony               : integer range 1 to POLYPHONY_MAX;
     end record;
 
     constant REG_INIT : t_midi_slave_reg := (
@@ -59,7 +61,8 @@ architecture arch of midi_slave is
         lowest_note             => 127,
         lowest_voice            => 0,
         highest_note            => 0,
-        highest_voice           => 0
+        highest_voice           => 0,
+        polyphony               => 1
     );
 
     -- Register.
@@ -67,7 +70,7 @@ architecture arch of midi_slave is
 
     signal midi_message_s       : t_midi_message;
     signal message_valid_s      : std_logic;
-    signal s_voice_enable       : std_logic_vector(N_VOICES - 1 downto 0);
+    signal s_voice_enable       : std_logic_vector(POLYPHONY_MAX - 1 downto 0);
 
 begin
 
@@ -82,7 +85,7 @@ begin
     );
 
 
-    combinatorial : process (r, message_valid_s, midi_message_s, s_voice_enable, envelope_active)
+    combinatorial : process (r, config, message_valid_s, midi_message_s, s_voice_enable, envelope_active)
         variable v_enable : std_logic;
     begin
 
@@ -94,7 +97,7 @@ begin
         status_byte <= midi_message_s.status_byte;
         lowest_voice <= r.lowest_voice;
 
-        for i in 0 to N_VOICES - 1 loop
+        for i in 0 to POLYPHONY_MAX - 1 loop
             r_in.voices(i).change <= '0';
             s_voice_enable(i) <= r.voices(i).enable;
         end loop;     
@@ -115,6 +118,7 @@ begin
                     --     voice_off_0 when MIDI_VOICE_MSG_OFF,
                     --     idle when others;
 
+                    r_in.polyphony <= config.polyphony;
                     r_in.octave <= -1;
                     r_in.voice_select <= 0;
                     r_in.midi_command <= midi_message_s.status_byte(7 downto 4);
@@ -162,7 +166,7 @@ begin
 
                 if r.voices(r.voice_select).note.number = r.midi_number then
                     r_in.state <= r.next_state;
-                elsif r.voice_select = N_VOICES - 1 then
+                elsif r.voice_select = r.polyphony - 1 then
                     if r.midi_command = MIDI_VOICE_MSG_ON then
                         r_in.voice_select <= 0;
                         r_in.state <= find_free_voice;
@@ -177,7 +181,7 @@ begin
             when find_free_voice =>
                 if envelope_active(r.voice_select) = '0' then
                     r_in.state <= r.next_state;
-                elsif r.voice_select = N_VOICES - 1 then
+                elsif r.voice_select = r.polyphony - 1 then
                     r_in.voice_select <= 0;
                     r_in.state <= find_released_voice; -- No free voices.
                 else
@@ -188,7 +192,7 @@ begin
             when find_released_voice =>
                 if r.voices(r.voice_select).enable = '0' then
                     r_in.state <= r.next_state;
-                elsif r.voice_select = N_VOICES - 1 then
+                elsif r.voice_select = r.polyphony - 1 then
                     r_in.voice_select <= 0;
                     r_in.state <= steal_voice; -- No free voices.
                 else
@@ -203,7 +207,7 @@ begin
                     
                     r_in.state <= voice_on_1;
                 
-                elsif r.voice_select < N_VOICES then 
+                elsif r.voice_select < r.polyphony then 
                     r_in.voice_select <= r.voice_select + 1;
                 else 
                     r_in.state <= idle; -- This should never happen
@@ -224,7 +228,7 @@ begin
                 r_in.lowest_voice <= 0;
                 r_in.highest_voice <= 0;
                 r_in.voice_select <= 0;
-                if s_voice_enable = (N_VOICES - 1 downto 0 => '0') then 
+                if s_voice_enable = (POLYPHONY_MAX - 1 downto 0 => '0') then 
                     r_in.state <= idle;
                 else 
                     r_in.state <= find_min_max_1;
@@ -244,7 +248,7 @@ begin
                     end if;
                 end if;
 
-                if r.voice_select = N_VOICES - 1 then 
+                if r.voice_select = r.polyphony - 1 then 
                     r_in.state <= r.next_state;
                 else 
                     r_in.voice_select <= r.voice_select + 1;

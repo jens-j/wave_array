@@ -19,7 +19,18 @@ class Halfband:
         sinc_x = np.linspace(-bound, bound, self.N)
         self.coefficients = np.sinc(sinc_x) * self.window
 
-        for i, coefficient in enumerate(self.coefficients[:N//2:2]):
+        print('\n')
+        for i, coefficient in enumerate(self.coefficients):
+            end = '\r\n' if (i + 1) % 8 == 0 else ' '
+            print(f'x"{int(coefficient * 0x7FFF) & 0xFFFF:04X}",', end=end)
+
+        print('\n')
+        for i, coefficient in enumerate(self.coefficients[N//2+1::2]):
+            end = '\r\n' if (i + 1) % 8 == 0 else ' '
+            print(f'x"{int(coefficient * 0x7FFF) & 0xFFFF:04X}",', end=end)
+
+        print('\n')
+        for i, coefficient in enumerate(self.coefficients[1:N//2+1:2]):
             end = '\r\n' if (i + 1) % 8 == 0 else ' '
             print(f'x"{int(coefficient * 0x7FFF) & 0xFFFF:04X}",', end=end)
 
@@ -38,7 +49,7 @@ class Halfband:
 
 
 def main():
-    hb = Halfband(119)
+    hb = Halfband(127)
     hb.plot()
 
 

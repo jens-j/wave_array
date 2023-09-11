@@ -46,9 +46,6 @@ class Uart:
         self.uart.reset_output_buffer()
         
         self.thread = Thread(target=self._run)
-        
-
-    def start(self):
         self.thread.start()
 
     

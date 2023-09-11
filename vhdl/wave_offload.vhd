@@ -19,7 +19,7 @@ entity wave_offload is
         next_sample             : in  std_logic;
         new_period              : in  std_logic_vector(N_VOICES - 1 downto 0);
         sample_in               : in  t_mono_sample;
-        lowest_voice            : in  integer range 0 to N_VOICES - 1; -- Voice index of the lowest playing note.
+        lowest_voice            : in  integer range 0 to POLYPHONY_MAX - 1; -- Voice index of the lowest playing note.
 
         -- Auto offload fifo interface.
         wave_write_enable       : out std_logic;
@@ -52,10 +52,11 @@ architecture arch of wave_offload is
         wave_length             : integer range 0 to WAVE_MAX_WORDS - 1;
         sample_count            : integer range 0 to WAVE_MAX_WORDS - 1;
         offload_count           : integer range 0 to WAVE_MAX_WORDS - 1;
-        lowest_voice            : integer range 0 to N_VOICES - 1;
+        lowest_voice            : integer range 0 to POLYPHONY_MAX - 1;
         next_sample             : std_logic; -- Delay one cycle to sample after values update.
         fifo_overflow           : std_logic;
         fifo_underflow          : std_logic;
+        new_period_lowest       : std_logic;
     end record;
 
     constant REG_INIT : t_packet_engine_reg := (
@@ -72,7 +73,8 @@ architecture arch of wave_offload is
         lowest_voice            => 0,
         next_sample             => '0',
         fifo_overflow           => '0',
-        fifo_underflow          => '0'
+        fifo_underflow          => '0',
+        new_period_lowest       => '0'
     );
 
     signal r, r_in              : t_packet_engine_reg;
@@ -125,11 +127,13 @@ begin
         v_debug_timer := std_logic_vector(to_unsigned(r.wave_timer, CTRL_SIZE + 10));
         debug_timer <= v_debug_timer(CTRL_SIZE - 1 downto 0);
 
+        r_in.new_period_lowest <= new_period(lowest_voice * config.unison_n);
+
         -- Fill fifo with samples of one period of the lowest note.
         case r.state_sample is 
         when sample_idle => 
 
-            if config.wave_enable = '1' and r.next_sample = '1' and new_period(lowest_voice) = '1' 
+            if config.wave_enable = '1' and r.next_sample = '1' and r.new_period_lowest = '1' 
                     and r.wave_ready = '0' then 
 
                 s_fifo_write_enable <= '1';
