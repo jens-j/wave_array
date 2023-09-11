@@ -12,9 +12,6 @@ use wave.wave_array_pkg.all;
 -- Besides the table addresses, this entity also outputs the fractional phase (used for polyphase
 -- coefficient selection) and a mipmap level (used for address increment overflow).
 entity table_address_generator is
-    generic (
-        N_VOICES                : natural
-    );
     port (
         clk                     : in  std_logic;
         reset                   : in  std_logic;

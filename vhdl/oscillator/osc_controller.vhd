@@ -13,9 +13,10 @@ entity osc_controller is
     port (
         clk                     : std_logic;
         reset                   : std_logic;
+        config                  : in  t_config;
         next_sample             : in  std_logic; -- Next sample trigger.
-        voices                  : in  t_voice_array(0 to N_VOICES - 1);
-        osc_inputs              : out t_osc_input_array(0 to N_VOICES - 1)
+        voices                  : in  t_voice_array(0 to POLYPHONY_MAX - 1);
+        osc_inputs              : out t_osc_input_array(0 to POLYPHONY_MAX - 1)
     );
 end entity;
 
@@ -25,16 +26,20 @@ architecture arch of osc_controller is
 
     type t_oscillator_reg is record
         state                   : t_state;
-        voices                  : t_voice_array(0 to N_VOICES - 1);
-        osc_counter             : integer range 0 to N_VOICES - 1;
-        osc_inputs              : t_osc_input_array(0 to N_VOICES - 1);
-        osc_inputs_buffer       : t_osc_input_array(0 to N_VOICES - 1);
+        voices                  : t_voice_array(0 to POLYPHONY_MAX - 1);
+        osc_counter             : integer range 0 to POLYPHONY_MAX - 1;
+        voice_counter           : integer range 0 to POLYPHONY_MAX - 1;  
+        group_counter           : integer range 0 to 1;
+        osc_inputs              : t_osc_input_array(0 to POLYPHONY_MAX - 1);
+        osc_inputs_buffer       : t_osc_input_array(0 to POLYPHONY_MAX - 1);
     end record;
 
     constant REG_INIT : t_oscillator_reg := (
         state                   => idle,
         voices                  => (others => MIDI_VOICE_INIT),
         osc_counter             => 0,
+        voice_counter           => 0,
+        group_counter           => 1,
         osc_inputs              => (others => ('0', (others => '0'))),
         osc_inputs_buffer       => (others => ('0', (others => '0')))
     );
@@ -45,7 +50,7 @@ begin
 
     osc_inputs <= r.osc_inputs;
 
-    combinatorial : process (r, next_sample, voices)
+    combinatorial : process (r, config, next_sample, voices)
         variable v_enable : std_logic;
         variable v_velocity : t_osc_phase;
     begin
@@ -58,9 +63,12 @@ begin
                 r_in.osc_inputs_buffer <= (others => ('0', (others => '0')));
                 r_in.voices <= voices;
                 r_in.osc_counter <= 0;
+                r_in.voice_counter <= 0; 
+                r_in.group_counter <= 0; 
                 r_in.state <= running;
             end if;
 
+        -- Assign velocities to oscillators. Mapping depends on unison and binaural settings.
         elsif r.state = running then
 
             v_enable := '0';
@@ -68,16 +76,26 @@ begin
 
             -- Convert midi note to table velocity.
             -- Use the potentiometer as frame position input.
-            v_enable := r.voices(r.osc_counter).enable;
-            v_velocity := shift_right(BASE_OCT_VELOCITIES(r.voices(r.osc_counter).note.key),
-                                        9 - r.voices(r.osc_counter).note.octave);
+            v_enable := r.voices(r.voice_counter).enable;
+            v_velocity := shift_right(BASE_OCT_VELOCITIES(r.voices(r.voice_counter).note.key),
+                                      9 - r.voices(r.voice_counter).note.octave);
 
             r_in.osc_inputs_buffer(r.osc_counter) <= (v_enable, v_velocity);
 
-            if r.osc_counter < N_VOICES - 1 then
+            -- Iterate over voices. Double in binaural mode
+            if config.binaural_enable = '0' or (config.binaural_enable = '1' and r.group_counter = 1) then 
+
+                r_in.group_counter <= 0;
+
+                if r.voice_counter < config.polyphony - 1 then
+                    r_in.osc_counter <= r.osc_counter + 1;
+                    r_in.voice_counter <= r.voice_counter + 1;
+                else
+                    r_in.state <= idle;
+                end if;
+            else 
                 r_in.osc_counter <= r.osc_counter + 1;
-            else
-                r_in.state <= idle;
+                r_in.group_counter <= r.group_counter + 1;
             end if;
         end if;
     end process;

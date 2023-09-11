@@ -46,8 +46,11 @@ architecture arch of osc_wave_memory is
     signal s_read_data_a_reg : std_logic_vector(SAMPLE_SIZE - 1 downto 0);
     signal s_read_data_b_reg : std_logic_vector(SAMPLE_SIZE - 1 downto 0);
 
-    attribute syn_ramstyle : string;
-    attribute syn_ramstyle of s_memory : signal is "no_rw_check";
+    -- attribute syn_ramstyle : string;
+    -- attribute syn_ramstyle of s_memory : signal is "no_rw_check";
+
+    attribute ram_style : string;
+    attribute ram_style of s_memory : signal is "block";
 
 begin
 

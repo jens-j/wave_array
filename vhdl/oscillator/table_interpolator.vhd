@@ -31,7 +31,7 @@ entity table_interpolator is
         table2dma               : out t_table2dma;
 
         osc_inputs              : in  t_osc_input_array(0 to N_VOICES - 1);
-        frame_control           : in  t_ctrl_value_array(0 to N_VOICES - 1);
+        frame_control           : in  t_ctrl_value_array(0 to POLYPHONY_MAX - 1);
         addrgen_input           : in  t_addrgen2table_array(0 to N_VOICES - 1);
         output_samples          : out t_stereo_sample_array(0 to N_VOICES - 1); -- Two samples are needed for the downsampling.
         new_period              : out std_logic_vector(N_VOICES - 1 downto 0); -- High in first cycle of waveform period.
@@ -92,6 +92,10 @@ architecture arch of table_interpolator is
         overflow                : std_logic;
         timeout                 : std_logic;
 
+        -- Counters used to select frame control value for each oscillator.
+        unison_counter          : integer range 0 to UNISON_MAX - 1;
+        voice_counter           : integer range 0 to POLYPHONY_MAX - 1;
+
     end record;
 
     constant REG_INIT : t_oscillator_reg := (
@@ -117,7 +121,9 @@ architecture arch of table_interpolator is
         phase_position          => (others => (others => '0')),
         zero_coeff              => (others => '0'),
         overflow                => '0',
-        timeout                 => '0'
+        timeout                 => '0',
+        unison_counter          => 0,
+        voice_counter           => 0
     );
 
     signal r, r_in : t_oscillator_reg := REG_INIT;
@@ -253,7 +259,7 @@ begin
     table2dma       <= r.table2dma;
     new_period      <= r.new_period;
 
-    combinatorial : process (r, osc_inputs, addrgen_input, next_sample, dma2table, frame_control,
+    combinatorial : process (r, config, osc_inputs, addrgen_input, next_sample, dma2table, frame_control,
                              s_frame_interp_p, s_coeff_interp_p, s_macc_p,
                              s_wave_read_data_a, s_wave_read_data_b, s_coeff_even_douta, s_coeff_odd_douta)
 
@@ -267,6 +273,7 @@ begin
         variable v_frame_index_lsb : natural;
 
         variable v_frame_index : natural range 0 to FRAMES_MAX - 1;
+        variable v_voice_index : integer range 0 to N_VOICES - 1;
 
     begin
 
@@ -301,7 +308,7 @@ begin
         for i in 0 to N_VOICES - 1 loop
 
             -- Clip the control value to positive only values.
-            v_control_unsigned := x"0000" when frame_control(i) < 0 else frame_control(i);
+            v_control_unsigned := x"0000" when frame_control(r.voice_counter) < 0 else frame_control(r.voice_counter);
 
             -- Calculate frame A and B indices and frame position.
             if dma2table.frames_log2 = 0 then -- Special case: dont do any frame interpolation.
@@ -320,7 +327,7 @@ begin
             -- This allows the table size to be a power of two.
             else
 
-                -- Pre calculate the lowest bit of the index part of the control value.
+                -- Pre-calculate the lowest bit of the index part of the control value.
                 -- Note that since the control value is signed, bit 15 is the msb.
                 v_frame_index_lsb := CTRL_SIZE - dma2table.frames_log2 - 1;
 
@@ -555,6 +562,16 @@ begin
                 r_in.sample_buffers(r.osc_counter(PIPE_LEN_TOTAL))(r.sample_counter(PIPE_LEN_TOTAL)) 
                     <= t_mono_sample(
                         s_macc_p(SAMPLE_SIZE + POLY_COEFF_SIZE - 4 downto POLY_COEFF_SIZE - 3)); 
+            end if;
+
+            -- Count unison duplicates within polyphonic voices. Since all oscillators within the same group share frame control.
+            if r.unison_counter < config.unison_n - 1 then 
+                r_in.unison_counter <= r.unison_counter + 1;
+            else 
+                r_in.unison_counter <= 0;
+                if r.voice_counter < config.polyphony - 1 then 
+                    r_in.voice_counter <= r.voice_counter + 1;
+                end if;
             end if;
 
         -- Mux wave memory address to dma to allow writing the wavetable.

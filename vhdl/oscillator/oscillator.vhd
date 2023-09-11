@@ -17,7 +17,7 @@ entity oscillator is
         osc_inputs              : in  t_osc_input_array(0 to N_VOICES - 1);
         dma2table               : in  t_dma2table;
         table2dma               : out t_table2dma;
-        frame_control           : in  t_ctrl_value_array(0 to N_VOICES - 1);
+        frame_control           : in  t_ctrl_value_array(0 to POLYPHONY_MAX - 1);
         output_samples          : out t_mono_sample_array(0 to N_VOICES - 1);
         new_period              : out std_logic_vector(N_VOICES - 1 downto 0) -- High in first cycle of waveform period.
     );
@@ -33,9 +33,6 @@ architecture arch of oscillator is
 begin
 
     table_addr_gen : entity osc.table_address_generator
-    generic map (
-        N_VOICES                => N_VOICES
-    )
     port map (
         clk                     => clk,
         reset                   => reset,
@@ -62,9 +59,6 @@ begin
     );
 
     halfband : entity osc.halfband_filter
-    generic map (
-        N_VOICES                => N_VOICES
-    )
     port map (
         clk                     => clk,
         reset                   => reset,
