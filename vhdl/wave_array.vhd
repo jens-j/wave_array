@@ -69,9 +69,9 @@ architecture arch of wave_array is
     signal s_sdram_clk_enable   : std_logic;
 
     signal s_next_sample        : std_logic;
-    signal s_voices             : t_voice_array(0 to N_VOICES - 1);
+    signal s_voices             : t_voice_array(0 to POLYPHONY_MAX - 1);
     signal s_midi_status_byte   : t_byte;
-    signal s_lowest_voice       : integer range 0 to N_VOICES - 1;
+    signal s_lowest_voice       : integer range 0 to POLYPHONY_MAX - 1;
     signal s_pot_value          : std_logic_vector(ADC_SAMPLE_SIZE - 1 downto 0);
     signal s_sample             : t_stereo_sample;
     signal s_display_data       : std_logic_vector(31 downto 0);
@@ -90,7 +90,7 @@ architecture arch of wave_array is
     signal s_uart_count         : integer;
     signal s_uart_fifo_count    : integer;
 
-    signal s_envelope_active    : std_logic_vector(N_VOICES - 1 downto 0); 
+    signal s_envelope_active    : std_logic_vector(POLYPHONY_MAX - 1 downto 0); 
 
     signal s_mod_sources        : t_mods_array;
     signal s_mod_destinations   : t_modd_array;
@@ -116,7 +116,7 @@ architecture arch of wave_array is
 begin
 
     -- Connect outputs.
-    gen_voice_led : for i in 0 to minimum(4, N_VOICES - 1) generate
+    gen_voice_led : for i in 0 to minimum(4, POLYPHONY_MAX - 1) generate
         LEDS(15 - i) <= s_voices(i).enable;
     end generate;
 
@@ -146,7 +146,7 @@ begin
     s_status.debug_wave_flags   <= s_debug_wave_flags;
     s_status.debug_uart_flags   <= s_debug_uart_flags;
 
-    status_gen : for i in 0 to N_VOICES - 1 generate 
+    status_gen : for i in 0 to POLYPHONY_MAX - 1 generate 
         s_status.voice_enabled(i) <= s_voices(i).enable;
         s_status.voice_active(i)  <= s_envelope_active(i);
     end generate;
@@ -176,6 +176,7 @@ begin
     port map (
         clk                     => s_system_clk,
         reset                   => s_system_reset,
+        config                  => s_config,
         uart_rx                 => MIDI_RX,
         midi_channel            => SWITCHES(3 downto 0),
         envelope_active         => s_envelope_active,
@@ -239,9 +240,9 @@ begin
     port map (
         clk                     => s_system_clk,
         reset                   => s_system_reset,
+        next_sample             => s_next_sample,
         register_output         => s_register_output,
         register_input          => s_register_input,
-        new_period              => s_new_period,
         software_reset          => s_software_reset,
         status                  => s_status,
         config                  => s_config

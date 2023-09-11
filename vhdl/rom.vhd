@@ -44,8 +44,11 @@ architecture arch of rom is
     signal s_memory : t_memory := init_coeff_rom(init_file);
     signal s_output_reg : std_logic_vector(WIDTH - 1 downto 0);
 
-    attribute syn_ramstyle : string;
-    attribute syn_ramstyle of s_memory : signal is "no_rw_check";
+    attribute ram_style : string;
+    attribute ram_style of s_memory : signal is "block";
+
+    -- attribute syn_ramstyle : string;
+    -- attribute syn_ramstyle of s_memory : signal is "no_rw_check";
 
 begin
 

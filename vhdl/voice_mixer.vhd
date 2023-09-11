@@ -12,19 +12,17 @@ entity voice_mixer is
     port (
         clk                     : in  std_logic;
         reset                   : in  std_logic;
-        n_inputs                : in  integer range 1 to POLYPHONY_MAX;
-        sample_in               : in  t_mono_sample_array(0 to POLYPHONY_MAX - 1);
-        ctrl_in                 : in  t_ctrl_value_array(0 to POLYPHONY_MAX - 1);
         next_sample             : in  std_logic;
+        n_inputs                : in  integer range 1 to POLYPHONY_MAX;
+        ctrl_in                 : in  t_ctrl_value_array(0 to POLYPHONY_MAX - 1);
+        sample_in               : in  t_mono_sample_array(0 to POLYPHONY_MAX - 1);
         sample_out              : out t_mono_sample
     );
 end entity;
 
 architecture arch of voice_mixer is
 
-    constant POLYPHONY_MAX_LOG2 : integer := integer(ceil(log2(real(N_INPUTS))));
-
-    constant MIX_GAIN_COEFF : t_gain_coeff_array := generate_gain_coeff_array();
+    constant MIX_GAIN_COEFF : t_gain_coeff_array := GENERATE_GAIN_COEFF_ARRAY;
 
     -- Add some guard bits to the accumulator
     subtype t_mix_buffer is std_logic_vector(t_mono_sample'length + POLYPHONY_MAX_LOG2 - 1 downto 0);
@@ -66,6 +64,7 @@ begin
 
         -- Set outputs.
         sample_out <= r.sample_out;
+        
 
         if r.state = idle then
             if next_sample = '1' then
@@ -77,7 +76,7 @@ begin
                 r_in.counter    <= 0;
             end if;
 
-        elsif r.state = running
+        elsif r.state = running then 
 
             -- Pipeline stage 0: clip control value to positive only.
             if r.counter < POLYPHONY_MAX then 

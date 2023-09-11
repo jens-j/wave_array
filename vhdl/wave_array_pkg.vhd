@@ -28,18 +28,27 @@ package wave_array_pkg is
 
     constant N_TABLES               : positive := 2; -- Number of parallel wave tables.
     constant N_TABLES_LOG2          : natural  := integer(ceil(log2(real(N_TABLES))));
-    constant N_VOICES               : positive := 8 -- Number of parallel oscillators per table.
+    constant N_VOICES_MAX_LOG2      : positive := 6;
+    constant N_VOICES_MAX           : positive := 2**N_VOICES_MAX_LOG2; -- Max number of parallel oscillators per table.
+    constant N_VOICES               : positive := 64 -- Number of parallel oscillators per table.
     --pragma synthesis_off
-                                      / 2 -- Use only 4 voices in simulation to keep the wave view smaller.
+                                      / 8 -- Use only 8 voices in simulation to keep the wave view smaller.
     --pragma synthesis_on
     ;
+    constant N_VOICES_LOG2          : natural  := integer(ceil(log2(real(N_VOICES))));
 
     -- Max polyphony is lower than N_VOICES to avoid many fiters, envelopes and a larger mod matrix.
     -- Other voices can be used for unison. Binaural mode always halves to number of voices.
-    constant POLYPHONY_MAX_LOG2     : positive := 4;
-    constant POLYPHONY_MAX          : positive := 2**POLYPHONY_MAX_LOG2;
+    constant POLYPHONY_MAX_LOG2     : positive := 4
+    --pragma synthesis_off
+                                      / 2 -- Use max 4 polyphony is simulation to accomodate for less voices.
+    --pragma synthesis_on
+    ;
 
-    constant N_VOICES_LOG2          : natural  := integer(ceil(log2(real(N_VOICES))));
+    constant POLYPHONY_MAX          : positive := 2**POLYPHONY_MAX_LOG2;
+    
+
+    
 
     constant N_OSCILLATORS          : positive := N_TABLES * N_VOICES; -- Total number of oscillators.
 
@@ -67,7 +76,11 @@ package wave_array_pkg is
     constant OSC_SAMPLE_FRAC        : integer := 8; -- Fractional bits used for sample interpolation
     constant OSC_COEFF_FRAC         : integer := 8; -- Fractional bits used for coefficient interpolation.
 
-    constant UNISON_MAX_LOG2        : integer := 4;
+    constant UNISON_MAX_LOG2        : integer := 4
+    --pragma synthesis_off
+                                      / 2 -- Use max 4 polyphony is simulation to accomodate for less voices.
+    --pragma synthesis_on
+    ;
     constant UNISON_MAX             : integer := 2**UNISON_MAX_LOG2;
 
     -- Oscillator polyphase interpolation filter coefficient.
@@ -76,6 +89,8 @@ package wave_array_pkg is
     constant POLY_M                 : integer := 2**POLY_M_LOG2;
     constant POLY_N_LOG2            : integer := 4;
     constant POLY_N                 : integer := 2**POLY_N_LOG2;
+
+    constant OSC_PHASE_SIZE         : integer := MIPMAP_L0_SIZE_LOG2 + POLY_M_LOG2 + OSC_COEFF_FRAC; -- Fractional bits used for coefficient interpolation.
 
     -- Constants relating to control values such as LFO's or evelopes.
     constant CTRL_SIZE              : integer := 16;
@@ -113,9 +128,14 @@ package wave_array_pkg is
     -- Oscillator downsample halfband filter constants.
     -- The odd phase (m = 1) is all zeroes except c(0) = 1.
     -- The even phase is symmetric so only half of the coefficients for m = 0 are stored.
-    -- The coeffients are reversed in time to allow easy convolution.
     constant HALFBAND_COEFF_SIZE    : integer := 16;
-    constant HALFBAND_N             : integer := 60; -- Length of one phase (half of the total length).
+    constant HALFBAND_PHASE_N_LOG2  : integer := 6;
+    constant HALFBAND_PHASE_N       : integer := 2**HALFBAND_PHASE_N_LOG2; -- Length of one phase (half of the total filter length).
+    constant HALFBAND_DEPTH_EVEN    : integer := N_VOICES_MAX * HALFBAND_PHASE_N;
+    constant HALFBAND_DEPTH_ODD     : integer := N_VOICES_MAX * HALFBAND_PHASE_N / 2;
+    constant HALFBAND_DEPTH_ODD_LOG2  : integer := integer(ceil(log2(real(HALFBAND_DEPTH_ODD))));
+    constant HALFBAND_DEPTH_EVEN_LOG2 : integer := integer(ceil(log2(real(HALFBAND_DEPTH_EVEN))));
+
     -- ADC constants.
     constant ADC_SAMPLE_SIZE        : integer := 12;
     constant ADC_FILTER_FRAC        : integer := 8;
@@ -144,6 +164,7 @@ package wave_array_pkg is
     constant MODD_OSC_1_MIX         : natural := 6;
     constant MODD_OSC_0_FREQ        : natural := 7;
     constant MODD_OSC_1_FREQ        : natural := 8;
+    constant MODD_UNISON            : natural := 9;
 
     constant MODS_NONE              : natural := 0;
     constant MODS_POT               : natural := 1;
@@ -151,7 +172,7 @@ package wave_array_pkg is
     constant MODS_LFO               : natural := 3;
 
     constant MODS_LEN               : natural := 4;
-    constant MODD_LEN               : natural := 9;
+    constant MODD_LEN               : natural := 10;
     constant MODS_LEN_LOG2          : natural := integer(ceil(log2(real(MODS_LEN))));
     constant MODD_LEN_LOG2          : natural := integer(ceil(log2(real(MODD_LEN))));
 
@@ -179,12 +200,11 @@ package wave_array_pkg is
     constant REG_DBG_WAVE_TIMER     : unsigned := x"0000103"; -- ro 16 bit unsigned | Wave offload timer value.
     constant REG_DBG_WAVE_FLAGS     : unsigned := x"0000104"; -- ro  6 bit          | Wave offload fifo_overflow & fifo_underflow & wave_req & wave_ready & fifo_empty & fifo_full.    
     constant REG_DBG_WAVE_FIFO      : unsigned := x"0000105"; -- ro 12 bit unsigned | Wave offload sample buffer fifo count.          
-    constant REG_DBG_UART_FLAGS     : unsigned := x"0000110"; -- ro  4 bit          | s2u_fifo_full & u2s_fifo_full & hk2u_fifo_full & wave2u_fifo_full.    
-    constant REG_DBG_NEW_PERIOD     : unsigned := x"0000120"; -- rw 16 bit          | New_period sticky bits, write to clear.    
+    constant REG_DBG_UART_FLAGS     : unsigned := x"0000110"; -- ro  4 bit          | s2u_fifo_full & u2s_fifo_full & hk2u_fifo_full & wave2u_fifo_full. 
 
     constant REG_BINAURAL           : unsigned := x"0000200"; -- rw 1 bit           | Enable binaural mode.
-    constant REG_UNISON_N           : unsigned := x"0000201"; -- rw 4 bit           | Number of unison voices - 1 (so [1 - 16]).
-    constant REG_UNISON_SPREAD      : unsigned := x"0000202"; -- rw 16 bit          | Unison spread base control value. Maps ±1 octave.   
+    constant REG_UNISON_N           : unsigned := x"0000201"; -- rw 4 bit           | Number of unison voices - 1 (so [1 - 16]). 
+    constant REG_UNISON_SPREAD      : unsigned := x"0000202"; -- rw 16 bit          | Unison spread base control value. Maps onto 0 - 1 semitone. 
 
     constant REG_LFO_VELOCITY       : unsigned := x"0000500"; -- rw 15 bit unsigned | LFO velocity control value. 
     constant REG_LFO_WAVE           : unsigned := x"0000501"; -- rw 16 bit unsigned | Select LFO waveform. Clipped to LFO_N_WAVEFORMS - 1.
@@ -230,7 +250,7 @@ package wave_array_pkg is
     type t_mono_sample_array is array (natural range <>) of t_mono_sample;
     type t_stereo_sample_array is array (natural range <>) of t_stereo_sample;
 
-    type t_osc_sample_array is array (0 to N_TABLES - 1) of t_mono_sample_array(0 to POLYPHONY_MAX - 1);
+    type t_osc_sample_array is array (0 to N_TABLES - 1) of t_mono_sample_array(0 to N_VOICES - 1);
 
     subtype t_ctrl_value is signed(CTRL_SIZE - 1 downto 0);
     type t_ctrl_value_array is array (natural range <>) of t_ctrl_value;
@@ -254,8 +274,7 @@ package wave_array_pkg is
 
     -- Oscillator types.
     -- Table phase consists of (table index [m]).(filter bank index).(bank interpolation position) => 11.7.8 bits.
-    subtype t_osc_phase is -- Wavetable phase (index in wavetable + fractional part).
-        unsigned(MIPMAP_L0_SIZE_LOG2 + POLY_M_LOG2 + OSC_COEFF_FRAC - 1 downto 0); -- Fractional part of phase (m + fractional part).
+    subtype t_osc_phase is unsigned(OSC_PHASE_SIZE - 1 downto 0);-- Wavetable phase (index in wavetable + fractional part).
     subtype t_osc_phase_frac is unsigned(POLY_M_LOG2 + OSC_COEFF_FRAC - 1 downto 0); -- Fractional part of m (phase interpolation index + position).
     subtype t_osc_phase_position is unsigned(OSC_COEFF_FRAC - 1 downto 0);
 
@@ -264,15 +283,18 @@ package wave_array_pkg is
     type t_osc_phase_position_array is array (natural range <>) of t_osc_phase_position;
 
     -- Downsample filter types.
-    type t_halfband_coeff_array is array (0 to HALFBAND_N / 2 - 1) -- Half the odd phase coefficients (they are symmetric).
+    type t_halfband_coeff_array is array (0 to HALFBAND_PHASE_N / 2 - 1) -- Half the odd phase coefficients (they are symmetric).
         of std_logic_vector(HALFBAND_COEFF_SIZE - 1 downto 0);
 
     subtype t_frame_position is unsigned(OSC_SAMPLE_FRAC - 1 downto 0); -- Oscillator frame position (only fractional).
     type t_frame_position_array is array (natural range <>) of t_frame_position;
 
     type t_gain_coeff_array is array (1 to POLYPHONY_MAX) of t_ctrl_value;
+    type t_div_coeff_array is array (1 to UNISON_MAX) of t_ctrl_value;
 
-    type t_active_voices_array is array (1 to UNISON_MAX) of integer range 1 to POLYPHONY_MAX;
+    type t_active_voices_array is array (1 to UNISON_MAX) of integer range 1 to N_VOICES;
+
+    type t_polyphony_array is array (1 to UNISON_MAX) of integer range 1 to POLYPHONY_MAX;
 
     -- type MOD_DEST_ENUM is (
     --     MODD_FILTER_CUTOFF,     -- 0
@@ -324,8 +346,8 @@ package wave_array_pkg is
         wave_period             : unsigned(CTRL_SIZE - 1 downto 0); -- Housekeeping update period in steps of 1024 cycles (~10 ms).
         binaural_enable         : std_logic;
         unison_n                : integer range 1 to UNISON_MAX;
-        unison_spread           : t_ctrl_value;
-        active_voices           : integer range 1 to POLYPHONY_MAX; -- Depending on the unison and binaural settings not all voices are always used. 
+        active_voices           : integer range 1 to N_VOICES; -- Depending on the unison and binaural settings not all voices are always used. 
+        polyphony               : integer range 1 to POLYPHONY_MAX;
         lfo_wave_select         : integer range 0 to LFO_N_WAVEFORMS - 1;
         filter_select           : integer range 0 to 4;
         lfo_velocity            : t_ctrl_value;
@@ -418,6 +440,9 @@ package wave_array_pkg is
     type t_register_output_array is array (natural range <>) of t_register_output;
 
     type t_pitched_osc_inputs is array (0 to N_TABLES - 1) of t_osc_input_array(0 to POLYPHONY_MAX - 1);
+    type t_spread_osc_inputs is array (0 to N_TABLES - 1) of t_osc_input_array(0 to N_VOICES - 1);
+
+    type t_unison_step_array is array (0 to N_TABLES - 1) of t_osc_phase_array(0 to POLYPHONY_MAX - 1);
 
     constant MOD_MAPPING_INIT : t_mod_mapping := (
         source                  => MODS_NONE,
@@ -425,9 +450,9 @@ package wave_array_pkg is
     );
 
     constant DMA_INPUT_INIT : t_dma_input := (
-        new_table               => '0', -- Pulse indicating a new table should be loaded.
+        new_table               => '0',             -- Pulse indicating a new table should be loaded.
         base_address            => (others => '0'), -- SDRAM base address of current mipmap table.
-        frames_log2             => 0 -- Log2 of number of frames in the wavetable.
+        frames_log2             => 0                -- Log2 of number of frames in the wavetable.
     );
 
     constant CONFIG_INIT : t_config := (
@@ -440,7 +465,8 @@ package wave_array_pkg is
                                     5 => x"7FFF",
                                     6 => x"7FFF",
                                     7 => x"0000",
-                                    8 => x"0000"),
+                                    8 => x"0000",
+                                    9 => x"0000"),
 
         mod_mapping             => (others => (others => MOD_MAPPING_INIT)),
         hk_enable               => '0',
@@ -449,7 +475,8 @@ package wave_array_pkg is
         wave_period             => x"078f", -- 1935 ~= 20 ms => 50 Hz.
         binaural_enable         => '0',
         unison_n                => 1,
-        unison_spread           => (others => '0'),
+        active_voices           => POLYPHONY_MAX,
+        polyphony               => POLYPHONY_MAX,
         lfo_wave_select         => 0,
         lfo_velocity            => (others => '0'),
         lfo_trigger             => '0',
@@ -545,20 +572,19 @@ package wave_array_pkg is
     );
 
     constant HALFBAND_COEFFICIENTS : t_halfband_coeff_array := (
-        x"FFFC", x"0003", x"FFFB", x"0009", x"FFF2", x"0014", x"FFE4", x"0027",
-        x"FFCB", x"0046", x"FFA5", x"0075", x"FF6C", x"00B9", x"FF1A", x"011C",
-        x"FEA5", x"01A6", x"FE01", x"026A", x"FD16", x"0385", x"FBB9", x"053E",
-        x"F97B", x"0850", x"F4F2", x"0FE0", x"E518", x"5166"
+        x"5168", x"E510", x"0FED", x"F4E0", x"0866", x"F961", x"055C", x"FB98",
+        x"03A9", x"FCF1", x"0290", x"FDDA", x"01CC", x"FE7F", x"0140", x"FEF7",
+        x"00DA", x"FF4E", x"0090", x"FF8C", x"005C", x"FFB8", x"0038", x"FFD6",
+        x"0020", x"FFE9", x"0011", x"FFF5", x"0008", x"FFFB", x"0003", x"FFFD"
     );
 
 
     function GET_INPUT_FILE_PATH return string;
-
-    function serialize_status (status : in t_status)
-    return std_logic_vector;
-
-    function generate_gain_coeff_array ()
-    return t_gain_coeff_array;
+    function serialize_status (status : in t_status) return std_logic_vector;
+    function GENERATE_GAIN_COEFF_ARRAY return t_gain_coeff_array;
+    function GENERATE_DIV_COEFF_ARRAY return t_div_coeff_array;
+    function CALCULATE_POLYPHONY (binaural : in std_logic) return t_polyphony_array;
+    function CALCULATE_ACTIVE_VOICES (binaural : in std_logic) return t_active_voices_array;
 
 end package;
 
@@ -607,8 +633,8 @@ package body wave_array_pkg is
     end;
 
     -- Calculate array of mixer gain normalization coefficients. These are multiplied with the mixer sum. 
-    -- Since mixers dont always sum powers of two inputs, a shift is not enough for unity gain.
-    function generate_gain_coeff_array () return t_gain_coeff_array is
+    -- Since mixers don't always sum powers of two inputs, a shift is not enough for unity gain.
+    function GENERATE_GAIN_COEFF_ARRAY return t_gain_coeff_array is
         variable v_coeff_array : t_gain_coeff_array;
     begin 
         for i in 1 to POLYPHONY_MAX loop 
@@ -618,20 +644,44 @@ package body wave_array_pkg is
         return v_coeff_array;
     end;
 
+    -- Pretty much identical to GENERATE_GAIN_COEFF_ARRAY but the lengths might change.
+    function GENERATE_DIV_COEFF_ARRAY return t_div_coeff_array is
+        variable v_coeff_array : t_div_coeff_array;
+    begin 
+        for i in 1 to UNISON_MAX loop 
+            v_coeff_array(i) := to_signed((2**15 - 1) / i, CTRL_SIZE);
+        end loop;
+
+        return v_coeff_array;
+    end;
+
     -- Calculate the number of actively used voices. This depends on the unison and binaural settings.
-    function calculate_active_voices (
-        binaural : in std_logic;
-    ) return t_active_voices_array is
+    function CALCULATE_ACTIVE_VOICES (binaural : in std_logic) return t_active_voices_array is
         variable v_result : t_active_voices_array;
-        variable v_voices : integer range 1 to POLYPHONY_MAX;
+        variable v_polyphony : integer range 1 to POLYPHONY_MAX;
         variable v_binaural : integer range 1 to 2;
     begin 
 
         v_binaural := 1 when binaural = '0' else 2;
 
         for i in 1 to UNISON_MAX loop 
-            v_voices := N_VOICES / i / v_binaural;
-            v_result(i) := v_voices * i * v_binaural;
+            v_polyphony := minimum(POLYPHONY_MAX, N_VOICES / i) / v_binaural;
+            v_result(i) := v_polyphony * i * v_binaural;
+        end loop;
+
+        return v_result;
+    end;
+
+    -- Calculate the number of actively used voices. This depends on the unison and binaural settings.
+    function CALCULATE_POLYPHONY (binaural : in std_logic) return t_polyphony_array is
+        variable v_result : t_polyphony_array;
+        variable v_binaural : integer range 1 to 2;
+    begin 
+
+        v_binaural := 1 when binaural = '0' else 2;
+
+        for i in 1 to UNISON_MAX loop 
+            v_result(i) := minimum(POLYPHONY_MAX, N_VOICES / i) / v_binaural;
         end loop;
 
         return v_result;

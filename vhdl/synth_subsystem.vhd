@@ -25,14 +25,13 @@ entity synth_subsystem is
         envelope_active         : out std_logic_vector(POLYPHONY_MAX - 1 downto 0);
         mod_sources             : out t_mods_array;
         mod_destinations        : out t_modd_array;
-        new_period              : out std_logic_vector(POLYPHONY_MAX - 1 downto 0) -- High in first cycle of waveform period.
+        new_period              : out std_logic_vector(N_VOICES - 1 downto 0) -- High in first cycle of waveform period.
     );
 end entity;
 
 architecture arch of synth_subsystem is
 
-    signal s_osc_inputs         : t_osc_input_array(0 to N_VOICES - 1);
-    signal s_pitched_osc_inputs : t_pitched_osc_inputs;
+    signal s_osc_inputs         : t_osc_input_array(0 to POLYPHONY_MAX - 1);
     signal s_osc_samples        : t_mono_sample_array(0 to POLYPHONY_MAX - 1);
     signal s_filter_samples     : t_mono_sample_array(0 to POLYPHONY_MAX - 1);
     signal s_mixer_left_sample_out  : t_mono_sample;
@@ -45,12 +44,9 @@ architecture arch of synth_subsystem is
     signal s_mod_destinations   : t_modd_array;
     signal s_ctrl_pot           : t_ctrl_value;
     signal s_pitch_ctrl         : t_osc_ctrl_array;
+    signal s_pitched_osc_inputs : t_pitched_osc_inputs;
 
 begin
-
-    -- Connect output samples.
-    sample(0) <= s_mixer_sample_out;
-    sample(1) <= s_mixer_sample_out;
 
     mod_destinations <= s_mod_destinations;
     mod_sources <= s_mod_sources;
@@ -79,23 +75,10 @@ begin
     port map(
         clk                     => clk,
         reset                   => reset,
+        config                  => config,
         next_sample             => next_sample,
         voices                  => voices,
         osc_inputs              => s_osc_inputs
-    );
-
-    osc_stack : entity oscillator.oscillator_stack
-    port map (
-        clk                     => clk,
-        reset                   => reset,
-        config                  => config,
-        next_sample             => next_sample,
-        osc_inputs              => s_pitched_osc_inputs,
-        dma2table               => s_dma2table,
-        table2dma               => s_table2dma,
-        mod_destinations        => s_mod_destinations,
-        output_samples          => s_osc_samples,
-        new_period              => new_period
     );
 
     pitch_mod : entity wave.pitch_modulator
@@ -106,8 +89,23 @@ begin
         next_sample             => next_sample,
         pitch_ctrl              => s_pitch_ctrl,
         osc_inputs              => s_osc_inputs,
-        osc_outputs             => s_pitched_osc_inputs
+        pitched_osc_inputs      => s_pitched_osc_inputs
     );
+
+    osc_stack : entity osc.oscillator_subsystem
+    port map (
+        clk                     => clk,
+        reset                   => reset,
+        config                  => config,
+        next_sample             => next_sample,
+        pitched_osc_inputs      => s_pitched_osc_inputs,
+        dma2table               => s_dma2table,
+        table2dma               => s_table2dma,
+        mod_destinations        => s_mod_destinations,
+        output_samples          => s_osc_samples,
+        new_period              => new_period
+    );
+
 
     filter : entity wave.state_variable_filter
     generic map (
@@ -151,30 +149,15 @@ begin
         envelope_active         => envelope_active
     );
 
-    mixer_left : entity wave.voice_mixer
-    generic map (
-        N_INPUTS                => POLYPHONY_MAX / 2
-    )
+    voice_mixer_subsys : entity wave.voice_mixer_subsystem
     port map (
         clk                     => clk,
         reset                   => reset,
-        sample_in               => s_filter_samples,
-        ctrl_in                 => s_mod_destinations(MODD_MIXER),
+        config                  => config,
         next_sample             => next_sample,
-        sample_out              => s_mixer_left_sample_out
-    );
-
-    mixer_right : entity wave.voice_mixer
-    generic map (
-        N_INPUTS                => POLYPHONY_MAX / 2
-    )
-    port map (
-        clk                     => clk,
-        reset                   => reset,
-        sample_in               => s_filter_samples,
         ctrl_in                 => s_mod_destinations(MODD_MIXER),
-        next_sample             => next_sample,
-        sample_out              => s_mixer_right_sample_out
+        sample_in               => s_filter_samples,
+        sample_out              => sample
     );
 
     mod_matrix : entity wave.mod_matrix 

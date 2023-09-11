@@ -34,7 +34,7 @@ architecture arch of table_mixer is
 
     type t_state is (idle, running);
 
-    type t_voice_count_array is array (0 to PIPE_SUM_MUX_OUT - 1) of integer range 0 to N_VOICES - 1;
+    type t_osc_count_array is array (0 to PIPE_SUM_MUX_OUT - 1) of integer range 0 to N_VOICES - 1;
     type t_table_count_array is array (0 to PIPE_SUM_MUX_OUT - 1) of integer range 0 to N_TABLES - 1;
 
     type t_table_mixer_reg is record
@@ -42,8 +42,10 @@ architecture arch of table_mixer is
         mix_buffer              : signed(SAMPLE_SIZE + N_TABLES_LOG2 - 1 downto 0);
         samples_out             : t_mono_sample_array(0 to N_VOICES - 1);
         samples_out_buffer      : t_mono_sample_array(0 to N_VOICES - 1);
-        voice_count             : t_voice_count_array;
+        osc_count               : t_osc_count_array;
         table_count             : t_table_count_array;
+        unison_count            : integer range 0 to UNISON_MAX - 1;
+        voice_count             : integer range 0 to POLYPHONY_MAX - 1;
         sample_buffer           : t_mono_sample;
         coefficient_buffer      : t_ctrl_value;
         mult_buffer             : t_mono_sample;
@@ -55,8 +57,10 @@ architecture arch of table_mixer is
         mix_buffer              => (others => '0'),
         samples_out             => (others => (others => '0')),
         samples_out_buffer      => (others => (others => '0')),
-        voice_count             => (others => 0),
+        osc_count               => (others => 0),
         table_count             => (others => 0),
+        unison_count            => 0,
+        voice_count             => 0,
         sample_buffer           => (others => '0'),
         coefficient_buffer      => (others => '0'),
         mult_buffer             => (others => '0'),
@@ -87,7 +91,7 @@ begin
                 
                 r_in.samples_out_buffer <= (others => (others => '0'));
                 r_in.mix_buffer <= (others => '0');
-                r_in.voice_count(0) <= 0;
+                r_in.osc_count(0) <= 0;
                 r_in.table_count(0) <= 0;
         
                 r_in.state <= running;
@@ -97,8 +101,8 @@ begin
 
             -- Pipeline stage 0: mux input sample and coefficient.
             r_in.pipeline_valid(0) <= '1';
-            r_in.sample_buffer <= samples_in(r.table_count(0))(r.voice_count(0));
-            r_in.coefficient_buffer <= control(r.table_count(0))(r.voice_count(0));
+            r_in.sample_buffer <= samples_in(r.table_count(0))(r.osc_count(0));
+            r_in.coefficient_buffer <= control(r.table_count(0))(r.voice_count);
 
             -- Update counters.
             if r.table_count(0) < N_TABLES - 1 then 
@@ -106,10 +110,20 @@ begin
             else 
                 r_in.table_count(0) <= 0;
 
-                if r.voice_count(0) < N_VOICES - 1 then 
-                    r_in.voice_count(0) <= r.voice_count(0) + 1;
+                if r.osc_count(0) < N_VOICES - 1 then 
+                    r_in.osc_count(0) <= r.osc_count(0) + 1;
                 else 
                     r_in.state <= idle;
+                end if;
+            end if;
+
+            -- Count unison duplicates within polyphonic voices. Since all oscillators within the same group share mix control.
+            if r.unison_count < config.unison_n - 1 then 
+                r_in.unison_count <= r.unison_count + 1;
+            else 
+                r_in.unison_count <= 0;
+                if r.voice_count < config.polyphony - 1 then 
+                    r_in.voice_count <= r.voice_count + 1;
                 end if;
             end if;
 
@@ -131,13 +145,13 @@ begin
 
         -- Pipeline stage 3: output mux.
         if r.pipeline_valid(PIPE_SUM_MUX_OUT - 2) = '1' then  
-            r_in.samples_out_buffer(r.voice_count(PIPE_SUM_MUX_OUT - 1)) <= 
+            r_in.samples_out_buffer(r.osc_count(PIPE_SUM_MUX_OUT - 1)) <= 
                 r.mix_buffer(SAMPLE_SIZE + N_TABLES_LOG2 - 1 downto N_TABLES_LOG2);
         end if;
 
         -- Update shift registers.
         r_in.pipeline_valid(PIPE_SUM_MUX_OUT - 2 downto 1) <= r.pipeline_valid(PIPE_SUM_MUX_OUT - 3 downto 0);
-        r_in.voice_count(1 to PIPE_SUM_MUX_OUT - 1)        <= r.voice_count(0 to PIPE_SUM_MUX_OUT - 2);
+        r_in.osc_count(1 to PIPE_SUM_MUX_OUT - 1)        <= r.osc_count(0 to PIPE_SUM_MUX_OUT - 2);
         r_in.table_count(1 to PIPE_SUM_MUX_OUT - 1)        <= r.table_count(0 to PIPE_SUM_MUX_OUT - 2);
 
     end process;
