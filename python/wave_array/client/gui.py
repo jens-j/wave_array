@@ -106,12 +106,14 @@ class WaveArrayGui(QtWidgets.QMainWindow):
         self.ui.btn_enable_hk.clicked.connect(self.btn_enable_hk_clicked)
         self.ui.btn_enable_oscilloscope.clicked.connect(self.btn_enable_oscilloscope_clicked)
         self.ui.btn_enable_lfo_trigger.clicked.connect(self.btn_enable_lfo_trigger_clicked)
+        self.ui.btn_enable_binaural.clicked.connect(self.btn_enable_binaural_clicked)
         
         self.ui.btn_reg_read.released.connect(self.btn_reg_read_clicked)
         self.ui.btn_reg_write.released.connect(self.btn_reg_write_clicked)
         self.ui.btn_reset_pitch_0.released.connect(partial(self.btn_reset_pitch_clicked, 0))
         self.ui.btn_reset_pitch_1.released.connect(partial(self.btn_reset_pitch_clicked, 1))
 
+        self.ui.box_unison.valueChanged.connect(self.box_unison_n_changed)
         self.ui.box_hk_rate.valueChanged.connect(self.box_hk_rate_changed)
         self.ui.box_oscilloscope_rate.valueChanged.connect(self.box_oscilloscope_rate_changed)
         self.ui.box_filter_select.currentIndexChanged.connect(self.filter_select_changed)
@@ -130,6 +132,7 @@ class WaveArrayGui(QtWidgets.QMainWindow):
         self.ui.slider_frame_1_position.sliderMoved.connect(partial(self.frame_position_changed, 1))
         self.ui.slider_pitch_0.sliderMoved.connect(partial(self.pitch_changed, 0))
         self.ui.slider_pitch_1.sliderMoved.connect(partial(self.pitch_changed, 1))
+        self.ui.slider_unison_spread.sliderMoved.connect(self.unison_spread_changed)
         self.ui.slider_lfo_velocity.sliderMoved.connect(self.lfo_velocity_changed)
         self.ui.slider_filter_cutoff.sliderMoved.connect(self.filter_cutoff_changed)
         self.ui.slider_filter_resonance.sliderMoved.connect(self.filter_resonance_changed)
@@ -166,6 +169,7 @@ class WaveArrayGui(QtWidgets.QMainWindow):
 
             length = struct.unpack('<h', packet[2:4])[0]
             data = np.array(struct.unpack(f'<{length}h', packet[4:]))
+            self.logger.info(f'wave packet [{len(data)} / {length}]')
             self.oscilloscope_samples = data
 
                     
@@ -177,15 +181,13 @@ class WaveArrayGui(QtWidgets.QMainWindow):
 
         self.ui.lbl_voice_enabled.setText(f'{self.status.voice_enabled:04X}')
         self.ui.lbl_voice_active.setText(f'{self.status.voice_active:04X}')
-
-        # print(f'state sample = {self.client.read(WaveArray.REG_DBG_STATE_WAVE_SAMPLE)}')
-        # print(f'state offload = {self.client.read(WaveArray.REG_DBG_STATE_WAVE_OFFLOAD)}')
+        self.ui.lbl_polyphony.setText(f'{self.status.polyphony:04X}')
+        self.ui.lbl_active_oscillators.setText(f'{self.status.active_oscillators:04X}')
 
         # Set voice leds.
         for i in range(self.client.n_voices):
             self.voice_enabled_buttons[i].setChecked(bool(self.status.voice_enabled & (1 << i)))
             self.voice_active_buttons[i].setChecked(bool(self.status.voice_active & (1 << i)))
-
 
         self.curve_oscilloscope.setData(self.oscilloscope_samples)
 
@@ -290,6 +292,12 @@ class WaveArrayGui(QtWidgets.QMainWindow):
         index = self.client.read(WaveArray.REG_LFO_WAVE)
         self.ui.box_lfo_waveform.setCurrentIndex(index)
 
+        enabled = self.client.read(WaveArray.REG_BINAURAL)
+        self.ui.btn_enable_binaural.setChecked(enabled)
+
+        unison_n = self.client.read(WaveArray.REG_UNISON_N)
+        self.ui.box_unison.setValue(unison_n)
+
         # Initialize sliders.
         amount = self.client.read(WaveArray.REG_MIX_CTRL_BASE)
         self.ui.slider_mix_0_position.setValue(amount)
@@ -314,6 +322,10 @@ class WaveArrayGui(QtWidgets.QMainWindow):
         frequency = self.client.read(WaveArray.REG_FREQ_CTRL_BASE + 1)
         self.ui.slider_pitch_1.setValue(frequency)
         self.frame_position_changed(1, frequency)
+
+        spread = self.client.read(WaveArray.REG_UNISON_SPREAD)
+        self.ui.slider_unison_spread.setValue(spread)
+        self.unison_spread_changed(spread)
 
         velocity = self.client.read(WaveArray.REG_LFO_VELOCITY)
         self.ui.slider_lfo_velocity.setValue(velocity)
@@ -662,6 +674,10 @@ class WaveArrayGui(QtWidgets.QMainWindow):
         period = 100E6 / (1024 * rate)
         self.client.write(WaveArray.REG_HK_PERIOD, np.uint16(period))
 
+    def box_unison_n_changed(self, n):
+        assert n in range(1, 17)
+        self.client.write(WaveArray.REG_UNISON_N, n - 1)
+
     def btn_enable_oscilloscope_clicked(self, checked):
         self.client.write(WaveArray.REG_WAVE_ENABLE, int(checked))
 
@@ -674,6 +690,9 @@ class WaveArrayGui(QtWidgets.QMainWindow):
         getattr(self.ui, f'box_semitones_{index}').setValue(0)
         getattr(self.ui, f'slider_pitch_{index}').setValue(0)
         getattr(self.ui, f'lbl_pitch_{index}').setText('0 ct')
+
+    def btn_enable_binaural_clicked(self, checked):
+        self.client.write(WaveArray.REG_BINAURAL, int(checked))
 
     def box_oscilloscope_rate_changed(self, rate):
         period = 100E6 / (1024 * rate)
@@ -712,6 +731,10 @@ class WaveArrayGui(QtWidgets.QMainWindow):
         self.client.write(WaveArray.REG_FRAME_CTRL_BASE + index, control_value)
         lbl = getattr(self.ui, f'lbl_position_{index}')
         lbl.setText(f'{int(100 * control_value / (2**15 - 1)):3d}%')
+
+    def unison_spread_changed(self, control_value):
+        self.client.write(WaveArray.REG_UNISON_SPREAD, control_value)
+        self.ui.lbl_spread.setText(f'{int(100 * control_value / (2**15 - 1)):3d}%')
 
     def filter_cutoff_changed(self, control_value):
         self.client.write(WaveArray.REG_FILTER_CUTOFF, control_value)

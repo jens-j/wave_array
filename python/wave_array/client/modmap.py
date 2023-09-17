@@ -37,6 +37,7 @@ class ModMap:
     MODD_OSC_1_MIX          = 6
     MODD_OSC_0_FREQ         = 7
     MODD_OSC_1_FREQ         = 8
+    MODD_UNISON             = 9
 
     MODS_NONE               = 0
     MODS_POT                = 1
@@ -44,7 +45,7 @@ class ModMap:
     MODS_LFO                = 3
 
     MODS_LEN                = 4
-    MODD_LEN                = 9
+    MODD_LEN                = 10
     MODS_LEN_LOG2           = int(np.ceil(np.log2(MODS_LEN)))
     MODD_LEN_LOG2           = int(np.ceil(np.log2(MODD_LEN)))
 
@@ -58,7 +59,8 @@ class ModMap:
         MODD_OSC_0_MIX      : 'osc_0_mix',     
         MODD_OSC_1_MIX      : 'osc_1_mix',
         MODD_OSC_0_FREQ     : 'osc_0_freq',     
-        MODD_OSC_1_FREQ     : 'osc_1_freq'
+        MODD_OSC_1_FREQ     : 'osc_1_freq',
+        MODD_UNISON         : 'unison'
     }                  
 
     # Modulation source strings.
