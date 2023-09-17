@@ -15,6 +15,7 @@ entity unison_step is
         clk                     : in  std_logic;
         reset                   : in  std_logic;
         config                  : in  t_config;
+        status                  : in  t_status;
         next_sample             : in  std_logic;
         spread_ctrl             : in  t_ctrl_value_array(0 to POLYPHONY_MAX - 1);
         pitched_osc_inputs      : in  t_pitched_osc_inputs;
@@ -29,7 +30,7 @@ architecture arch of unison_step is
     constant D_SEMITONE         : signed(15 downto 0) := x"079C";
     constant DIV_COEFF          : t_div_coeff_array := GENERATE_DIV_COEFF_ARRAY;
 
-    type t_state is (idle, busy_0, busy_1, busy_2, busy_3, mult_delay);
+    type t_state is (idle, prepare, busy_0, busy_1, busy_2, busy_3, mult_delay);
 
     type t_unison_step_reg is record
         state                   : t_state;
@@ -45,6 +46,7 @@ architecture arch of unison_step is
         mult_b                  : signed(CTRL_SIZE - 1 downto 0);
         mult_d                  : signed(OSC_PHASE_SIZE downto 0);
         center_velocity         : t_osc_phase;
+        voice_max               : integer range 0 to POLYPHONY_MAX - 1;
     end record;
 
     constant REG_INIT : t_unison_step_reg := (
@@ -60,14 +62,15 @@ architecture arch of unison_step is
         mult_a                  => (others => '0'),
         mult_b                  => (others => '0'),
         mult_d                  => (others => '0'),
-        center_velocity         => (others => '0')
+        center_velocity         => (others => '0'),
+        voice_max               => 0
     );
 
     signal r, r_in : t_unison_step_reg;
 
 begin 
 
-    comb_process : process (r, next_sample, config, spread_ctrl, pitched_osc_inputs)
+    comb_process : process (r, status, next_sample, config, spread_ctrl, pitched_osc_inputs)
 
         variable v_mult_result : signed(OSC_PHASE_SIZE + CTRL_SIZE downto 0);
 
@@ -100,8 +103,12 @@ begin
                 r_in.unison_step <= r.unison_step_buffer;
                 r_in.unison_start_buffer <= (others => (others => (others => '0')));
                 r_in.unison_step_buffer <= (others => (others => (others => '0')));
-                r_in.state <= busy_0;
+                r_in.state <= prepare;
             end if;
+
+        when prepare => 
+            r_in.voice_max <= 2 * status.polyphony - 1 when config.binaural_enable = '1' else status.polyphony - 1;
+            r_in.state <= busy_0;
 
         -- Calculate f * ctrl.
         when busy_0 =>
@@ -133,7 +140,7 @@ begin
 
             r_in.state <= busy_0;
 
-            if r.voice_count < config.polyphony - 1 then 
+            if r.voice_count < r.voice_max then 
                 r_in.voice_count <= r.voice_count + 1;
             else 
                 r_in.voice_count <= 0;

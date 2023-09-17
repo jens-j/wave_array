@@ -13,6 +13,8 @@ entity register_file is
         next_sample             : in  std_logic;
         status                  : in  t_status;
         config                  : out t_config;
+        polyphony               : out integer range 1 to POLYPHONY_MAX;
+        active_oscillators      : out integer range 1 to N_VOICES;
         register_input          : in  t_register_input;
         register_output         : out t_register_output;
         software_reset          : out std_logic
@@ -21,10 +23,10 @@ end entity;
 
 architecture arch of register_file is
 
-    constant ACTIVE_VOICES_DEFAULT : t_active_voices_array := calculate_active_voices('0');
-    constant ACTIVE_VOICES_BINAURAL : t_active_voices_array := calculate_active_voices('1');
-    constant POLYPHONY_DEFAULT : t_polyphony_array := calculate_polyphony('0');
-    constant POLYPHONY_BINAURAL : t_polyphony_array := calculate_polyphony('1');
+    constant ACTIVE_OSCILLATORS_DEFAULT     : t_active_oscillators_array := CALCULATE_ACTIVE_OSCILLATORS('0');
+    constant ACTIVE_OSCILLATORS_BINAURAL    : t_active_oscillators_array := CALCULATE_ACTIVE_OSCILLATORS('1');
+    constant POLYPHONY_DEFAULT              : t_polyphony_array := calculate_polyphony('0');
+    constant POLYPHONY_BINAURAL             : t_polyphony_array := calculate_polyphony('1');
 
     type t_packet_engine_reg is record
         software_reset          : std_logic;
@@ -32,6 +34,10 @@ architecture arch of register_file is
         config_buffer           : t_config;
         register_output         : t_register_output;
         faults                  : std_logic_vector(15 downto 0);
+        polyphony               : integer range 1 to POLYPHONY_MAX;
+        active_oscillators      : integer range 1 to N_VOICES;
+        polyphony_buffer        : integer range 1 to POLYPHONY_MAX;
+        active_oscillators_buffer : integer range 1 to N_VOICES;
     end record;
 
     constant REG_INIT : t_packet_engine_reg := (
@@ -39,7 +45,11 @@ architecture arch of register_file is
         config                  => CONFIG_INIT,
         config_buffer           => CONFIG_INIT,
         register_output         => ('0', '0', (others => '0')),
-        faults                  => (others => '0')
+        faults                  => (others => '0'),
+        polyphony               => 1,
+        active_oscillators      => 1,
+        polyphony_buffer        => 1,
+        active_oscillators_buffer => 1
     );
 
     signal r, r_in              : t_packet_engine_reg;
@@ -65,6 +75,9 @@ begin
         r_in.software_reset <= '0';
         r_in.register_output <= ('0', '0', (others => '0'));
 
+        polyphony <= r.polyphony;
+        active_oscillators <= r.active_oscillators;
+
         -- Clear new_table output after one cycle.
         for i in 0 to N_TABLES - 1 loop 
             r_in.config.dma_input(i).new_table <= '0'; 
@@ -74,11 +87,23 @@ begin
         if next_sample = '1' then 
 
             r_in.config <= r.config_buffer;
+            r_in.polyphony <= r.polyphony_buffer;
+            r_in.active_oscillators <= r.active_oscillators_buffer;
 
             -- Reset any new_table flags.
             for i in 0 to N_TABLES - 1 loop 
                 r_in.config_buffer.dma_input(i).new_table <= '0'; 
             end loop;
+        end if;
+
+        -- Lookup derived parameters based on unison setting.
+        -- Use the config_buffer to ensure the config and status record update simultaneously.
+        if r.config.binaural_enable = '0' then 
+            r_in.polyphony_buffer <= POLYPHONY_DEFAULT(r.config_buffer.unison_n);
+            r_in.active_oscillators_buffer <= ACTIVE_OSCILLATORS_DEFAULT(r.config_buffer.unison_n);
+        else 
+            r_in.polyphony_buffer <= POLYPHONY_BINAURAL(r.config_buffer.unison_n);
+            r_in.active_oscillators_buffer <= ACTIVE_OSCILLATORS_BINAURAL(r.config_buffer.unison_n);
         end if;
 
         -- Handle register read.
@@ -128,9 +153,6 @@ begin
 
             elsif register_input.address = REG_VOICES then
                 r_in.register_output.read_data <= std_logic_vector(to_unsigned(POLYPHONY_MAX, REGISTER_WIDTH));
-
-            elsif register_input.address = REG_POTENTIOMETER then
-                r_in.register_output.read_data(ADC_SAMPLE_SIZE - 1 downto 0) <= status.pot_value;
 
             elsif register_input.address = REG_LFO_VELOCITY then
                 r_in.register_output.read_data <= std_logic_vector(r.config.lfo_velocity);
@@ -292,26 +314,9 @@ begin
             elsif register_input.address = REG_BINAURAL then
                 r_in.config_buffer.binaural_enable <= register_input.write_data(0);
 
-                if register_input.write_data(0) = '0' then 
-                    r_in.config_buffer.polyphony <= POLYPHONY_DEFAULT(r.config.unison_n);
-                    r_in.config_buffer.active_voices <= ACTIVE_VOICES_DEFAULT(r.config.unison_n);
-                else 
-                    r_in.config_buffer.polyphony <= POLYPHONY_BINAURAL(r.config.unison_n);
-                    r_in.config_buffer.active_voices <= ACTIVE_VOICES_BINAURAL(r.config.unison_n);
-                end if;
-
             elsif register_input.address = REG_UNISON_N then
-
                 v_unison_n := minimum(UNISON_MAX, to_integer(unsigned(register_input.write_data)) + 1);
                 r_in.config_buffer.unison_n <= v_unison_n;
-
-                if r.config.binaural_enable = '0' then 
-                    r_in.config_buffer.polyphony <= POLYPHONY_DEFAULT(v_unison_n);
-                    r_in.config_buffer.active_voices <= ACTIVE_VOICES_DEFAULT(v_unison_n);
-                else 
-                    r_in.config_buffer.polyphony <= POLYPHONY_BINAURAL(v_unison_n);
-                    r_in.config_buffer.active_voices <= ACTIVE_VOICES_BINAURAL(v_unison_n);
-                end if;
 
             elsif register_input.address = REG_UNISON_SPREAD then
                 r_in.config_buffer.base_ctrl(MODD_UNISON) <= signed(register_input.write_data);

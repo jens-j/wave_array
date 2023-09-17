@@ -30,7 +30,7 @@ architecture arch of pitch_modulator is
         pitched_osc_inputs_buffer : t_pitched_osc_inputs;
         count_voice_in          : integer range 0 to POLYPHONY_MAX - 1;
         count_table_in          : integer range 0 to N_TABLES - 1;
-        count_pipeline          : integer range 0 to 3;
+        count_pipeline          : integer range 0 to 4;
         count_voice_out         : integer range 0 to POLYPHONY_MAX - 1;
         count_table_out         : integer range 0 to N_TABLES - 1;
         mult_buffer             : t_osc_phase;

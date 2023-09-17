@@ -11,6 +11,7 @@ library osc;
 
 
 -- This entity generates the additional oscillator velocities of the unison spread.
+-- It also duplicates the output velocities if binaural mode is enabled.
 -- The velocities are calculated as follows: 
 -- 
 -- f    = center velocity / midi note 
@@ -27,6 +28,7 @@ entity unison_spread is
         clk                     : in  std_logic;
         reset                   : in  std_logic;
         config                  : in  t_config;
+        status                  : in  t_status;
         next_sample             : in  std_logic;
         spread_ctrl             : in  t_ctrl_value_array(0 to POLYPHONY_MAX - 1);
         pitched_osc_inputs      : in  t_pitched_osc_inputs;
@@ -38,7 +40,7 @@ end entity;
 architecture arch of unison_spread is 
 
 
-    type t_state is (idle, running);
+    type t_state is (idle, prepare, running);
 
     type t_unison_reg is record
         state                   : t_state;
@@ -55,6 +57,7 @@ architecture arch of unison_spread is
         voice_enable            : std_logic;
         spread_osc_inputs       : t_spread_osc_inputs;
         spread_osc_inputs_buffer: t_spread_osc_inputs;
+        voice_max               : integer range 0 to POLYPHONY_MAX - 1;
     end record;
 
     constant REG_INIT : t_unison_reg := (
@@ -71,7 +74,8 @@ architecture arch of unison_spread is
         unison_n_minus_one      => 0,
         voice_enable            => '0',
         spread_osc_inputs       => (others => (others => ('0', (others => '0')))),
-        spread_osc_inputs_buffer=> (others => (others => ('0', (others => '0'))))
+        spread_osc_inputs_buffer=> (others => (others => ('0', (others => '0')))),
+        voice_max               => 0
     );
 
     signal r, r_in : t_unison_reg;
@@ -86,6 +90,7 @@ begin
         clk                     => clk,
         reset                   => reset,
         config                  => config,
+        status                  => status,
         next_sample             => next_sample,
         spread_ctrl             => spread_ctrl,
         pitched_osc_inputs      => pitched_osc_inputs,
@@ -93,7 +98,7 @@ begin
         unison_step             => s_unison_step
     );
 
-    comb_process : process (r, config, next_sample, pitched_osc_inputs, s_unison_start, s_unison_step)
+    comb_process : process (r, config, status, next_sample, pitched_osc_inputs, s_unison_start, s_unison_step)
     begin
 
         r_in <= r;
@@ -116,9 +121,14 @@ begin
             if next_sample = '1' then 
                 r_in.spread_osc_inputs <= r.spread_osc_inputs_buffer;
                 r_in.spread_osc_inputs_buffer <= (others => (others => ('0', (others => '0'))));
-                r_in.unison_n_minus_one <= config.unison_n - 1;
-                r_in.state <= running;
+                r_in.state <= prepare;
             end if;
+
+        -- Wait one cycle for the config to update.
+        when prepare => 
+            r_in.unison_n_minus_one <= config.unison_n - 1;
+            r_in.voice_max <= 2 * status.polyphony - 1 when config.binaural_enable = '1' else status.polyphony - 1;
+            r_in.state <= running;
 
         -- Start with velocity U0 for each table/voice combination and calculate other unison velocities by iterating
         -- with unison_step. Resulting velocities are muxed to the output buffer in the subsequent cycle.
@@ -134,29 +144,30 @@ begin
                 r_in.mux_value <= r.mux_value + r.step_value;
             end if;
 
+            -- Increment counters.
             r_in.osc_count <= minimum(N_VOICES - 1, r.osc_count + 1);
 
-            -- Increment counters.
             if r.unison_count < r.unison_n_minus_one then 
                 r_in.unison_count <= r.unison_count + 1;
             else 
                 r_in.unison_count <= 0;
-                if r.voice_count < POLYPHONY_MAX - 1 then
-                    r_in.voice_count <= r.voice_count + 1;
-                else 
+
+                if r.voice_count = r.voice_max then 
                     r_in.osc_count <= 0;
                     r_in.voice_count <= 0;
-                    if r.table_count < N_TABLES - 1 then
+                    if r.table_count < N_TABLES - 1 then 
                         r_in.table_count <= r.table_count + 1;
                     else 
                         r_in.state <= idle;
                     end if;
+                else
+                    r_in.voice_count <= r.voice_count + 1;                  
                 end if;
             end if;
-        
+            
         end case; 
 
-        -- Mux calculated velocities in a separate cycle.
+        -- Output mux calculated velocities in a separate cycle.
         if r.mux_enable = '1' then
             r_in.spread_osc_inputs_buffer(r.mux_table)(r.mux_osc).enable <= r.voice_enable;
             r_in.spread_osc_inputs_buffer(r.mux_table)(r.mux_osc).velocity <= r.mux_value;
