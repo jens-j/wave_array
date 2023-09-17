@@ -14,6 +14,7 @@ entity osc_controller is
         clk                     : std_logic;
         reset                   : std_logic;
         config                  : in  t_config;
+        status                  : in  t_status;
         next_sample             : in  std_logic; -- Next sample trigger.
         voices                  : in  t_voice_array(0 to POLYPHONY_MAX - 1);
         osc_inputs              : out t_osc_input_array(0 to POLYPHONY_MAX - 1)
@@ -50,7 +51,7 @@ begin
 
     osc_inputs <= r.osc_inputs;
 
-    combinatorial : process (r, config, next_sample, voices)
+    combinatorial : process (r, config, status, next_sample, voices)
         variable v_enable : std_logic;
         variable v_velocity : t_osc_phase;
     begin
@@ -87,7 +88,7 @@ begin
 
                 r_in.group_counter <= 0;
 
-                if r.voice_counter < config.polyphony - 1 then
+                if r.voice_counter < status.polyphony - 1 then
                     r_in.osc_counter <= r.osc_counter + 1;
                     r_in.voice_counter <= r.voice_counter + 1;
                 else

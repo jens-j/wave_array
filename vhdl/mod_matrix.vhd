@@ -11,12 +11,16 @@ entity mod_matrix is
         clk                     : in  std_logic;
         reset                   : in  std_logic;
         config                  : in  t_config;
+        status                  : in  t_status;
         next_sample             : in  std_logic;
         mod_sources             : in  t_mods_array;
         mod_destinations        : out t_modd_array
     );
 end entity;
 
+-- Generate control values for each mod destination for each voice.
+-- These are created by adding up the four mod source values as configured in the mod mapping. 
+-- The voices are processed by parallel hardware. 
 architecture arch of mod_matrix is 
 
     constant PIPE_LEN_MUX_IN    : integer := 1;
@@ -93,6 +97,7 @@ begin
         r_in.accumulator <= (others => (others => '0'));
         r_in.accumulator_clipped <= (others => (others => '0'));
         r_in.source_values <= (others => (others => '0'));
+        r_in.scaled_source_values <= (others => (others => '0')); 
         
         if r.state = idle then 
 
@@ -150,9 +155,11 @@ begin
         end if;
 
         -- Pipeline stage 1: multiply mod source with mod amount.
+        -- Also double each source value to accomodate binaural mode.
         if r.valid_shift(PIPE_SUM_MULT - 1) = '1' then 
-            for i in 0 to POLYPHONY_MAX - 1 loop
+            for i in 0 to status.active_oscillators - 1 loop
                 v_mult := r.source_values(i) * r.amount;
+
                 r_in.scaled_source_values(i) <= v_mult(2 * CTRL_SIZE - 2 downto CTRL_SIZE - 1);
 
             end loop;
@@ -167,7 +174,6 @@ begin
                 else 
                     r_in.accumulator(i) <= r.accumulator(i) + r.scaled_source_values(i);
                 end if;
-
             end loop;
         end if;
 
@@ -183,20 +189,14 @@ begin
                 else 
                     r_in.accumulator_clipped(i) <= r.accumulator(i)(CTRL_SIZE - 1 downto 0);
                 end if;
-
             end loop;           
         end if;
 
         -- Pipeline stage 4: output mux.
-        -- In binaural mode, the destiantion control signals are doubled, one for each side.
+        -- In binaural mode, the destination control signals are doubled, one for each side.
         if r.valid_shift(PIPE_SUM_MUX_OUT - 1) = '1' and r.source_counter(PIPE_SUM_MUX_OUT - 1) = MAX_MOD_SOURCES then 
 
-            if r.binaural_enable = '0' then 
-                r_in.mod_dest_buffer(r.dest_counter(PIPE_SUM_MUX_OUT - 1)) <= r.accumulator_clipped;
-            else 
-                r_in.mod_dest_buffer(2 * r.dest_counter(PIPE_SUM_MUX_OUT - 1)) <= r.accumulator_clipped;
-                r_in.mod_dest_buffer(2 * r.dest_counter(PIPE_SUM_MUX_OUT - 1) + 1) <= r.accumulator_clipped;
-            end if;
+            r_in.mod_dest_buffer(r.dest_counter(PIPE_SUM_MUX_OUT - 1)) <= r.accumulator_clipped;
         end if;
 
         -- Update shift registers.

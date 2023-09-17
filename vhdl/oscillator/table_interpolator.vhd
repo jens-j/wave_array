@@ -22,6 +22,7 @@ entity table_interpolator is
         clk                     : in  std_logic;
         reset                   : in  std_logic;
         config                  : in  t_config;
+        status                  : in  t_status;
 
         -- Next sample trigger.
         next_sample             : in  std_logic;
@@ -72,6 +73,7 @@ architecture arch of table_interpolator is
         coeff_base_address      : unsigned(POLY_M_LOG2 - 2 downto 0); -- Concatenated with coeff_counter gives the coeff memory address.
         table2dma               : t_table2dma;
         prev_phase              : t_osc_phase_array(0 to N_VOICES - 1);
+        frame_control           : t_ctrl_value_array(0 to POLYPHONY_MAX - 1);
 
         frame_index_a           : t_frame_index_array; 
         frame_index_b           : t_frame_index_array; 
@@ -111,6 +113,7 @@ architecture arch of table_interpolator is
         coeff_base_address      => (others => '0'),
         table2dma               => (ack => '0'),
         prev_phase              => (others => (others => '0')),
+        frame_control           => (others => (others => '0')),
         frame_index_a           => (others => 0),
         frame_index_b           => (others => 0),
         frame_position          => (others => (others => '0')),
@@ -259,7 +262,7 @@ begin
     table2dma       <= r.table2dma;
     new_period      <= r.new_period;
 
-    combinatorial : process (r, config, osc_inputs, addrgen_input, next_sample, dma2table, frame_control,
+    combinatorial : process (r, config, status, osc_inputs, addrgen_input, next_sample, dma2table, frame_control,
                              s_frame_interp_p, s_coeff_interp_p, s_macc_p,
                              s_wave_read_data_a, s_wave_read_data_b, s_coeff_even_douta, s_coeff_odd_douta)
 
@@ -269,7 +272,6 @@ begin
         variable v_frame_interp_c : std_logic_vector(SAMPLE_SIZE + OSC_SAMPLE_FRAC downto 0);
         variable v_frame_interp_d : std_logic_vector(SAMPLE_SIZE - 1 downto 0);
 
-        variable v_control_unsigned : t_ctrl_value;
         variable v_frame_index_lsb : natural;
 
         variable v_frame_index : natural range 0 to FRAMES_MAX - 1;
@@ -282,6 +284,7 @@ begin
         r_in.table2dma.ack <= '0';
         r_in.writeback(0)  <= '0';
         r_in.zero_coeff(0) <= '0';
+        r_in.new_period <= (others => '0');
 
         s_frame_interp_a <= (others => '0');
         s_frame_interp_b <= (others => '0');
@@ -304,11 +307,13 @@ begin
 
         v_level := addrgen_input(r.osc_counter(0)).mipmap_level;
 
-        -- Split control value into frame index and position.
-        for i in 0 to N_VOICES - 1 loop
+        -- Clip the control value to positive only values and register.
+        for i in 0 to POLYPHONY_MAX - 1 loop 
+            r_in.frame_control(i) <= x"0000" when frame_control(i) < 0 else frame_control(i);
+        end loop;
 
-            -- Clip the control value to positive only values.
-            v_control_unsigned := x"0000" when frame_control(r.voice_counter) < 0 else frame_control(r.voice_counter);
+        -- Split control value into frame index and position.
+        for i in 0 to N_VOICES - 1 loop           
 
             -- Calculate frame A and B indices and frame position.
             if dma2table.frames_log2 = 0 then -- Special case: dont do any frame interpolation.
@@ -321,7 +326,8 @@ begin
                 r_in.frame_index_b(i) <= 1;
                 
                 -- Use MSBs of frame_control as frame_position (msb is always 0)..
-                r_in.frame_position(i) <= unsigned(v_control_unsigned(CTRL_SIZE - 2 downto CTRL_SIZE - OSC_SAMPLE_FRAC - 1));
+                r_in.frame_position(i) <= unsigned(
+                    r.frame_control(r.voice_counter)(CTRL_SIZE - 2 downto CTRL_SIZE - OSC_SAMPLE_FRAC - 1));
 
             -- Normal case: The last 1 / frames_log2 part of the control range is effectively clipped. 
             -- This allows the table size to be a power of two.
@@ -332,18 +338,20 @@ begin
                 v_frame_index_lsb := CTRL_SIZE - dma2table.frames_log2 - 1;
 
                 -- Slice the frame index from the msb part of the control value.
-                v_frame_index := to_integer(unsigned(v_control_unsigned(CTRL_SIZE - 2 downto v_frame_index_lsb)));
+                v_frame_index := to_integer(unsigned(
+                    r.frame_control(r.voice_counter)(CTRL_SIZE - 2 downto v_frame_index_lsb)));
 
                 -- Assign frame indices A & B.
                 r_in.frame_index_a(i) <= v_frame_index;
 
+                -- Index B is one larger than A but clipped to the highest frame index.
                 r_in.frame_index_b(i) <= 
                     2**dma2table.frames_log2 - 1 when v_frame_index >= 2**dma2table.frames_log2 - 1 
                     else v_frame_index + 1;
 
                 -- Slice frame position.
                 r_in.frame_position(i) <= unsigned(
-                    v_control_unsigned(v_frame_index_lsb - 1 downto v_frame_index_lsb - OSC_SAMPLE_FRAC));
+                    r.frame_control(r.voice_counter)(v_frame_index_lsb - 1 downto v_frame_index_lsb - OSC_SAMPLE_FRAC));
             end if;    
                 
         end loop;
@@ -569,7 +577,7 @@ begin
                 r_in.unison_counter <= r.unison_counter + 1;
             else 
                 r_in.unison_counter <= 0;
-                if r.voice_counter < config.polyphony - 1 then 
+                if r.voice_counter < status.polyphony - 1 then 
                     r_in.voice_counter <= r.voice_counter + 1;
                 end if;
             end if;

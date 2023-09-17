@@ -22,10 +22,10 @@ end entity;
 
 architecture arch of voice_mixer is
 
-    constant MIX_GAIN_COEFF : t_gain_coeff_array := GENERATE_GAIN_COEFF_ARRAY;
+    constant GAIN_COEFFS : t_gain_coeff_array := GENERATE_GAIN_COEFF_ARRAY;
 
     -- Add some guard bits to the accumulator
-    subtype t_mix_buffer is std_logic_vector(t_mono_sample'length + POLYPHONY_MAX_LOG2 - 1 downto 0);
+    subtype t_mix_buffer is std_logic_vector(SAMPLE_SIZE + POLYPHONY_MAX_LOG2 - 1 downto 0);
     type t_state is (idle, running, normalize);
 
     type t_mixer_reg is record
@@ -57,7 +57,7 @@ architecture arch of voice_mixer is
 begin
 
     combinatorial : process (r, n_inputs, sample_in, next_sample, ctrl_in)
-        variable v_mult_buffer : signed(SAMPLE_SIZE + CTRL_SIZE downto 0);
+        variable v_mult_buffer : signed(SAMPLE_SIZE + POLYPHONY_MAX_LOG2 + CTRL_SIZE downto 0);
     begin
 
         r_in <= r;
@@ -71,7 +71,7 @@ begin
                 r_in.state      <= running;
                 r_in.sample_out <= r.sample_out_buffer;
                 r_in.n_inputs   <= n_inputs;
-                r_in.gain_coeff <= MIX_GAIN_COEFF(n_inputs);
+                r_in.gain_coeff <= GAIN_COEFFS(n_inputs);
                 r_in.mix_buffer <= (others => '0');
                 r_in.counter    <= 0;
             end if;
@@ -79,7 +79,7 @@ begin
         elsif r.state = running then 
 
             -- Pipeline stage 0: clip control value to positive only.
-            if r.counter < POLYPHONY_MAX then 
+            if r.counter < r.n_inputs then 
                 r_in.ctrl_clipped <= x"0000" when ctrl_in(r.counter) < 0 else ctrl_in(r.counter);
             end if;
 
@@ -91,11 +91,11 @@ begin
             -- Pipeline stage 2: slice 16 bit output and extend to accumulator size.
             if r.counter > 1 then  
                 r_in.mix_buffer <= r.mix_buffer + resize(
-                    r.mult_buffer(SAMPLE_SIZE + CTRL_SIZE - 2 downto SAMPLE_SIZE - 1), 
+                    r.mult_buffer(SAMPLE_SIZE + CTRL_SIZE - 2 downto CTRL_SIZE - 1), 
                     t_mono_sample'length + POLYPHONY_MAX_LOG2);
             end if;
 
-            if r.counter = POLYPHONY_MAX + 1 then
+            if r.counter = r.n_inputs + 1 then
                 r_in.state <= normalize;
             else
                 r_in.counter <= r.counter + 1;
@@ -103,10 +103,9 @@ begin
 
         -- Multiply with normalization constant.
         elsif r.state = normalize then 
-            v_mult_buffer := 
-                signed(r.mix_buffer(t_mix_buffer'length - 1 downto POLYPHONY_MAX_LOG2)) * signed('0' & r.gain_coeff);
 
-            r_in.sample_out_buffer <= v_mult_buffer(SAMPLE_SIZE + CTRL_SIZE - 1 downto CTRL_SIZE);
+            v_mult_buffer := signed(r.mix_buffer(t_mix_buffer'length - 1 downto 0)) * signed('0' & r.gain_coeff);
+            r_in.sample_out_buffer <= v_mult_buffer(SAMPLE_SIZE + CTRL_SIZE - 3 downto CTRL_SIZE - 2);
 
             r_in.state <= idle;
         else

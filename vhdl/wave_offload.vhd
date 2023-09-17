@@ -133,8 +133,7 @@ begin
         case r.state_sample is 
         when sample_idle => 
 
-            if config.wave_enable = '1' and r.next_sample = '1' and r.new_period_lowest = '1' 
-                    and r.wave_ready = '0' then 
+            if config.wave_enable = '1' and r.new_period_lowest = '1' and r.wave_ready = '0' then 
 
                 s_fifo_write_enable <= '1';
                 r_in.lowest_voice <= lowest_voice; -- In case this changes while sampling.

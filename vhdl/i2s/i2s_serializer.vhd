@@ -8,7 +8,7 @@ use wave.wave_array_pkg.all;
 entity i2s_serializer is
     port (
         clk                     : in  std_logic;
-        i2s_reset                   : in  std_logic;
+        i2s_reset               : in  std_logic;
         sample_in               : in  std_logic_vector(2 * SAMPLE_SIZE - 1 downto 0);
         next_sample             : out std_logic;
         sdata                   : out std_logic;

@@ -12,6 +12,7 @@ entity unison_mixer is
         clk                     : in  std_logic;
         reset                   : in  std_logic;
         config                  : in  t_config;
+        status                  : in  t_status;
         next_sample             : in  std_logic;
         sample_in               : in  t_mono_sample_array(0 to N_VOICES - 1);
         sample_out              : out t_mono_sample_array(0 to POLYPHONY_MAX - 1)
@@ -35,7 +36,7 @@ architecture arch of unison_mixer is
         poly_count              : integer range 0 to POLYPHONY_MAX;
         mix_buffer              : t_mix_buffer;
         unison_minus_one        : integer range 1 to 2 * UNISON_MAX;
-        active_voices_minus_one : integer range 1 to N_VOICES;
+        active_oscillators_minus_one : integer range 1 to N_VOICES;
         group_done              : std_logic;
         poly_index              : integer range 0 to POLYPHONY_MAX - 1; 
         gain_coeff              : t_ctrl_value;
@@ -50,7 +51,7 @@ architecture arch of unison_mixer is
         poly_count              => 0,
         mix_buffer              => (others => '0'),
         unison_minus_one        => 1,
-        active_voices_minus_one => 1,
+        active_oscillators_minus_one => 1,
         group_done              => '0',
         poly_index              => 0,
         gain_coeff              => (others => '0')
@@ -60,9 +61,9 @@ architecture arch of unison_mixer is
 
 begin
 
-    combinatorial : process (r, config, sample_in, next_sample)
+    combinatorial : process (r, config, status, sample_in, next_sample)
 
-        variable v_mult_result : signed(SAMPLE_SIZE + POLYPHONY_MAX_LOG2 + CTRL_SIZE - 1 downto 0);
+        variable v_mult_result : signed(SAMPLE_SIZE + UNISON_MAX_LOG2 + CTRL_SIZE - 1 downto 0);
 
     begin
 
@@ -76,7 +77,7 @@ begin
             if next_sample = '1' then 
                 r_in.sample_out <= r.sample_out_buffer;
                 r_in.sample_out_buffer <= (others => (others => '0'));
-                r_in.active_voices_minus_one <= config.active_voices - 1;
+                r_in.active_oscillators_minus_one <= status.active_oscillators - 1;
                 r_in.unison_minus_one <= config.unison_n - 1;
                 r_in.gain_coeff <= GAIN_COEFFS(config.unison_n);
                 r_in.osc_count <= 0;
@@ -95,7 +96,7 @@ begin
                 r_in.mix_buffer <= r.mix_buffer + resize(sample_in(r.osc_count), BUFFER_SIZE);
             end if;
 
-            if r.osc_count < r.active_voices_minus_one then 
+            if r.osc_count < r.active_oscillators_minus_one then 
                 r_in.osc_count <= r.osc_count + 1;
 
                 if r.unison_count < r.unison_minus_one then 
@@ -118,7 +119,7 @@ begin
 
             -- After normalization the signal is attenuated by POLYPHONY_MAX. Slice mult_result accordingly.
             v_mult_result := r.mix_buffer * r.gain_coeff;
-            r_in.sample_out_buffer(r.poly_index) <= v_mult_result(SAMPLE_SIZE + CTRL_SIZE - 1 downto CTRL_SIZE);
+            r_in.sample_out_buffer(r.poly_index) <= v_mult_result(SAMPLE_SIZE + CTRL_SIZE - 2 downto CTRL_SIZE - 1);
         end if;
             
     end process;

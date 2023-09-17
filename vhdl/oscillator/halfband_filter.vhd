@@ -260,7 +260,9 @@ begin
 
             if r.coeff_counter(PIPE_SUM_MULT) = HALFBAND_PHASE_N / 2 then
 
-                r_in.output_buffers(r.osc_counter(PIPE_SUM_MULT)) <= signed(s_macc_p(30 downto 15));
+                -- Normalize by 16 bits. 
+                -- 15 bits for multiplication with signed 16 bit coefficient and 1 for adding two samples. 
+                r_in.output_buffers(r.osc_counter(PIPE_SUM_MULT)) <= signed(s_macc_p(31 downto 16));
             end if;
         end if;
 

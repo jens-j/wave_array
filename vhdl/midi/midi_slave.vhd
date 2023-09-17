@@ -14,6 +14,7 @@ entity midi_slave is
         clk                     : in  std_logic;
         reset                   : in  std_logic;
         config                  : in  t_config;
+        status                  : in  t_status;
         uart_rx                 : in  std_logic;
         midi_channel            : in  std_logic_vector(3 downto 0);
         envelope_active         : in  std_logic_vector(POLYPHONY_MAX - 1 downto 0); 
@@ -85,7 +86,7 @@ begin
     );
 
 
-    combinatorial : process (r, config, message_valid_s, midi_message_s, s_voice_enable, envelope_active)
+    combinatorial : process (r, config, status, message_valid_s, midi_message_s, s_voice_enable, envelope_active)
         variable v_enable : std_logic;
     begin
 
@@ -118,7 +119,7 @@ begin
                     --     voice_off_0 when MIDI_VOICE_MSG_OFF,
                     --     idle when others;
 
-                    r_in.polyphony <= config.polyphony;
+                    r_in.polyphony <= status.polyphony;
                     r_in.octave <= -1;
                     r_in.voice_select <= 0;
                     r_in.midi_command <= midi_message_s.status_byte(7 downto 4);
@@ -166,7 +167,7 @@ begin
 
                 if r.voices(r.voice_select).note.number = r.midi_number then
                     r_in.state <= r.next_state;
-                elsif r.voice_select = r.polyphony - 1 then
+                elsif r.voice_select >= r.polyphony - 1 then
                     if r.midi_command = MIDI_VOICE_MSG_ON then
                         r_in.voice_select <= 0;
                         r_in.state <= find_free_voice;
@@ -207,7 +208,7 @@ begin
                     
                     r_in.state <= voice_on_1;
                 
-                elsif r.voice_select < r.polyphony then 
+                elsif r.voice_select < r.polyphony - 1 then 
                     r_in.voice_select <= r.voice_select + 1;
                 else 
                     r_in.state <= idle; -- This should never happen
@@ -248,7 +249,7 @@ begin
                     end if;
                 end if;
 
-                if r.voice_select = r.polyphony - 1 then 
+                if r.voice_select >= r.polyphony - 1 then 
                     r_in.state <= r.next_state;
                 else 
                     r_in.voice_select <= r.voice_select + 1;

@@ -16,6 +16,7 @@ entity synth_subsystem is
         clk                     : in  std_logic;
         reset                   : in  std_logic;
         config                  : in  t_config;
+        status                  : in  t_status;
         next_sample             : in  std_logic;
         pot_value               : in  std_logic_vector(ADC_SAMPLE_SIZE - 1 downto 0);
         voices                  : in  t_voice_array(0 to POLYPHONY_MAX - 1);
@@ -25,7 +26,9 @@ entity synth_subsystem is
         envelope_active         : out std_logic_vector(POLYPHONY_MAX - 1 downto 0);
         mod_sources             : out t_mods_array;
         mod_destinations        : out t_modd_array;
-        new_period              : out std_logic_vector(N_VOICES - 1 downto 0) -- High in first cycle of waveform period.
+        new_period              : out std_logic_vector(N_VOICES - 1 downto 0); -- High in first cycle of waveform period.
+        pitched_osc_inputs      : out t_pitched_osc_inputs;
+        spread_osc_inputs       : out t_spread_osc_inputs
     );
 end entity;
 
@@ -50,6 +53,7 @@ begin
 
     mod_destinations <= s_mod_destinations;
     mod_sources <= s_mod_sources;
+    pitched_osc_inputs <= s_pitched_osc_inputs;
 
     s_pitch_ctrl(0) <= s_mod_destinations(MODD_OSC_0_FREQ);
     s_pitch_ctrl(1) <= s_mod_destinations(MODD_OSC_1_FREQ);
@@ -76,6 +80,7 @@ begin
         clk                     => clk,
         reset                   => reset,
         config                  => config,
+        status                  => status,
         next_sample             => next_sample,
         voices                  => voices,
         osc_inputs              => s_osc_inputs
@@ -97,13 +102,15 @@ begin
         clk                     => clk,
         reset                   => reset,
         config                  => config,
+        status                  => status,
         next_sample             => next_sample,
         pitched_osc_inputs      => s_pitched_osc_inputs,
         dma2table               => s_dma2table,
         table2dma               => s_table2dma,
         mod_destinations        => s_mod_destinations,
         output_samples          => s_osc_samples,
-        new_period              => new_period
+        new_period              => new_period,
+        spread_osc_inputs       => spread_osc_inputs
     );
 
 
@@ -154,6 +161,7 @@ begin
         clk                     => clk,
         reset                   => reset,
         config                  => config,
+        status                  => status,
         next_sample             => next_sample,
         ctrl_in                 => s_mod_destinations(MODD_MIXER),
         sample_in               => s_filter_samples,
@@ -165,6 +173,7 @@ begin
         clk                     => clk,
         reset                   => reset,
         config                  => config,
+        status                  => status,
         next_sample             => next_sample,
         mod_sources             => s_mod_sources,
         mod_destinations        => s_mod_destinations 

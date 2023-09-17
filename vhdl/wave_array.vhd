@@ -103,15 +103,21 @@ architecture arch of wave_array is
     signal s_wave_data          : std_logic_vector(15 downto 0);
     signal s_wave_full          : std_logic;
 
+    signal s_polyphony          : integer range 1 to POLYPHONY_MAX;
+    signal s_active_oscillators : integer range 1 to N_VOICES;
+
     signal s_new_period         : std_logic_vector(N_VOICES - 1 downto 0);
-    signal s_debug_wave_state_offload : integer;
-    signal s_debug_wave_state_sample : integer;
-    signal s_debug_wave_fifo_count : integer range 0 to 2047;
+    signal s_debug_wave_state_offload   : integer;
+    signal s_debug_wave_state_sample    : integer;
+    signal s_debug_wave_fifo_count      : integer range 0 to 2047;
     signal s_debug_wave_timer   : std_logic_vector(15 downto 0);
     signal s_debug_wave_flags   : std_logic_vector(5 downto 0);
     signal s_debug_uart_flags   : std_logic_vector(3 downto 0);
     signal s_debug_uart_state   : integer;
     signal s_debug_hk_fifo_count: integer;
+
+    signal s_pitched_osc_inputs : t_pitched_osc_inputs;
+    signal s_spread_osc_inputs  : t_spread_osc_inputs;
 
 begin
 
@@ -120,6 +126,7 @@ begin
         LEDS(15 - i) <= s_voices(i).enable;
     end generate;
 
+    LEDS(2) <= s_i2s_reset;
     LEDS(1) <= s_system_reset;
     LEDS(0) <= s_config.led;
 
@@ -127,21 +134,21 @@ begin
     SDRAM_CLK <= s_sdram_clk;
 
     -- 7 segment display.
-    s_display_data <= std_logic_vector(to_unsigned(s_debug_uart_state, 16))
-        & std_logic_vector(to_unsigned(s_debug_hk_fifo_count, 16));
+    -- s_display_data <= std_logic_vector(to_unsigned(s_voices(0).note.number, 8))
+    --                 & std_logic_vector(to_unsigned(s_voices(1).note.number, 8))
+    --                 & std_logic_vector(to_unsigned(s_voices(2).note.number, 8))
+    --                 & std_logic_vector(to_unsigned(s_voices(3).note.number, 8));
 
-        -- std_logic_vector(to_unsigned(s_voices(0).note.octave, 4))           -- 1 char octave
-        -- & std_logic_vector(to_unsigned(s_voices(0).note.key, 4))            -- 1 char note
-        -- -- & "0" & s_voices(0).midi_velocity                                -- 2 char midi velocity
-        -- & (0 to 16 - ADC_SAMPLE_SIZE - 1 => '0') & s_pot_value;             -- 4 char potentiometer value
+    s_display_data <= std_logic_vector(s_mod_destinations(MODD_FILTER_CUTOFF)(0)) 
+                    & std_logic_vector(s_mod_destinations(MODD_FILTER_RESONANCE)(0));
 
-    s_status.pot_value          <= s_pot_value;
     s_status.mod_destinations   <= s_mod_destinations;
     s_status.mod_sources        <= s_mod_sources;
-
-    s_status.debug_wave_state_offload <= s_debug_wave_state_offload;
-    s_status.debug_wave_state_sample <= s_debug_wave_state_sample;
-    s_status.debug_wave_fifo_count <= s_debug_wave_fifo_count;
+    s_status.polyphony          <= s_polyphony;
+    s_status.active_oscillators <= s_active_oscillators;
+    s_status.debug_wave_state_offload   <= s_debug_wave_state_offload;
+    s_status.debug_wave_state_sample    <= s_debug_wave_state_sample;
+    s_status.debug_wave_fifo_count      <= s_debug_wave_fifo_count;
     s_status.debug_wave_timer   <= s_debug_wave_timer;
     s_status.debug_wave_flags   <= s_debug_wave_flags;
     s_status.debug_uart_flags   <= s_debug_uart_flags;
@@ -177,6 +184,7 @@ begin
         clk                     => s_system_clk,
         reset                   => s_system_reset,
         config                  => s_config,
+        status                  => s_status,
         uart_rx                 => MIDI_RX,
         midi_channel            => SWITCHES(3 downto 0),
         envelope_active         => s_envelope_active,
@@ -245,7 +253,9 @@ begin
         register_input          => s_register_input,
         software_reset          => s_software_reset,
         status                  => s_status,
-        config                  => s_config
+        config                  => s_config,
+        polyphony               => s_polyphony,
+        active_oscillators      => s_active_oscillators
     );
 
     synth_subsys : entity wave.synth_subsystem
@@ -253,6 +263,7 @@ begin
         clk                     => s_system_clk,
         reset                   => s_system_reset,
         config                  => s_config,
+        status                  => s_status,
         next_sample             => s_next_sample,
         pot_value               => s_pot_value,
         voices                  => s_voices,
@@ -262,7 +273,9 @@ begin
         envelope_active         => s_envelope_active,
         mod_sources             => s_mod_sources,
         mod_destinations        => s_mod_destinations,
-        new_period              => s_new_period
+        new_period              => s_new_period,
+        pitched_osc_inputs      => s_pitched_osc_inputs,
+        spread_osc_inputs       => s_spread_osc_inputs
     );
 
     i2s_interface : entity i2s.i2s_interface

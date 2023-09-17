@@ -13,13 +13,15 @@ entity oscillator_subsystem is
         clk                     : in  std_logic;
         reset                   : in  std_logic;
         config                  : in  t_config;
+        status                  : in  t_status;
         next_sample             : in  std_logic; -- Next sample trigger.
         pitched_osc_inputs      : in  t_pitched_osc_inputs;
         dma2table               : in  t_dma2table_array(0 to N_TABLES - 1);
         table2dma               : out t_table2dma_array(0 to N_TABLES - 1);
         mod_destinations        : in  t_modd_array; -- 2D array of frame control values for each table, for each voice.
         output_samples          : out t_mono_sample_array(0 to POLYPHONY_MAX - 1);
-        new_period              : out std_logic_vector(N_VOICES - 1 downto 0) -- High in first cycle of waveform period for each voice.
+        new_period              : out std_logic_vector(N_VOICES - 1 downto 0); -- High in first cycle of waveform period for each voice.
+        spread_osc_inputs       : out t_spread_osc_inputs
     );
 end entity;
 
@@ -37,6 +39,7 @@ begin
 
     -- Connect to the output of wavetable 0 only because they are all the same.
     new_period <= s_new_period_array(0);
+    spread_osc_inputs <= s_spread_osc_inputs;
 
     mix_ctrl_gen : for i in 0 to N_TABLES - 1 generate 
         s_mixer_ctrl(i) <= mod_destinations(MODD_OSC_0_MIX + i);
@@ -47,6 +50,7 @@ begin
         clk                     => clk,
         reset                   => reset,
         config                  => config,
+        status                  => status,
         next_sample             => next_sample,
         spread_ctrl             => mod_destinations(MODD_UNISON),
         pitched_osc_inputs      => pitched_osc_inputs,
@@ -59,6 +63,7 @@ begin
             clk                     => clk,
             reset                   => reset,
             config                  => config,
+            status                  => status,
             next_sample             => next_sample,
             osc_inputs              => s_spread_osc_inputs(n),
             dma2table               => dma2table(n),
@@ -74,6 +79,7 @@ begin
         clk                     => clk,
         reset                   => reset,
         config                  => config,
+        status                  => status,
         next_sample             => next_sample,
         control                 => s_mixer_ctrl,
         samples_in              => s_osc_samples,
@@ -85,6 +91,7 @@ begin
         clk                     => clk,
         reset                   => reset,
         config                  => config,
+        status                  => status,
         next_sample             => next_sample,
         sample_in               => s_table_mixer_samples,
         sample_out              => output_samples

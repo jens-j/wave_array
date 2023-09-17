@@ -9,11 +9,16 @@ use wave.wave_array_pkg.all;
 
 -- Mixes together multiple wavetable outputs into a single waveform.
 -- This is done for a each voice in parallel.
+-- Every cycle one tabe sample is multiplied with a mix control value. 
+-- Samples of each wavetable are added to create the output sample for each voice. 
+-- When unison > 1, the control values corresponding to each polyphonic voice are used for multiple oscillators. 
+-- Since these are later mixed together in the unison mixer. 
 entity table_mixer is
     port (
         clk                     : in  std_logic;
         reset                   : in  std_logic;
         config                  : in  t_config;
+        status                  : in  t_status;
         next_sample             : in  std_logic;
         control                 : in  t_osc_ctrl_array;
         samples_in              : in  t_osc_sample_array;
@@ -50,6 +55,7 @@ architecture arch of table_mixer is
         coefficient_buffer      : t_ctrl_value;
         mult_buffer             : t_mono_sample;
         pipeline_valid          : std_logic_vector(PIPE_SUM_MUX_OUT - 1 downto 0);
+        active_oscillators      : integer range 1 to N_VOICES;
     end record;
 
     constant REG_INIT : t_table_mixer_reg := (
@@ -64,14 +70,15 @@ architecture arch of table_mixer is
         sample_buffer           => (others => '0'),
         coefficient_buffer      => (others => '0'),
         mult_buffer             => (others => '0'),
-        pipeline_valid          => (others => '0')
+        pipeline_valid          => (others => '0'),
+        active_oscillators      => 1
     );
 
     signal r, r_in              : t_table_mixer_reg;
 
 begin
 
-    combinatorial : process (r, config, next_sample, control, samples_in)
+    combinatorial : process (r, config, status, next_sample, control, samples_in)
         variable v_mult_result : signed(SAMPLE_SIZE + CTRL_SIZE - 1 downto 0);
     begin
 
@@ -93,6 +100,9 @@ begin
                 r_in.mix_buffer <= (others => '0');
                 r_in.osc_count(0) <= 0;
                 r_in.table_count(0) <= 0;
+                r_in.unison_count <= 0;
+                r_in.voice_count <= 0;
+                r_in.active_oscillators <= status.active_oscillators;
         
                 r_in.state <= running;
             end if;
@@ -110,20 +120,20 @@ begin
             else 
                 r_in.table_count(0) <= 0;
 
-                if r.osc_count(0) < N_VOICES - 1 then 
+                if r.osc_count(0) < r.active_oscillators - 1 then 
                     r_in.osc_count(0) <= r.osc_count(0) + 1;
+
+                    -- Count unison duplicates within polyphonic voices. Since all oscillators within the same group share mix control.
+                    if r.unison_count < config.unison_n - 1 then 
+                        r_in.unison_count <= r.unison_count + 1;
+                    else 
+                        r_in.unison_count <= 0;
+                        if r.voice_count < status.polyphony - 1 then 
+                            r_in.voice_count <= r.voice_count + 1;
+                        end if;
+                    end if;
                 else 
                     r_in.state <= idle;
-                end if;
-            end if;
-
-            -- Count unison duplicates within polyphonic voices. Since all oscillators within the same group share mix control.
-            if r.unison_count < config.unison_n - 1 then 
-                r_in.unison_count <= r.unison_count + 1;
-            else 
-                r_in.unison_count <= 0;
-                if r.voice_count < config.polyphony - 1 then 
-                    r_in.voice_count <= r.voice_count + 1;
                 end if;
             end if;
 
@@ -146,13 +156,13 @@ begin
         -- Pipeline stage 3: output mux.
         if r.pipeline_valid(PIPE_SUM_MUX_OUT - 2) = '1' then  
             r_in.samples_out_buffer(r.osc_count(PIPE_SUM_MUX_OUT - 1)) <= 
-                r.mix_buffer(SAMPLE_SIZE + N_TABLES_LOG2 - 1 downto N_TABLES_LOG2);
+                r.mix_buffer(SAMPLE_SIZE + N_TABLES_LOG2 - 2 downto N_TABLES_LOG2 - 1);
         end if;
 
         -- Update shift registers.
         r_in.pipeline_valid(PIPE_SUM_MUX_OUT - 2 downto 1) <= r.pipeline_valid(PIPE_SUM_MUX_OUT - 3 downto 0);
-        r_in.osc_count(1 to PIPE_SUM_MUX_OUT - 1)        <= r.osc_count(0 to PIPE_SUM_MUX_OUT - 2);
-        r_in.table_count(1 to PIPE_SUM_MUX_OUT - 1)        <= r.table_count(0 to PIPE_SUM_MUX_OUT - 2);
+        r_in.osc_count(1 to PIPE_SUM_MUX_OUT - 1) <= r.osc_count(0 to PIPE_SUM_MUX_OUT - 2);
+        r_in.table_count(1 to PIPE_SUM_MUX_OUT - 1) <= r.table_count(0 to PIPE_SUM_MUX_OUT - 2);
 
     end process;
 

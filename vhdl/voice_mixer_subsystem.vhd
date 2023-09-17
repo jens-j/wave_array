@@ -11,6 +11,7 @@ entity voice_mixer_subsystem is
         clk                     : in  std_logic;
         reset                   : in  std_logic;
         config                  : in  t_config;
+        status                  : in  t_status;
         next_sample             : in  std_logic;
         sample_in               : in  t_mono_sample_array(0 to POLYPHONY_MAX - 1);
         ctrl_in                 : in  t_ctrl_value_array(0 to POLYPHONY_MAX - 1);
@@ -21,10 +22,9 @@ end entity;
 
 architecture arch of voice_mixer_subsystem is
 
-    constant ACTIVE_VOICES_DEFAULT : t_active_voices_array := calculate_active_voices('0');
-    constant ACTIVE_VOICES_BINAURAL : t_active_voices_array := calculate_active_voices('1');
+    constant ACTIVE_OSCILLATORS_DEFAULT : t_active_oscillators_array := CALCULATE_ACTIVE_OSCILLATORS('0');
+    constant ACTIVE_OSCILLATORS_BINAURAL : t_active_oscillators_array := CALCULATE_ACTIVE_OSCILLATORS('1');
     
-
     type t_mixer_subsys_reg is record 
         n_inputs                : integer range 1 to POLYPHONY_MAX;
         sample_in_left          : t_mono_sample_array(0 to POLYPHONY_MAX - 1);
@@ -67,7 +67,7 @@ begin
     );
 
     -- Mux input samples depending on whether binaural mode is enabled and the number of available voices.
-    combinatorial : process (r, config, next_sample, ctrl_in, sample_in)
+    combinatorial : process (r, config, status, next_sample, ctrl_in, sample_in)
     begin
 
         r_in <= r;
@@ -76,13 +76,13 @@ begin
         s_sample_in_left <= r.sample_in_left;
         s_sample_in_right <= r.sample_in_right;
 
-        r_in.n_inputs <= config.polyphony;
+        r_in.n_inputs <= status.polyphony;
 
         -- Assign the same samples to the left and right channel.
         if config.binaural_enable = '0' then 
             
             for i in 0 to POLYPHONY_MAX - 1 loop
-                if i < config.active_voices then  
+                if i < status.active_oscillators then  
                     r_in.sample_in_left(i) <= sample_in(i);
                     r_in.sample_in_right(i) <= sample_in(i);
                 else 
@@ -94,7 +94,7 @@ begin
         -- In binaural mode, left and right are separate. The input samples are interleaved.
         else 
             for i in 0 to POLYPHONY_MAX / 2 - 1 loop
-                if i < config.active_voices then  
+                if i < status.active_oscillators then  
                     r_in.sample_in_left(i) <= sample_in(2 * i);
                 else 
                     r_in.sample_in_left(i) <= (others => '0');
@@ -102,7 +102,7 @@ begin
             end loop;
 
             for i in 0 to POLYPHONY_MAX / 2 - 1 loop
-                if i < config.active_voices then  
+                if i < status.active_oscillators then  
                     r_in.sample_in_right(i) <= sample_in(2 * i + 1);
                 else 
                     r_in.sample_in_left(i) <= (others => '0');

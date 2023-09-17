@@ -13,6 +13,7 @@ entity oscillator is
         clk                     : in  std_logic;
         reset                   : in  std_logic;
         config                  : in  t_config;
+        status                  : in  t_status;
         next_sample             : in  std_logic; -- Next sample trigger.
         osc_inputs              : in  t_osc_input_array(0 to N_VOICES - 1);
         dma2table               : in  t_dma2table;
@@ -46,6 +47,7 @@ begin
         clk                     => clk,
         reset                   => reset,
         config                  => config,
+        status                  => status,
         next_sample             => next_sample,
         dma2table               => dma2table,
         table2dma               => table2dma,
