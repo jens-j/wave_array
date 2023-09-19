@@ -196,6 +196,7 @@ package wave_array_pkg is
     constant REG_FAULT              : unsigned := x"0000001"; -- rw 16 bit          | Fault flags.
     constant REG_LED                : unsigned := x"0000002"; -- rw 1 bit           | On-board led register.
     constant REG_VOICES             : unsigned := x"0000003"; -- ro 16 bit unsigned | Number of voices.
+    constant REG_UNISON_MAX         : unsigned := x"0000004"; -- ro 16 bit unsigned | Maximum unison amount.
 
     constant REG_DBG_WAVE_TIMER     : unsigned := x"0000103"; -- ro 16 bit unsigned | Wave offload timer value.
     constant REG_DBG_WAVE_FLAGS     : unsigned := x"0000104"; -- ro  6 bit          | Wave offload fifo_overflow & fifo_underflow & wave_req & wave_ready & fifo_empty & fifo_full.    

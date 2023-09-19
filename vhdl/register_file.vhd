@@ -116,6 +116,9 @@ begin
 
             elsif register_input.address = REG_FAULT then
                 r_in.register_output.read_data <= r.faults;
+            
+            elsif register_input.address = REG_UNISON_MAX then
+                r_in.register_output.read_data <= std_logic_vector(to_unsigned(UNISON_MAX, REGISTER_WIDTH));
 
             elsif register_input.address = REG_DBG_WAVE_TIMER then
                 r_in.register_output.read_data <= status.debug_wave_timer; 

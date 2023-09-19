@@ -74,7 +74,7 @@ architecture arch of wave_offload is
         fifo_overflow           => '0',
         fifo_underflow          => '0',
         lowest_phase            => (others => '0'),
-        lowest_phase_prev       => (others => '0')
+        lowest_phase_prev       => (others => '1')
     );
 
     signal r, r_in              : t_packet_engine_reg;

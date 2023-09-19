@@ -13,6 +13,7 @@ class WaveArray:
     REG_FAULT                   = 0x00000001
     REG_LED                     = 0x00000002
     REG_VOICES                  = 0x00000003
+    REG_UNISON_MAX              = 0x00000004
 
     REG_DBG_WAVE_STATE_OFFLOAD  = 0x00000100
     REG_DBG_WAVE_STATE_SAMPLE   = 0x00000101

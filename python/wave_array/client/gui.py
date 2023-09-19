@@ -99,6 +99,9 @@ class WaveArrayGui(QtWidgets.QMainWindow):
         # Load initial values.
         self.load_config()
 
+        # Set range for unison spinbox.
+        self.ui.box_unison.setRange(1, self.client.read(WaveArray.REG_UNISON_MAX))
+
         # Connect signals.
         self.hk_signal.received.connect(self.hk_offload_handler)
         self.wave_signal.received.connect(self.wave_offload_handler)
@@ -191,11 +194,11 @@ class WaveArrayGui(QtWidgets.QMainWindow):
 
             # Grey out any unused voices in current configuration.
             if i < self.status.polyphony:
-                self.voice_enabled_buttons[i].setEnabled(True)
-                self.voice_active_buttons[i].setEnabled(True)
+                self.voice_enabled_buttons[i].show()
+                self.voice_active_buttons[i].show()
             else:
-                self.voice_enabled_buttons[i].setEnabled(False)
-                self.voice_active_buttons[i].setEnabled(False)
+                self.voice_enabled_buttons[i].hide()
+                self.voice_active_buttons[i].hide()
 
         self.curve_oscilloscope.setData(self.oscilloscope_samples)
 
@@ -230,7 +233,15 @@ class WaveArrayGui(QtWidgets.QMainWindow):
 
             self.curves_volume[i].setData(self.curve_x, np.concatenate(
                 (self.curves_volume[i].getData()[1][1:], [self.status.mod_destinations[ModMap.MODD_VOLUME][i]])))
-
+            
+            # Don't show curves for unused polyphonic voices.
+            for curves in self.modd_curves:
+                
+                if i < self.status.polyphony:
+                    curves[i].show()
+                else:
+                    curves[i].hide()
+                
             # Update both wavetable plots.
             for j in range(2):
 
@@ -524,6 +535,9 @@ class WaveArrayGui(QtWidgets.QMainWindow):
                 self.curve_pot = self.ui.plot_pot.plot(
                     self.curve_x, np.zeros(self.PLOT_SAMPLES), name=f'voice {i}', pen=pen)
 
+            if i == self.client.n_voices - 1:
+                self.curve_oscilloscope = self.ui.plot_oscilloscope.plot(np.zeros(100), pen=pen)
+
             self.curves_envelope[i] = self.ui.plot_envelope.plot(
                 self.curve_x, np.zeros(self.PLOT_SAMPLES), name=f'voice {i}', pen=pen)
 
@@ -554,8 +568,9 @@ class WaveArrayGui(QtWidgets.QMainWindow):
             self.curves_waveforms[0][i] = self.ui.plot_waveform_0.plot(np.zeros(2048), name=f'voice {i}', pen=pen)
             self.curves_waveforms[1][i] = self.ui.plot_waveform_1.plot(np.zeros(2048), name=f'voice {i}', pen=pen)
 
-            if i == self.client.n_voices - 1:
-                self.curve_oscilloscope = self.ui.plot_oscilloscope.plot(np.zeros(100), pen=pen)
+        self.modd_curves = [self.curves_envelope, self.curves_lfo, self.curves_cutoff, self.curves_resonance, 
+                            self.curves_frame_0, self.curves_frame_1, self.curves_mix_0, self.curves_mix_1, 
+                            self.curves_volume]
 
 
     def show(self):
