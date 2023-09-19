@@ -23,13 +23,12 @@ end entity;
 
 architecture arch of table_address_generator is
 
-    type t_state is (idle, init, select_level, calculate_address_0, calculate_address_1,
-        increment_phase);
+    type t_state is (idle, init, select_level, calculate_address_0, calculate_address_1, increment_phase);
 
     type t_tag_reg is record
         state                   : t_state;
         osc_counter             : integer range 0 to N_VOICES - 1;
-        sample_counter          : integer range 0 to 1; -- Twe samples are needed before downsampling.
+        sample_counter          : integer range 0 to 1; -- Two samples are needed before downsampling.
         level_counter           : integer range 0 to MIPMAP_LEVELS - 1;
         table_phases            : t_osc_phase_array(0 to N_VOICES - 1);
         local_address           : t_mipmap_address;
@@ -43,12 +42,23 @@ architecture arch of table_address_generator is
         enable_buffer           : std_logic_vector(N_VOICES - 1 downto 0);
     end record;
 
+    -- Generate initial phases that are shifted to accommodate binaural stuff.
+    function GENERATE_PHASES return t_osc_phase_array is 
+        variable phases : t_osc_phase_array(0 to N_VOICES - 1);
+    begin 
+        for i in 0 to N_VOICES - 1 loop 
+            phases(i) := to_unsigned(2**26 / N_VOICES * i, 26);
+        end loop;
+
+        return phases;
+    end function;
+
     constant REG_INIT : t_tag_reg := (
         state                   => idle,
         osc_counter             => 0,
         sample_counter          => 0,
         level_counter           => 0,
-        table_phases            => (others => (others => '0')),
+        table_phases            => GENERATE_PHASES,
         local_address           => (others => '0'),
         mipmap_addresses        => (others => (others => '0')),
         address_buffers         => (others => (others => '0')),
@@ -61,6 +71,7 @@ architecture arch of table_address_generator is
     );
 
     signal r, r_in              : t_tag_reg;
+    signal s_phases             : t_osc_phase_array(0 to POLYPHONY_MAX - 1) := GENERATE_PHASES;
 
 begin
 

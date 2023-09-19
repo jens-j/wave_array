@@ -380,6 +380,8 @@ begin
                 r_in.sample_counter_next <= 0;
                 r_in.osc_counter(0) <= 0;
                 r_in.coeff_counter <= 0;
+                r_in.unison_counter <= 0;
+                r_in.voice_counter <= 0;
 
                 -- Wait one cycle for the input data to become valid.
                 r_in.state <= init;

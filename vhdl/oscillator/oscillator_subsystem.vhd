@@ -21,7 +21,8 @@ entity oscillator_subsystem is
         mod_destinations        : in  t_modd_array; -- 2D array of frame control values for each table, for each voice.
         output_samples          : out t_mono_sample_array(0 to POLYPHONY_MAX - 1);
         new_period              : out std_logic_vector(N_VOICES - 1 downto 0); -- High in first cycle of waveform period for each voice.
-        spread_osc_inputs       : out t_spread_osc_inputs
+        spread_osc_inputs       : out t_spread_osc_inputs;
+        lowest_velocity         : out t_osc_phase
     );
 end entity;
 
@@ -54,7 +55,8 @@ begin
         next_sample             => next_sample,
         spread_ctrl             => mod_destinations(MODD_UNISON),
         pitched_osc_inputs      => pitched_osc_inputs,
-        spread_osc_inputs       => s_spread_osc_inputs
+        spread_osc_inputs       => s_spread_osc_inputs,
+        lowest_velocity         => lowest_velocity
     );
 
     osc_gen : for n in 0 to N_TABLES - 1 generate

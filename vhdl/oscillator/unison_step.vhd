@@ -106,9 +106,21 @@ begin
                 r_in.state <= prepare;
             end if;
 
+        -- Pre-calculate stuff which depends on config or status. 
+        -- Also skip if unison = 1 and set start to note velocity and step to zero.
         when prepare => 
-            r_in.voice_max <= 2 * status.polyphony - 1 when config.binaural_enable = '1' else status.polyphony - 1;
-            r_in.state <= busy_0;
+            if config.unison_n = 1 then 
+                for i in 0 to N_TABLES - 1 loop
+                    for j in 0 to POLYPHONY_MAX - 1 loop
+                        r_in.unison_start_buffer(i)(j) <= pitched_osc_inputs(i)(j).velocity;
+                        r_in.unison_step_buffer(i)(j) <= (others => '0');
+                    end loop;
+                end loop;
+                r_in.state <= idle;
+            else 
+                r_in.voice_max <= 2 * status.polyphony - 1 when config.binaural_enable = '1' else status.polyphony - 1;
+                r_in.state <= busy_0;
+            end if;
 
         -- Calculate f * ctrl.
         when busy_0 =>

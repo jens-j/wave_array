@@ -32,7 +32,8 @@ entity unison_spread is
         next_sample             : in  std_logic;
         spread_ctrl             : in  t_ctrl_value_array(0 to POLYPHONY_MAX - 1);
         pitched_osc_inputs      : in  t_pitched_osc_inputs;
-        spread_osc_inputs       : out t_spread_osc_inputs
+        spread_osc_inputs       : out t_spread_osc_inputs;
+        lowest_velocity         : out t_osc_phase
     );
 end entity;
 
@@ -58,6 +59,8 @@ architecture arch of unison_spread is
         spread_osc_inputs       : t_spread_osc_inputs;
         spread_osc_inputs_buffer: t_spread_osc_inputs;
         voice_max               : integer range 0 to POLYPHONY_MAX - 1;
+        lowest_velocity         : t_osc_phase;
+        lowest_velocity_buffer  : t_osc_phase;
     end record;
 
     constant REG_INIT : t_unison_reg := (
@@ -75,7 +78,9 @@ architecture arch of unison_spread is
         voice_enable            => '0',
         spread_osc_inputs       => (others => (others => ('0', (others => '0')))),
         spread_osc_inputs_buffer=> (others => (others => ('0', (others => '0')))),
-        voice_max               => 0
+        voice_max               => 0,
+        lowest_velocity         => (others => '0'),
+        lowest_velocity_buffer  => (others => '0')
     );
 
     signal r, r_in : t_unison_reg;
@@ -109,6 +114,7 @@ begin
 
         -- Connect output registers.
         spread_osc_inputs <= r.spread_osc_inputs;
+        lowest_velocity <= r.lowest_velocity;
 
         case r.state is 
         when idle => 
@@ -120,6 +126,8 @@ begin
             
             if next_sample = '1' then 
                 r_in.spread_osc_inputs <= r.spread_osc_inputs_buffer;
+                r_in.lowest_velocity <= r.lowest_velocity_buffer;
+                r_in.lowest_velocity_buffer <= (others => '1');
                 r_in.spread_osc_inputs_buffer <= (others => (others => ('0', (others => '0'))));
                 r_in.state <= prepare;
             end if;
@@ -171,6 +179,10 @@ begin
         if r.mux_enable = '1' then
             r_in.spread_osc_inputs_buffer(r.mux_table)(r.mux_osc).enable <= r.voice_enable;
             r_in.spread_osc_inputs_buffer(r.mux_table)(r.mux_osc).velocity <= r.mux_value;
+
+            if r.mux_value < r.lowest_velocity_buffer then 
+                r_in.lowest_velocity_buffer <= r.mux_value;
+            end if;
         end if;
 
     end process;
