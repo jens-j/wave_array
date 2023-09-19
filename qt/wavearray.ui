@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>1634</width>
-    <height>991</height>
+    <width>1643</width>
+    <height>1035</height>
    </rect>
   </property>
   <property name="maximumSize">
@@ -265,79 +265,6 @@
               </layout>
              </item>
              <item>
-              <layout class="QHBoxLayout" name="horizontalLayout_54">
-               <item>
-                <widget class="QLabel" name="label_53">
-                 <property name="minimumSize">
-                  <size>
-                   <width>120</width>
-                   <height>15</height>
-                  </size>
-                 </property>
-                 <property name="maximumSize">
-                  <size>
-                   <width>16777215</width>
-                   <height>10</height>
-                  </size>
-                 </property>
-                 <property name="font">
-                  <font>
-                   <weight>50</weight>
-                   <bold>false</bold>
-                  </font>
-                 </property>
-                 <property name="text">
-                  <string>Faults</string>
-                 </property>
-                </widget>
-               </item>
-               <item>
-                <spacer name="horizontalSpacer_23">
-                 <property name="orientation">
-                  <enum>Qt::Horizontal</enum>
-                 </property>
-                 <property name="sizeType">
-                  <enum>QSizePolicy::Expanding</enum>
-                 </property>
-                 <property name="sizeHint" stdset="0">
-                  <size>
-                   <width>30</width>
-                   <height>10</height>
-                  </size>
-                 </property>
-                </spacer>
-               </item>
-               <item>
-                <widget class="QLabel" name="lbl_faults">
-                 <property name="minimumSize">
-                  <size>
-                   <width>80</width>
-                   <height>10</height>
-                  </size>
-                 </property>
-                 <property name="maximumSize">
-                  <size>
-                   <width>80</width>
-                   <height>10</height>
-                  </size>
-                 </property>
-                 <property name="font">
-                  <font>
-                   <weight>50</weight>
-                   <bold>false</bold>
-                  </font>
-                 </property>
-                 <property name="text">
-                  <string>0x0000</string>
-                 </property>
-                 <property name="alignment">
-                  <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
-                 </property>
-                </widget>
-               </item>
-              </layout>
-             </item>
-             <item>
               <layout class="QHBoxLayout" name="horizontalLayout_58">
                <item>
                 <widget class="QLabel" name="label_57">
@@ -475,6 +402,79 @@
                  </property>
                  <property name="text">
                   <string>0</string>
+                 </property>
+                 <property name="alignment">
+                  <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+                 </property>
+                </widget>
+               </item>
+              </layout>
+             </item>
+             <item>
+              <layout class="QHBoxLayout" name="horizontalLayout_54">
+               <item>
+                <widget class="QLabel" name="label_53">
+                 <property name="minimumSize">
+                  <size>
+                   <width>120</width>
+                   <height>15</height>
+                  </size>
+                 </property>
+                 <property name="maximumSize">
+                  <size>
+                   <width>16777215</width>
+                   <height>10</height>
+                  </size>
+                 </property>
+                 <property name="font">
+                  <font>
+                   <weight>50</weight>
+                   <bold>false</bold>
+                  </font>
+                 </property>
+                 <property name="text">
+                  <string>Faults</string>
+                 </property>
+                </widget>
+               </item>
+               <item>
+                <spacer name="horizontalSpacer_23">
+                 <property name="orientation">
+                  <enum>Qt::Horizontal</enum>
+                 </property>
+                 <property name="sizeType">
+                  <enum>QSizePolicy::Expanding</enum>
+                 </property>
+                 <property name="sizeHint" stdset="0">
+                  <size>
+                   <width>30</width>
+                   <height>10</height>
+                  </size>
+                 </property>
+                </spacer>
+               </item>
+               <item>
+                <widget class="QLabel" name="lbl_faults">
+                 <property name="minimumSize">
+                  <size>
+                   <width>80</width>
+                   <height>10</height>
+                  </size>
+                 </property>
+                 <property name="maximumSize">
+                  <size>
+                   <width>80</width>
+                   <height>10</height>
+                  </size>
+                 </property>
+                 <property name="font">
+                  <font>
+                   <weight>50</weight>
+                   <bold>false</bold>
+                  </font>
+                 </property>
+                 <property name="text">
+                  <string>0x0000</string>
                  </property>
                  <property name="alignment">
                   <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
@@ -1695,7 +1695,7 @@
                     </font>
                    </property>
                    <property name="text">
-                    <string>env.</string>
+                    <string>envelope</string>
                    </property>
                   </widget>
                  </item>
@@ -1716,6 +1716,26 @@
                    </property>
                    <property name="text">
                     <string>LFO</string>
+                   </property>
+                  </widget>
+                 </item>
+                 <item>
+                  <widget class="Line" name="line_107">
+                   <property name="orientation">
+                    <enum>Qt::Vertical</enum>
+                   </property>
+                  </widget>
+                 </item>
+                 <item>
+                  <widget class="QLabel" name="label_85">
+                   <property name="font">
+                    <font>
+                     <weight>50</weight>
+                     <bold>false</bold>
+                    </font>
+                   </property>
+                   <property name="text">
+                    <string>velocity</string>
                    </property>
                   </widget>
                  </item>
@@ -4275,7 +4295,7 @@ destination</string>
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>1634</width>
+     <width>1643</width>
      <height>21</height>
     </rect>
    </property>

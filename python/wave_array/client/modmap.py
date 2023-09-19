@@ -43,8 +43,9 @@ class ModMap:
     MODS_POT                = 1
     MODS_ENVELOPE           = 2
     MODS_LFO                = 3
+    MODS_VELOCITY           = 4
 
-    MODS_LEN                = 4
+    MODS_LEN                = 5
     MODD_LEN                = 10
     MODS_LEN_LOG2           = int(np.ceil(np.log2(MODS_LEN)))
     MODD_LEN_LOG2           = int(np.ceil(np.log2(MODD_LEN)))
@@ -68,7 +69,8 @@ class ModMap:
         MODS_NONE           : 'none',                   
         MODS_POT            : 'pot',                    
         MODS_ENVELOPE       : 'envelope',                
-        MODS_LFO            : 'lfo'                    
+        MODS_LFO            : 'lfo',
+        MODS_VELOCITY       : 'velocity'              
     }
 
     logger = logging.getLogger()

@@ -179,8 +179,8 @@ class WaveArrayGui(QtWidgets.QMainWindow):
         # self.logger.info(f'plot T = {(t - self.t_plot)}')
         self.t_plot = t
 
-        self.ui.lbl_voice_enabled.setText(f'{self.status.voice_enabled:04X}')
-        self.ui.lbl_voice_active.setText(f'{self.status.voice_active:04X}')
+        self.ui.lbl_voice_enabled.setText(f'0x{self.status.voice_enabled:04X}')
+        self.ui.lbl_voice_active.setText(f'0x{self.status.voice_active:04X}')
         self.ui.lbl_polyphony.setText(f'{self.status.polyphony:04X}')
         self.ui.lbl_active_oscillators.setText(f'{self.status.active_oscillators:04X}')
 
@@ -188,6 +188,14 @@ class WaveArrayGui(QtWidgets.QMainWindow):
         for i in range(self.client.n_voices):
             self.voice_enabled_buttons[i].setChecked(bool(self.status.voice_enabled & (1 << i)))
             self.voice_active_buttons[i].setChecked(bool(self.status.voice_active & (1 << i)))
+
+            # Grey out any unused voices in current configuration.
+            if i < self.status.polyphony:
+                self.voice_enabled_buttons[i].setEnabled(True)
+                self.voice_active_buttons[i].setEnabled(True)
+            else:
+                self.voice_enabled_buttons[i].setEnabled(False)
+                self.voice_active_buttons[i].setEnabled(False)
 
         self.curve_oscilloscope.setData(self.oscilloscope_samples)
 
@@ -640,7 +648,7 @@ class WaveArrayGui(QtWidgets.QMainWindow):
 
         self.ui.slider_mod_amount.setValue(int(amount))  
         self.ui.lbl_mod_select.setText(
-            f'{ModMap.MODS[source]}\nto\n{ModMap.MODD[destination]}')       
+            f'{ModMap.MODS[source]}\n⇓\n{ModMap.MODD[destination]}')       
 
         # Add new mod mapping.
         if state:
