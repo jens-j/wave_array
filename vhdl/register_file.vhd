@@ -98,7 +98,7 @@ begin
 
         -- Lookup derived parameters based on unison setting.
         -- Use the config_buffer to ensure the config and status record update simultaneously.
-        if r.config.binaural_enable = '0' then 
+        if r.config_buffer.binaural_enable = '0' then 
             r_in.polyphony_buffer <= POLYPHONY_DEFAULT(r.config_buffer.unison_n);
             r_in.active_oscillators_buffer <= ACTIVE_OSCILLATORS_DEFAULT(r.config_buffer.unison_n);
         else 

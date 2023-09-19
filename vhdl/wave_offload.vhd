@@ -17,9 +17,9 @@ entity wave_offload is
         reset                   : in  std_logic;
         config                  : in  t_config;
         next_sample             : in  std_logic;
-        new_period              : in  std_logic_vector(N_VOICES - 1 downto 0);
         sample_in               : in  t_mono_sample;
         lowest_voice            : in  integer range 0 to POLYPHONY_MAX - 1; -- Voice index of the lowest playing note.
+        lowest_velocity         : in  t_osc_phase;
 
         -- Auto offload fifo interface.
         wave_write_enable       : out std_logic;
@@ -52,11 +52,11 @@ architecture arch of wave_offload is
         wave_length             : integer range 0 to WAVE_MAX_WORDS - 1;
         sample_count            : integer range 0 to WAVE_MAX_WORDS - 1;
         offload_count           : integer range 0 to WAVE_MAX_WORDS - 1;
-        lowest_voice            : integer range 0 to POLYPHONY_MAX - 1;
         next_sample             : std_logic; -- Delay one cycle to sample after values update.
         fifo_overflow           : std_logic;
         fifo_underflow          : std_logic;
-        new_period_lowest       : std_logic;
+        lowest_phase            : t_osc_phase;
+        lowest_phase_prev       : t_osc_phase;
     end record;
 
     constant REG_INIT : t_packet_engine_reg := (
@@ -70,11 +70,11 @@ architecture arch of wave_offload is
         wave_length             => 0,
         sample_count            => 0,
         offload_count           => 0,
-        lowest_voice            => 0,
         next_sample             => '0',
         fifo_overflow           => '0',
         fifo_underflow          => '0',
-        new_period_lowest       => '0'
+        lowest_phase            => (others => '0'),
+        lowest_phase_prev       => (others => '0')
     );
 
     signal r, r_in              : t_packet_engine_reg;
@@ -101,7 +101,7 @@ begin
         data_count              => s_fifo_count
     );
 
-    comb_process : process (r, config, next_sample, wave_full, new_period, sample_in, lowest_voice, 
+    comb_process : process (r, config, next_sample, wave_full, sample_in, lowest_voice, lowest_velocity,
             s_fifo_empty, s_fifo_full, s_fifo_read_data, s_fifo_count)
         variable v_debug_timer : std_logic_vector(CTRL_SIZE + 9 downto 0);
         variable v_length : std_logic_vector(15 downto 0);
@@ -127,16 +127,18 @@ begin
         v_debug_timer := std_logic_vector(to_unsigned(r.wave_timer, CTRL_SIZE + 10));
         debug_timer <= v_debug_timer(CTRL_SIZE - 1 downto 0);
 
-        r_in.new_period_lowest <= new_period(lowest_voice * config.unison_n);
+        if next_sample = '1' then 
+            r_in.lowest_phase <= r.lowest_phase + lowest_velocity;
+            r_in.lowest_phase_prev <= r.lowest_phase;
+        end if;
 
         -- Fill fifo with samples of one period of the lowest note.
         case r.state_sample is 
         when sample_idle => 
 
-            if config.wave_enable = '1' and r.new_period_lowest = '1' and r.wave_ready = '0' then 
+            if next_sample = '1' and r.wave_ready = '0' and r.lowest_phase < r.lowest_phase_prev then 
 
                 s_fifo_write_enable <= '1';
-                r_in.lowest_voice <= lowest_voice; -- In case this changes while sampling.
                 r_in.sample_count <= 1;
                 r_in.state_sample <= sample_running; 
             end if; 
@@ -146,7 +148,7 @@ begin
             if r.next_sample = '1' then 
 
                 -- Collect samples until the start of a new period or until the fifo is full.
-                if new_period(r.lowest_voice) = '1' 
+                if r.lowest_phase < r.lowest_phase_prev 
                         or s_fifo_count = std_logic_vector(to_unsigned(MAX_SAMPLE_COUNT, 12)) then
 
                     if s_fifo_count = std_logic_vector(to_unsigned(MAX_SAMPLE_COUNT, 12)) then 

@@ -28,7 +28,8 @@ entity synth_subsystem is
         mod_destinations        : out t_modd_array;
         new_period              : out std_logic_vector(N_VOICES - 1 downto 0); -- High in first cycle of waveform period.
         pitched_osc_inputs      : out t_pitched_osc_inputs;
-        spread_osc_inputs       : out t_spread_osc_inputs
+        spread_osc_inputs       : out t_spread_osc_inputs;
+        lowest_velocity         : out t_osc_phase
     );
 end entity;
 
@@ -62,11 +63,12 @@ begin
     s_ctrl_pot <= '0' & signed(pot_value) & (CTRL_SIZE - ADC_SAMPLE_SIZE - 2 downto 0 => '0');
 
     -- Connect mod source array.
-    mods_assigne : for i in 0 to POLYPHONY_MAX - 1 generate
+    mods_assign : for i in 0 to POLYPHONY_MAX - 1 generate
         s_mod_sources(MODS_NONE)(i)     <= (others => '0');
         s_mod_sources(MODS_POT)(i)      <= s_ctrl_pot;
         s_mod_sources(MODS_ENVELOPE)(i) <= s_envelope_ctrl(i);
         s_mod_sources(MODS_LFO)(i)      <= s_lfo_out(i);
+        s_mod_sources(MODS_VELOCITY)(i) <= '0' & signed(voices(i).midi_velocity) & (7 downto 0 => '0'); -- Extend 7 bit midi velocity to signed 16 bit control value.
     end generate;
 
     -- This does not synthesize correctly.
@@ -110,7 +112,8 @@ begin
         mod_destinations        => s_mod_destinations,
         output_samples          => s_osc_samples,
         new_period              => new_period,
-        spread_osc_inputs       => spread_osc_inputs
+        spread_osc_inputs       => spread_osc_inputs,
+        lowest_velocity         => lowest_velocity
     );
 
 

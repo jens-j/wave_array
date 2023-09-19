@@ -118,6 +118,7 @@ architecture arch of wave_array is
 
     signal s_pitched_osc_inputs : t_pitched_osc_inputs;
     signal s_spread_osc_inputs  : t_spread_osc_inputs;
+    signal s_lowest_velocity : t_osc_phase;
 
 begin
 
@@ -140,7 +141,7 @@ begin
     --                 & std_logic_vector(to_unsigned(s_voices(3).note.number, 8));
 
     s_display_data <= std_logic_vector(s_mod_destinations(MODD_FILTER_CUTOFF)(0)) 
-                    & std_logic_vector(s_mod_destinations(MODD_FILTER_RESONANCE)(0));
+                    & std_logic_vector(s_mod_destinations(MODD_MIXER)(0));
 
     s_status.mod_destinations   <= s_mod_destinations;
     s_status.mod_sources        <= s_mod_sources;
@@ -231,9 +232,9 @@ begin
         reset                   => s_system_reset,
         config                  => s_config,
         next_sample             => s_next_sample,
-        new_period              => s_new_period,
         sample_in               => s_sample(0),
         lowest_voice            => s_lowest_voice,
+        lowest_velocity         => s_lowest_velocity,
         wave_write_enable       => s_wave_write_enable,
         wave_data               => s_wave_data,
         wave_full               => s_wave_full,
@@ -275,7 +276,8 @@ begin
         mod_destinations        => s_mod_destinations,
         new_period              => s_new_period,
         pitched_osc_inputs      => s_pitched_osc_inputs,
-        spread_osc_inputs       => s_spread_osc_inputs
+        spread_osc_inputs       => s_spread_osc_inputs,
+        lowest_velocity         => s_lowest_velocity
     );
 
     i2s_interface : entity i2s.i2s_interface

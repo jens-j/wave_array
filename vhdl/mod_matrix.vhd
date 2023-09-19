@@ -55,6 +55,7 @@ architecture arch of mod_matrix is
         valid_shift             : std_logic_vector(PIPE_SUM_MUX_OUT - 1 downto 0); -- Pipeline valid shift register.
         amount                  : t_ctrl_value;
         binaural_enable         : std_logic;
+        voice_max               : integer range 1 to POLYPHONY_MAX;
     end record;
 
     constant REG_INIT : t_mod_matrix_reg := (
@@ -69,7 +70,8 @@ architecture arch of mod_matrix is
         accumulator_clipped     => (others => (others => '0')),
         valid_shift             => (others => '0'),
         amount                  => (others => '0'),
-        binaural_enable         => '0'
+        binaural_enable         => '0',
+        voice_max               => 1
     );
 
     signal r, r_in : t_mod_matrix_reg := REG_INIT;
@@ -84,7 +86,7 @@ begin
     mod_destinations <= r.mod_dest;
     
 
-    combinatorial : process (r, next_sample, config, mod_sources)
+    combinatorial : process (r, next_sample, config, status, mod_sources)
         -- variable v_source_index : integer range 0 to MODS_LEN - 1;
         variable v_source_index : integer range 0 to MODS_LEN - 1;
         variable v_mult : signed(2 * CTRL_SIZE - 1 downto 0);
@@ -98,6 +100,8 @@ begin
         r_in.accumulator_clipped <= (others => (others => '0'));
         r_in.source_values <= (others => (others => '0'));
         r_in.scaled_source_values <= (others => (others => '0')); 
+
+        r_in.voice_max <= 2 * status.polyphony when r.binaural_enable = '1' else status.polyphony;
         
         if r.state = idle then 
 
@@ -155,13 +159,15 @@ begin
         end if;
 
         -- Pipeline stage 1: multiply mod source with mod amount.
-        -- Also double each source value to accomodate binaural mode.
         if r.valid_shift(PIPE_SUM_MULT - 1) = '1' then 
-            for i in 0 to status.active_oscillators - 1 loop
-                v_mult := r.source_values(i) * r.amount;
+            for i in 0 to POLYPHONY_MAX - 1 loop
 
-                r_in.scaled_source_values(i) <= v_mult(2 * CTRL_SIZE - 2 downto CTRL_SIZE - 1);
-
+                if i < r.voice_max then 
+                    v_mult := r.source_values(i) * r.amount;
+                    r_in.scaled_source_values(i) <= v_mult(2 * CTRL_SIZE - 2 downto CTRL_SIZE - 1);
+                else 
+                    r_in.scaled_source_values(i) <= (others => '0');
+                end if;
             end loop;
         end if;
 

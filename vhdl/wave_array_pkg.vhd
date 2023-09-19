@@ -170,8 +170,9 @@ package wave_array_pkg is
     constant MODS_POT               : natural := 1;
     constant MODS_ENVELOPE          : natural := 2;
     constant MODS_LFO               : natural := 3;
+    constant MODS_VELOCITY          : natural := 4;
 
-    constant MODS_LEN               : natural := 4;
+    constant MODS_LEN               : natural := 5;
     constant MODD_LEN               : natural := 10;
     constant MODS_LEN_LOG2          : natural := integer(ceil(log2(real(MODS_LEN))));
     constant MODD_LEN_LOG2          : natural := integer(ceil(log2(real(MODD_LEN))));
