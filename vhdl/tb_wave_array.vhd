@@ -74,7 +74,7 @@ begin
 
     midi_tester : entity midi.midi_tester
     generic map (
-        FILENAME                => SIM_FILE_PATH & "four_notes.txt"
+        FILENAME                => SIM_FILE_PATH & "two_notes.txt"
     )
     port map (
         clk                     => clk,

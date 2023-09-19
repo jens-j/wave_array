@@ -96,13 +96,6 @@ begin
             for i in 0 to POLYPHONY_MAX / 2 - 1 loop
                 if i < status.active_oscillators then  
                     r_in.sample_in_left(i) <= sample_in(2 * i);
-                else 
-                    r_in.sample_in_left(i) <= (others => '0');
-                end if;
-            end loop;
-
-            for i in 0 to POLYPHONY_MAX / 2 - 1 loop
-                if i < status.active_oscillators then  
                     r_in.sample_in_right(i) <= sample_in(2 * i + 1);
                 else 
                     r_in.sample_in_left(i) <= (others => '0');

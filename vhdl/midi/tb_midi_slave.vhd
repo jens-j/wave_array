@@ -39,6 +39,9 @@ begin
     sample_in_s(1) <= sample_s;
 
     tester : entity midi.midi_tester
+    generic map ( 
+        FILENAME                => "midi.txt"
+    )
     port map (
         clk                     => clk_s,
         reset                   => reset_ah_s,

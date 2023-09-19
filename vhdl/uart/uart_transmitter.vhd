@@ -57,7 +57,7 @@ begin
         data_count              => s_data_count
     );
 
-    uart : entity uart.uart_tx
+    tx_uart : entity uart.uart_tx
     generic map (
         g_CLKS_PER_BIT          => SYS_FREQ / UART_BAUD,
         g_BIT_POLARITY          => '1'

@@ -14,7 +14,7 @@ library uart;
 
 entity midi_tester is
     generic (
-        FILENAME                : string := "midi.txt"
+        FILENAME                : string
     );
     port (
         clk                     : in  std_logic;

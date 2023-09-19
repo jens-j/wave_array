@@ -43,7 +43,7 @@ architecture arch of sample_uart is
 
 begin
 
-    uart : entity uart.uart_transmitter
+    tx_uart : entity uart.uart_transmitter
     port map(
         clk                     => clk,
         reset                   => reset,
