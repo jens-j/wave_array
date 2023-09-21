@@ -106,12 +106,16 @@ begin
         case (r.state) is
 
             when idle =>
+
                 if message_valid_s = '1' then
 
                     case (midi_message_s.status_byte(7 downto 4)) is
-                        when MIDI_VOICE_MSG_ON => r_in.state <= voice_on_0;
-                        when MIDI_VOICE_MSG_OFF => r_in.state <= voice_off_0;
-                        when others => r_in.state <= idle;
+                        when MIDI_VOICE_MSG_ON => 
+                            r_in.state <= voice_on_0;
+                        when MIDI_VOICE_MSG_OFF => 
+                            r_in.state <= voice_off_0;
+                        when others => 
+                            r_in.state <= idle;
                     end case;
 
                     -- with midi_message_s.status_byte(7 downto 4) select r_in.state <=
@@ -167,26 +171,26 @@ begin
 
                 if r.voices(r.voice_select).note.number = r.midi_number then
                     r_in.state <= r.next_state;
-                elsif r.voice_select >= r.polyphony - 1 then
+                elsif r.voice_select < r.polyphony - 1 then
+                    r_in.voice_select <= r.voice_select + 1;
+                else
                     if r.midi_command = MIDI_VOICE_MSG_ON then
                         r_in.voice_select <= 0;
                         r_in.state <= find_free_voice;
                     else
-                        r_in.state <= idle; -- Note not found in active voices.
-                    end if;
-                else
-                    r_in.voice_select <= r.voice_select + 1;
+                        r_in.state <= idle; -- Note to disable not found in active voices. This happens when a voice was stolen.
+                    end if;                   
                 end if;
 
             -- Find first inactive voice (envelope finished).
             when find_free_voice =>
                 if envelope_active(r.voice_select) = '0' then
                     r_in.state <= r.next_state;
-                elsif r.voice_select = r.polyphony - 1 then
+                elsif r.voice_select < r.polyphony - 1 then
+                    r_in.voice_select <= r.voice_select + 1;
+                else
                     r_in.voice_select <= 0;
                     r_in.state <= find_released_voice; -- No free voices.
-                else
-                    r_in.voice_select <= r.voice_select + 1;
                 end if;   
 
             -- Find first unused voice (note released).
@@ -201,10 +205,14 @@ begin
                 end if;
 
             -- Loop over all voices and replace the first active voice that is not the lowest or highest note.
+            -- If only configured with polyphony = 2, avoid only the lowest active voice. 
+            -- With polyphony = 1, pick the only available voice always.
             when steal_voice =>
                 
                 if s_voice_enable(r.voice_select) = '1' 
-                        and r.voice_select /= r.lowest_voice and r.voice_select /= r.highest_voice then 
+                        and (status.polyphony = 1 
+                             or (status.polyphony = 2 and r.voice_select /= r.lowest_voice)
+                             or (r.voice_select /= r.lowest_voice and r.voice_select /= r.highest_voice)) then 
                     
                     r_in.state <= voice_on_1;
                 
@@ -223,6 +231,7 @@ begin
                     r_in.state <= find_active_voice;
                 end if;
             
+            -- find the highest and lowest enabled note.
             when find_min_max_0 =>
                 r_in.lowest_note <= 127;
                 r_in.highest_note <= 0;
@@ -234,8 +243,7 @@ begin
                 else 
                     r_in.state <= find_min_max_1;
                 end if;
-
-            -- find the highest and lowest enabled note.
+            
             when find_min_max_1 =>
 
                 if r.voices(r.voice_select).enable = '1' then 
