@@ -29,16 +29,17 @@ architecture arch of voice_mixer_subsystem is
         n_inputs                : integer range 1 to POLYPHONY_MAX;
         sample_in_left          : t_mono_sample_array(0 to POLYPHONY_MAX - 1);
         sample_in_right         : t_mono_sample_array(0 to POLYPHONY_MAX - 1);
+        ctrl_left               : t_ctrl_value_array(0 to POLYPHONY_MAX - 1);
+        ctrl_right              : t_ctrl_value_array(0 to POLYPHONY_MAX - 1);
     end record;
 
     constant REG_INIT : t_mixer_subsys_reg := (
         n_inputs                => POLYPHONY_MAX,
         sample_in_left          => (others => (others => '0')),
-        sample_in_right         => (others => (others => '0'))
+        sample_in_right         => (others => (others => '0')),
+        ctrl_left               => (others => (others => '0')),
+        ctrl_right              => (others => (others => '0'))
     );
-
-    signal s_sample_in_left     : t_mono_sample_array(0 to POLYPHONY_MAX - 1); 
-    signal s_sample_in_right    : t_mono_sample_array(0 to POLYPHONY_MAX - 1);
 
     signal r, r_in              : t_mixer_subsys_reg;
 
@@ -50,8 +51,8 @@ begin
         reset                   => reset,
         next_sample             => next_sample,
         n_inputs                => r.n_inputs,
-        ctrl_in                 => ctrl_in,
-        sample_in               => s_sample_in_left,
+        ctrl_in                 => r.ctrl_left,
+        sample_in               => r.sample_in_left,
         sample_out              => sample_out(0)
     );
 
@@ -61,8 +62,8 @@ begin
         reset                   => reset,
         next_sample             => next_sample,
         n_inputs                => r.n_inputs,
-        ctrl_in                 => ctrl_in,
-        sample_in               => s_sample_in_right,
+        ctrl_in                 => r.ctrl_right,
+        sample_in               => r.sample_in_right,
         sample_out              => sample_out(1)
     );
 
@@ -71,34 +72,44 @@ begin
     begin
 
         r_in <= r;
-        
-        -- Connect output registers to voice mixers.
-        s_sample_in_left <= r.sample_in_left;
-        s_sample_in_right <= r.sample_in_right;
-
         r_in.n_inputs <= status.polyphony;
 
         -- Assign the same samples to the left and right channel.
         if config.binaural_enable = '0' then 
             
             for i in 0 to POLYPHONY_MAX - 1 loop
-                if i < status.active_oscillators then  
+                if i < status.polyphony then  
                     r_in.sample_in_left(i) <= sample_in(i);
                     r_in.sample_in_right(i) <= sample_in(i);
+                    r_in.ctrl_left(i) <= ctrl_in(i);
+                    r_in.ctrl_right(i) <= ctrl_in(i);
                 else 
                     r_in.sample_in_left(i) <= (others => '0');
                     r_in.sample_in_right(i) <= (others => '0');
+                    r_in.ctrl_left(i) <= (others => '0');
+                    r_in.ctrl_right(i) <= (others => '0');
                 end if;
             end loop;
         
         -- In binaural mode, left and right are separate. The input samples are interleaved.
         else 
+
+            r_in.sample_in_left <= (others => (others => '0'));
+            r_in.sample_in_right <= (others => (others => '0'));
+            r_in.ctrl_left <= (others => (others => '0'));
+            r_in.ctrl_right <= (others => (others => '0'));
+
             for i in 0 to POLYPHONY_MAX / 2 - 1 loop
-                if i < status.active_oscillators then  
+                if i < status.polyphony then  
                     r_in.sample_in_left(i) <= sample_in(2 * i);
                     r_in.sample_in_right(i) <= sample_in(2 * i + 1);
+                    r_in.ctrl_left(i) <= ctrl_in(2 * i);
+                    r_in.ctrl_right(i) <= ctrl_in(2 * i + 1);
                 else 
                     r_in.sample_in_left(i) <= (others => '0');
+                    r_in.sample_in_right(i) <= (others => '0');
+                    r_in.ctrl_left(i) <= (others => '0');
+                    r_in.ctrl_right(i) <= (others => '0');
                 end if;
             end loop;
         end if;
