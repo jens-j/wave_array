@@ -76,8 +76,7 @@ begin
 
                 loop
                     -- Wait until the midi uart fifo has room
-                    --wait until full = '0';
-                    --wait until rising_edge(clk); -- This does not work in modelsim
+                    wait until rising_edge(clk) and full = '0'; -- This does not work in modelsim
 
                     hread(v_line_in, v_midi_byte, v_hread_success);
 
@@ -85,7 +84,7 @@ begin
                         exit;
                     end if;
 
-                    -- report "send byte " & integer'image(to_integer(unsigned(v_midi_byte)));
+                    report "send byte " & integer'image(to_integer(unsigned(v_midi_byte)));
 
                     -- report boolean'image(v_hread_success);
                         -- & boolean'image(v_hread_success));
