@@ -11,7 +11,6 @@ entity pitch_modulator is
     port (
         clk                     : in  std_logic;
         reset                   : in  std_logic;
-        config                  : in  t_config;
         next_sample             : in  std_logic;
         pitch_ctrl              : in  t_osc_ctrl_array;
         osc_inputs              : in  t_osc_input_array(0 to POLYPHONY_MAX - 1);
@@ -22,11 +21,11 @@ end entity;
 
 architecture arch of pitch_modulator is 
 
-    type t_state is (idle, map_exp);
+    type t_state is (idle, load_buffer, map_exp);
 
     type t_pitch_mod_reg is record
         state                   : t_state;
-        pitched_osc_inputs     : t_pitched_osc_inputs;
+        pitched_osc_inputs      : t_pitched_osc_inputs;
         pitched_osc_inputs_buffer : t_pitched_osc_inputs;
         count_voice_in          : integer range 0 to POLYPHONY_MAX - 1;
         count_table_in          : integer range 0 to N_TABLES - 1;
@@ -73,7 +72,7 @@ begin
         data_out                => s_data_out
     );
 
-    comb_process : process (r, config, next_sample, pitch_ctrl, osc_inputs, s_busy, s_data_out_valid, s_data_out)
+    comb_process : process (r, next_sample, pitch_ctrl, osc_inputs, s_busy, s_data_out_valid, s_data_out)
 
         variable v_mult_result : unsigned(t_osc_phase'length + CTRL_SIZE - 1 downto 0);
 
@@ -97,8 +96,19 @@ begin
                 r_in.count_pipeline <= 0;
                 r_in.count_voice_out <= 0;
                 r_in.count_table_out <= 0;
-                r_in.state <= map_exp;
+                r_in.state <= load_buffer;
             end if;
+
+        when load_buffer => 
+
+            for i in 0 to N_TABLES - 1 loop
+                for j in 0 to POLYPHONY_MAX - 1 loop 
+                    r_in.pitched_osc_inputs_buffer(i)(j).enable <= osc_inputs(j).enable;
+                    r_in.pitched_osc_inputs_buffer(i)(j).velocity <= (others =>'0');
+                end loop;
+            end loop;
+
+            r_in.state <= map_exp;
 
         -- Map control value to exponential range.
         when map_exp => 

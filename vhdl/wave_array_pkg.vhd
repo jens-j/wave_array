@@ -30,26 +30,23 @@ package wave_array_pkg is
     constant N_TABLES_LOG2          : natural  := integer(ceil(log2(real(N_TABLES))));
     constant N_VOICES_MAX_LOG2      : positive := 6;
     constant N_VOICES_MAX           : positive := 2**N_VOICES_MAX_LOG2; -- Max number of parallel oscillators per table.
-    constant N_VOICES               : positive := 8; -- Number of parallel oscillators per table.
-    -- --pragma synthesis_off
-    --                                   / 8 -- Use only 8 voices in simulation to keep the wave view smaller.
-    -- --pragma synthesis_on
-    -- ;
-    constant N_VOICES_LOG2          : natural  := integer(ceil(log2(real(N_VOICES))));
+    constant N_VOICES               : positive := 64 -- Number of parallel oscillators per table.
+    --pragma synthesis_off
+                                      / 8 -- Use only 8 voices in simulation to keep the wave view smaller.
+    --pragma synthesis_on
+    ;
+    constant N_VOICES_LOG2          : natural := integer(ceil(log2(real(N_VOICES))));
 
     -- Max polyphony is lower than N_VOICES to avoid many fiters, envelopes and a larger mod matrix.
     -- Other voices can be used for unison. Binaural mode always halves to number of voices.
-    constant POLYPHONY_MAX_LOG2     : positive := 3;
-    -- --pragma synthesis_off
-    --                                   / 2 -- Use max 4 polyphony is simulation to accomodate for less voices.
-    -- --pragma synthesis_on
-    -- ;
+    constant POLYPHONY_MAX_LOG2     : positive := 4
+    --pragma synthesis_off
+                                      / 2 -- Use max 4 polyphony in simulation to accomodate for less voices.
+    --pragma synthesis_on
+    ;
 
     constant POLYPHONY_MAX          : positive := 2**POLYPHONY_MAX_LOG2;
     
-
-    
-
     constant N_OSCILLATORS          : positive := N_TABLES * N_VOICES; -- Total number of oscillators.
 
     -- Audio sample constants.
@@ -76,11 +73,11 @@ package wave_array_pkg is
     constant OSC_SAMPLE_FRAC        : integer := 8; -- Fractional bits used for sample interpolation
     constant OSC_COEFF_FRAC         : integer := 8; -- Fractional bits used for coefficient interpolation.
 
-    constant UNISON_MAX_LOG2        : integer := 2;
-    -- --pragma synthesis_off
-    --                                   / 2 -- Use max 4 polyphony is simulation to accomodate for less voices.
-    -- --pragma synthesis_on
-    -- ;
+    constant UNISON_MAX_LOG2        : integer := 4
+    --pragma synthesis_off
+                                      / 2 -- Use max unison 4 in simulation to accomodate for less voices.
+    --pragma synthesis_on
+    ;
     constant UNISON_MAX             : integer := 2**UNISON_MAX_LOG2;
 
     -- Oscillator polyphase interpolation filter coefficient.
@@ -182,7 +179,7 @@ package wave_array_pkg is
     constant MAX_MOD_SOURCES        : integer := 2**MAX_MOD_SOURCES_LOG2; -- Maximum simulataneous mod sources for a mod destination.
     
     -- HK packet constants.
-    constant HK_DATA_WORDS          : integer := 4 + (MODD_LEN + MODS_LEN) * POLYPHONY_MAX; -- word lenth of HK packet data in words.
+    constant HK_DATA_WORDS          : integer := 5 + (MODD_LEN + MODS_LEN) * POLYPHONY_MAX; -- word lenth of HK packet data in words.
     constant HK_PACKET_BYTES        : integer := 4 + 2 * HK_DATA_WORDS;                -- Byte length of entire HK packet in bytes.
     constant HK_DATA_WIDTH          : integer := 16 * HK_DATA_WORDS;                   -- Bit length of status record as vector of 16 bit words.
     constant HK_PACKET_WIDTH        : integer := 8 * HK_PACKET_BYTES;                  -- bit length of HK_DATA_WIDTH + auto offload header.
@@ -364,8 +361,9 @@ package wave_array_pkg is
     type t_status is record
         voice_enabled           : std_logic_vector(POLYPHONY_MAX - 1 downto 0); -- Notes actively playing.
         voice_active            : std_logic_vector(POLYPHONY_MAX - 1 downto 0); -- Envelopes active.
-        polyphony               : integer range 1 to POLYPHONY_MAX;
-        active_oscillators      : integer range 1 to N_VOICES; -- Depending on the unison and binaural settings not all voices are always used.
+        polyphony               : integer range 1 to POLYPHONY_MAX; -- Available polyphony depending on the unison and binaural settings.
+        active_voices           : integer range 1 to POLYPHONY_MAX; -- Voices in use. 2 * polyphony in binaural mode.
+        active_oscillators      : integer range 1 to N_VOICES; -- Total active oscillators depending on the unison and binaural settings.
         mod_sources             : t_mods_array;
         mod_destinations        : t_modd_array;
         debug_wave_state_offload: integer;
@@ -443,8 +441,8 @@ package wave_array_pkg is
 
     type t_pitched_osc_inputs is array (0 to N_TABLES - 1) of t_osc_input_array(0 to POLYPHONY_MAX - 1);
     type t_spread_osc_inputs is array (0 to N_TABLES - 1) of t_osc_input_array(0 to N_VOICES - 1);
-
     type t_unison_step_array is array (0 to N_TABLES - 1) of t_osc_phase_array(0 to POLYPHONY_MAX - 1);
+    type t_addrgen_output_array is array (0 to N_TABLES - 1) of t_addrgen2table_array(0 to N_VOICES - 1);
 
     constant MOD_MAPPING_INIT : t_mod_mapping := (
         source                  => MODS_NONE,
@@ -618,9 +616,10 @@ package body wave_array_pkg is
         v_ser(15 downto 0)  := std_logic_vector(resize(unsigned(status.voice_enabled), 16));
         v_ser(31 downto 16) := std_logic_vector(resize(unsigned(status.voice_enabled), 16));
         v_ser(47 downto 32) := std_logic_vector(to_unsigned(status.polyphony, 16));
-        v_ser(63 downto 48) := std_logic_vector(to_unsigned(status.active_oscillators, 16));
+        v_ser(63 downto 48) := std_logic_vector(to_unsigned(status.active_voices, 16));
+        v_ser(79 downto 64) := std_logic_vector(to_unsigned(status.active_oscillators, 16));
 
-        v_offset := 64;
+        v_offset := 80;
 
         for source in 0 to MODS_LEN - 1 loop 
             for voice in 0 to POLYPHONY_MAX - 1 loop              
@@ -672,7 +671,7 @@ package body wave_array_pkg is
         v_binaural := 1 when binaural = '0' else 2;
 
         for i in 1 to UNISON_MAX loop 
-            v_polyphony := minimum(POLYPHONY_MAX, N_VOICES / i) / v_binaural;
+            v_polyphony := maximum(1, minimum(POLYPHONY_MAX, N_VOICES / i) / v_binaural);
             v_result(i) := v_polyphony * i * v_binaural;
         end loop;
 
@@ -688,7 +687,7 @@ package body wave_array_pkg is
         v_binaural := 1 when binaural = '0' else 2;
 
         for i in 1 to UNISON_MAX loop 
-            v_result(i) := minimum(POLYPHONY_MAX, N_VOICES / i) / v_binaural;
+            v_result(i) := maximum(1, minimum(POLYPHONY_MAX, N_VOICES / i) / v_binaural);
         end loop;
 
         return v_result;

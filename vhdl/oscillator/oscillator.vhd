@@ -20,7 +20,8 @@ entity oscillator is
         table2dma               : out t_table2dma;
         frame_control           : in  t_ctrl_value_array(0 to POLYPHONY_MAX - 1);
         output_samples          : out t_mono_sample_array(0 to N_VOICES - 1);
-        new_period              : out std_logic_vector(N_VOICES - 1 downto 0) -- High in first cycle of waveform period.
+        new_period              : out std_logic_vector(N_VOICES - 1 downto 0); -- High in first cycle of waveform period.
+        addrgen_output          : out t_addrgen2table_array(0 to N_VOICES - 1)
     );
 end entity;
 
@@ -32,6 +33,8 @@ architecture arch of oscillator is
     signal s_timeout                : std_logic;
 
 begin
+
+    addrgen_output <= s_addrgen2table;
 
     table_addr_gen : entity osc.table_address_generator
     port map (

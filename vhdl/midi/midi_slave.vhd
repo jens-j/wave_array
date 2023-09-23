@@ -8,7 +8,8 @@ use wave.wave_array_pkg.all;
 library midi;
 use midi.midi_pkg.all;
 
-
+-- Assign incoming midi commands to midi voices. 
+-- In binaural mode each voice is doubled so it's transparent to downstream elements.
 entity midi_slave is
     port (
         clk                     : in  std_logic;
@@ -140,7 +141,16 @@ begin
             -- Assign new note.
             when voice_on_1 =>
                 v_enable := '0' when r.midi_velocity = (0 to 6 => '0') else '1';
-                r_in.voices(r.voice_select) <= (v_enable, '1', (r.midi_number, r.midi_key, r.octave), r.midi_velocity);
+
+                if config.binaural_enable = '1' then 
+                    r_in.voices(2 * r.voice_select) <= 
+                        (v_enable, '1', (r.midi_number, r.midi_key, r.octave), r.midi_velocity);
+                    r_in.voices(2 * r.voice_select + 1) <= 
+                        (v_enable, '1', (r.midi_number, r.midi_key, r.octave), r.midi_velocity);
+                else 
+                    r_in.voices(r.voice_select) <= 
+                        (v_enable, '1', (r.midi_number, r.midi_key, r.octave), r.midi_velocity);
+                end if;
 
                 -- Update lowest and highest notes and voices.
                 if r.midi_number < r.lowest_note then 
@@ -159,7 +169,16 @@ begin
                 r_in.state <= parse_note;
 
             when voice_off_1 =>
-                r_in.voices(r.voice_select) <= ('0', '1', (r.midi_number, r.midi_key, r.octave), (others => '0'));
+
+                if config.binaural_enable = '1' then 
+                    r_in.voices(2 * r.voice_select) <= 
+                        ('0', '1', (r.midi_number, r.midi_key, r.octave), (others => '0'));
+                    r_in.voices(2 * r.voice_select + 1) <= 
+                        ('0', '1', (r.midi_number, r.midi_key, r.octave), (others => '0'));
+                else
+                    r_in.voices(r.voice_select) <= 
+                        ('0', '1', (r.midi_number, r.midi_key, r.octave), (others => '0'));
+                end if;
 
                 -- Always run the min max search when a note is released. Even when there are no active notes, 
                 -- this at least resets the min and max values.
@@ -184,8 +203,14 @@ begin
 
             -- Find first inactive voice (envelope finished).
             when find_free_voice =>
-                if envelope_active(r.voice_select) = '0' then
+
+                -- Take into account that in binaural mode the control signals (which determine the envelope) are doubled for each voice.
+                if (config.binaural_enable = '0' and envelope_active(r.voice_select) = '0') 
+                        or (config.binaural_enable = '1' and envelope_active(2 * r.voice_select) = '0' 
+                            and envelope_active(2 * r.voice_select + 1) = '0') then
+
                     r_in.state <= r.next_state;
+            
                 elsif r.voice_select < r.polyphony - 1 then
                     r_in.voice_select <= r.voice_select + 1;
                 else

@@ -22,7 +22,8 @@ entity oscillator_subsystem is
         output_samples          : out t_mono_sample_array(0 to POLYPHONY_MAX - 1);
         new_period              : out std_logic_vector(N_VOICES - 1 downto 0); -- High in first cycle of waveform period for each voice.
         spread_osc_inputs       : out t_spread_osc_inputs;
-        lowest_velocity         : out t_osc_phase
+        lowest_velocity         : out t_osc_phase;
+        addrgen_outputs         : out t_addrgen_output_array
     );
 end entity;
 
@@ -35,12 +36,14 @@ architecture arch of oscillator_subsystem is
     signal s_new_period_array : t_new_period_array;
     signal s_table_mixer_samples : t_mono_sample_array(0 to N_VOICES - 1);
     signal s_spread_osc_inputs : t_spread_osc_inputs;
+    signal s_addrgen_outputs : t_addrgen_output_array;
 
 begin 
 
     -- Connect to the output of wavetable 0 only because they are all the same.
     new_period <= s_new_period_array(0);
     spread_osc_inputs <= s_spread_osc_inputs;
+    addrgen_outputs <= s_addrgen_outputs;
 
     mix_ctrl_gen : for i in 0 to N_TABLES - 1 generate 
         s_mixer_ctrl(i) <= mod_destinations(MODD_OSC_0_MIX + i);
@@ -72,7 +75,8 @@ begin
             table2dma               => table2dma(n),
             frame_control           => mod_destinations(MODD_OSC_0_FRAME + n),
             output_samples          => s_osc_samples(n),
-            new_period              => s_new_period_array(n)
+            new_period              => s_new_period_array(n),
+            addrgen_output          => s_addrgen_outputs(n)
         );
     end generate;
 

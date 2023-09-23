@@ -71,15 +71,12 @@ architecture arch of table_address_generator is
     );
 
     signal r, r_in              : t_tag_reg;
-    signal s_phases             : t_osc_phase_array(0 to POLYPHONY_MAX - 1) := GENERATE_PHASES;
 
 begin
 
-
-
     combinatorial : process (r, next_sample, osc_inputs)
         variable v_level : integer range 0 to MIPMAP_LEVELS - 1;
-        variable v_index : integer range 0 to 2 * MIPMAP_LEVELS - 1;
+        variable v_index : integer range 0 to 2 * N_VOICES - 1;
         variable v_local_addr : t_mipmap_address;
     begin
 
@@ -101,14 +98,14 @@ begin
 
             r_in.enable <= r.enable_buffer;
             r_in.mipmap_addresses <= r.address_buffers;
+            r_in.phases <= r.phases_buffer;
+            r_in.mipmap_levels <= r.mipmap_level_buffers;
+            r_in.address_buffers <= (others => (others => '0'));
+            r_in.mipmap_level_buffers <= (others => 0);
+            r_in.phases_buffer <= (others => (others => '0'));
             r_in.osc_counter <= 0;
             r_in.sample_counter <= 0;
             r_in.level_counter <= 0;
-            r_in.address_buffers <= (others => (others => '0'));
-            r_in.mipmap_levels <= r.mipmap_level_buffers;
-            r_in.mipmap_level_buffers <= (others => 0);
-            r_in.phases <= r.phases_buffer;
-            r_in.phases_buffer <= (others => (others => '0'));
             r_in.state <= init;
 
         -- Register signals from the osc_controller.
@@ -136,17 +133,24 @@ begin
 
         elsif r.state = calculate_address_0 then
 
+            -- -- Create address in mipmap level table.
+            -- v_local_addr := "0" & shift_right(r.table_phases(r.osc_counter)
+            --     (t_osc_phase'length - 1 downto t_osc_phase_frac'length), v_level);
+
+            -- -- Subtract half of the filter length to comensate for the filter delay.
+            -- -- But underflow the address if it goes below zero.
+            -- if v_local_addr < POLY_N / 2 - 1 then
+            --     v_local_addr := v_local_addr + 2**(MIPMAP_L0_SIZE_LOG2 - v_level);
+            -- end if;
+
+            -- r_in.local_address <= v_local_addr - POLY_N / 2 - 1;
+
+            -- r_in.local_address <= "0" & shift_right(r.table_phases(r.osc_counter)
+            --     (t_osc_phase'length - 1 downto t_osc_phase_frac'length), v_level);
+
             -- Create address in mipmap level table.
-            v_local_addr := "0" & shift_right(r.table_phases(r.osc_counter)
+            r_in.local_address <= "0" & shift_right(r.table_phases(r.osc_counter)
                 (t_osc_phase'length - 1 downto t_osc_phase_frac'length), v_level);
-
-            -- Subtract half of the filter length to comensate for the filter delay.
-            -- But underflow the address if it goes below zero.
-            if v_local_addr < POLY_N / 2 - 1 then
-                v_local_addr := v_local_addr + 2**(MIPMAP_L0_SIZE_LOG2 - v_level);
-            end if;
-
-            r_in.local_address <= v_local_addr - POLY_N / 2 - 1;
 
             r_in.state <= calculate_address_1;
 

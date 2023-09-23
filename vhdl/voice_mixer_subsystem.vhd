@@ -78,7 +78,7 @@ begin
         if config.binaural_enable = '0' then 
             
             for i in 0 to POLYPHONY_MAX - 1 loop
-                if i < status.polyphony then  
+                if i < status.active_voices then  
                     r_in.sample_in_left(i) <= sample_in(i);
                     r_in.sample_in_right(i) <= sample_in(i);
                     r_in.ctrl_left(i) <= ctrl_in(i);
@@ -100,7 +100,7 @@ begin
             r_in.ctrl_right <= (others => (others => '0'));
 
             for i in 0 to POLYPHONY_MAX / 2 - 1 loop
-                if i < status.polyphony then  
+                if i < status.active_voices then  
                     r_in.sample_in_left(i) <= sample_in(2 * i);
                     r_in.sample_in_right(i) <= sample_in(2 * i + 1);
                     r_in.ctrl_left(i) <= ctrl_in(2 * i);

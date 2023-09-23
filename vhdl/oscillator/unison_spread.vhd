@@ -58,7 +58,6 @@ architecture arch of unison_spread is
         voice_enable            : std_logic;
         spread_osc_inputs       : t_spread_osc_inputs;
         spread_osc_inputs_buffer: t_spread_osc_inputs;
-        voice_max               : integer range 0 to POLYPHONY_MAX - 1;
         lowest_velocity         : t_osc_phase;
         lowest_velocity_buffer  : t_osc_phase;
     end record;
@@ -78,7 +77,6 @@ architecture arch of unison_spread is
         voice_enable            => '0',
         spread_osc_inputs       => (others => (others => ('0', (others => '0')))),
         spread_osc_inputs_buffer=> (others => (others => ('0', (others => '0')))),
-        voice_max               => 0,
         lowest_velocity         => (others => '0'),
         lowest_velocity_buffer  => (others => '0')
     );
@@ -134,8 +132,8 @@ begin
 
         -- Wait one cycle for the config to update.
         when prepare => 
-            r_in.unison_n_minus_one <= config.unison_n - 1;
-            r_in.voice_max <= 2 * status.polyphony - 1 when config.binaural_enable = '1' else status.polyphony - 1;
+            r_in.unison_n_minus_one <= config.unison_n - 1; 
+                
             r_in.state <= running;
 
         -- Start with velocity U0 for each table/voice combination and calculate other unison velocities by iterating
@@ -160,7 +158,7 @@ begin
             else 
                 r_in.unison_count <= 0;
 
-                if r.voice_count = r.voice_max then 
+                if r.voice_count = status.active_voices - 1 then 
                     r_in.osc_count <= 0;
                     r_in.voice_count <= 0;
                     if r.table_count < N_TABLES - 1 then 

@@ -74,10 +74,13 @@ architecture arch of table_interpolator is
         table2dma               : t_table2dma;
         prev_phase              : t_osc_phase_array(0 to N_VOICES - 1);
         frame_control           : t_ctrl_value_array(0 to POLYPHONY_MAX - 1);
+        frames_log2             : integer range 0 to FRAMES_MAX_LOG2;
 
+        frame_index             : t_frame_index_array; 
         frame_index_a           : t_frame_index_array; 
         frame_index_b           : t_frame_index_array; 
         frame_position          : t_frame_position_array(0 to N_VOICES - 1);
+        frame_position_buffer   : t_frame_position_array(0 to N_VOICES - 1);
 
         -- Writeback pipeline registers (9 cycles).
         sample_counter          : t_sample_counter_array;  -- Count the two output samples plus one for pipeline winddown.
@@ -114,9 +117,12 @@ architecture arch of table_interpolator is
         table2dma               => (ack => '0'),
         prev_phase              => (others => (others => '0')),
         frame_control           => (others => (others => '0')),
+        frames_log2             => 0,
+        frame_index             => (others => 0),
         frame_index_a           => (others => 0),
         frame_index_b           => (others => 0),
         frame_position          => (others => (others => '0')),
+        frame_position_buffer   => (others => (others => '0')),
         sample_counter          => (others => 0),
         osc_counter             => (others => 0),
         writeback               => (others => '0'),
@@ -268,14 +274,7 @@ begin
 
         variable v_level : t_mipmap_level;
         variable v_odd_phase_0 : std_logic;
-        variable v_frame_interp_a : std_logic_vector(SAMPLE_SIZE - 1 downto 0);
-        variable v_frame_interp_c : std_logic_vector(SAMPLE_SIZE + OSC_SAMPLE_FRAC downto 0);
-        variable v_frame_interp_d : std_logic_vector(SAMPLE_SIZE - 1 downto 0);
-
         variable v_frame_index_lsb : natural;
-
-        variable v_frame_index : natural range 0 to FRAMES_MAX - 1;
-        variable v_voice_index : integer range 0 to N_VOICES - 1;
 
     begin
 
@@ -285,6 +284,7 @@ begin
         r_in.writeback(0)  <= '0';
         r_in.zero_coeff(0) <= '0';
         r_in.new_period <= (others => '0');
+        r_in.frames_log2 <= dma2table.frames_log2;
 
         s_frame_interp_a <= (others => '0');
         s_frame_interp_b <= (others => '0');
@@ -313,47 +313,38 @@ begin
         end loop;
 
         -- Split control value into frame index and position.
-        for i in 0 to N_VOICES - 1 loop           
+        -- This is split over two cycles to allow timing closure.
+        for i in 0 to N_VOICES - 1 loop          
 
-            -- Calculate frame A and B indices and frame position.
-            if dma2table.frames_log2 = 0 then -- Special case: dont do any frame interpolation.
-                r_in.frame_index_a(i) <= 0;
-                r_in.frame_index_b(i) <= 0;
-                r_in.frame_position(i) <= (others => '0');
-            
-            elsif dma2table.frames_log2 = 1 then -- Special case: always interpolate between frames 0 & 1.
-                r_in.frame_index_a(i) <= 0;
-                r_in.frame_index_b(i) <= 1;
-                
-                -- Use MSBs of frame_control as frame_position (msb is always 0)..
-                r_in.frame_position(i) <= unsigned(
-                    r.frame_control(r.voice_counter)(CTRL_SIZE - 2 downto CTRL_SIZE - OSC_SAMPLE_FRAC - 1));
-
-            -- Normal case: The last 1 / frames_log2 part of the control range is effectively clipped. 
-            -- This allows the table size to be a power of two.
-            else
-
+            if dma2table.frames_log2 < 2 then
+                r_in.frame_index(i) <= 0;
+            else 
                 -- Pre-calculate the lowest bit of the index part of the control value.
                 -- Note that since the control value is signed, bit 15 is the msb.
                 v_frame_index_lsb := CTRL_SIZE - dma2table.frames_log2 - 1;
 
                 -- Slice the frame index from the msb part of the control value.
-                v_frame_index := to_integer(unsigned(
+                r_in.frame_index(i) <= to_integer(unsigned(
                     r.frame_control(r.voice_counter)(CTRL_SIZE - 2 downto v_frame_index_lsb)));
+            end if;
 
-                -- Assign frame indices A & B.
-                r_in.frame_index_a(i) <= v_frame_index;
+            r_in.frame_index_a(i) <= r.frame_index(i);
+            r_in.frame_index_b(i) <= minimum(2**r.frames_log2 - 1, r.frame_index(i) + 1);
+            r_in.frame_position(i) <= r.frame_position_buffer(i);
 
-                -- Index B is one larger than A but clipped to the highest frame index.
-                r_in.frame_index_b(i) <= 
-                    2**dma2table.frames_log2 - 1 when v_frame_index >= 2**dma2table.frames_log2 - 1 
-                    else v_frame_index + 1;
+            -- Calculate frame position but buffer one extra cycle to align with two cycle index calculation.
+            if dma2table.frames_log2 = 0 then -- Special case: dont do any frame interpolation.
+                r_in.frame_position_buffer(i) <= (others => '0');
 
-                -- Slice frame position.
-                r_in.frame_position(i) <= unsigned(
+            elsif dma2table.frames_log2 = 1 then -- Special case: always interpolate between frames 0 & 1.
+
+                 -- Use MSBs of frame_control as frame_position (msb is always 0)..
+                r_in.frame_position_buffer(i) <= unsigned(
+                    r.frame_control(r.voice_counter)(CTRL_SIZE - 2 downto CTRL_SIZE - OSC_SAMPLE_FRAC - 1));
+            else 
+                r_in.frame_position_buffer(i) <= unsigned(
                     r.frame_control(r.voice_counter)(v_frame_index_lsb - 1 downto v_frame_index_lsb - OSC_SAMPLE_FRAC));
-            end if;    
-                
+            end if;   
         end loop;
 
         if r.sample_counter(0) < 2 then
@@ -566,7 +557,6 @@ begin
 
             -- Pipeline stage 9: Store output sample.
             if r.writeback(PIPE_LEN_TOTAL) = '1' then
-                -- if addrgen_input(r.osc_counter(PIPE_LEN_TOTAL)).enable = '1' then
 
                 -- Shift by 15 because coefficient is 16 bit signed (+2 extra, not sure why necessary).
                 r_in.sample_buffers(r.osc_counter(PIPE_LEN_TOTAL))(r.sample_counter(PIPE_LEN_TOTAL)) 
@@ -579,7 +569,7 @@ begin
                 r_in.unison_counter <= r.unison_counter + 1;
             else 
                 r_in.unison_counter <= 0;
-                if r.voice_counter < status.polyphony - 1 then 
+                if r.voice_counter < status.active_voices - 1 then 
                     r_in.voice_counter <= r.voice_counter + 1;
                 end if;
             end if;

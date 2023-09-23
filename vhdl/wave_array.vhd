@@ -104,6 +104,7 @@ architecture arch of wave_array is
     signal s_wave_full          : std_logic;
 
     signal s_polyphony          : integer range 1 to POLYPHONY_MAX;
+    signal s_active_voices      : integer range 1 to POLYPHONY_MAX;
     signal s_active_oscillators : integer range 1 to N_VOICES;
 
     signal s_new_period         : std_logic_vector(N_VOICES - 1 downto 0);
@@ -118,7 +119,10 @@ architecture arch of wave_array is
 
     signal s_pitched_osc_inputs : t_pitched_osc_inputs;
     signal s_spread_osc_inputs  : t_spread_osc_inputs;
-    signal s_lowest_velocity : t_osc_phase;
+    signal s_lowest_velocity    : t_osc_phase;
+    signal s_osc_samples        : t_mono_sample_array(0 to POLYPHONY_MAX - 1);
+    signal s_filter_samples     : t_mono_sample_array(0 to POLYPHONY_MAX - 1);
+    signal s_addrgen_outputs    : t_addrgen_output_array;
 
 begin
 
@@ -140,12 +144,24 @@ begin
     --                 & std_logic_vector(to_unsigned(s_voices(2).note.number, 8))
     --                 & std_logic_vector(to_unsigned(s_voices(3).note.number, 8));
 
-    s_display_data <= std_logic_vector(s_mod_destinations(MODD_FILTER_CUTOFF)(0)) 
-                    & std_logic_vector(s_mod_destinations(MODD_MIXER)(0));
+    -- s_display_data <= std_logic_vector(s_mod_destinations(MODD_FILTER_CUTOFF)(0)) 
+    --                 & std_logic_vector(s_mod_destinations(MODD_MIXER)(0));
+
+    -- s_display_data <= std_logic_vector(s_pitched_osc_inputs(0)(0).velocity(15 downto 0)) 
+    --                 & std_logic_vector(s_spread_osc_inputs(0)(0).velocity(15 downto 0));
+
+    s_display_data <= s_spread_osc_inputs(0)(0).enable
+                      & std_logic_vector(s_spread_osc_inputs(0)(0).velocity(14 downto 0))
+                      & std_logic_vector(resize(s_addrgen_outputs(0)(0).mipmap_address(0), 16));
+
+    -- s_display_data <= s_addrgen_outputs(0)(0).enable 
+    --                   & std_logic_vector(to_unsigned(s_addrgen_outputs(0)(0).mipmap_level, 15))
+    --                   & std_logic_vector(resize(s_addrgen_outputs(0)(0).mipmap_address(0), 16));
 
     s_status.mod_destinations   <= s_mod_destinations;
     s_status.mod_sources        <= s_mod_sources;
     s_status.polyphony          <= s_polyphony;
+    s_status.active_voices      <= s_active_voices;
     s_status.active_oscillators <= s_active_oscillators;
     s_status.debug_wave_state_offload   <= s_debug_wave_state_offload;
     s_status.debug_wave_state_sample    <= s_debug_wave_state_sample;
@@ -256,6 +272,7 @@ begin
         status                  => s_status,
         config                  => s_config,
         polyphony               => s_polyphony,
+        active_voices           => s_active_voices,
         active_oscillators      => s_active_oscillators
     );
 
@@ -277,7 +294,10 @@ begin
         new_period              => s_new_period,
         pitched_osc_inputs      => s_pitched_osc_inputs,
         spread_osc_inputs       => s_spread_osc_inputs,
-        lowest_velocity         => s_lowest_velocity
+        lowest_velocity         => s_lowest_velocity,
+        osc_samples             => s_osc_samples,
+        filter_samples          => s_filter_samples,
+        addrgen_outputs         => s_addrgen_outputs
     );
 
     i2s_interface : entity i2s.i2s_interface

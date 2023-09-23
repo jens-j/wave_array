@@ -35,8 +35,8 @@ architecture arch of unison_mixer is
         unison_count            : integer range 0 to 2 * UNISON_MAX - 1;
         poly_count              : integer range 0 to POLYPHONY_MAX;
         mix_buffer              : t_mix_buffer;
-        unison_minus_one        : integer range 1 to 2 * UNISON_MAX;
-        active_oscillators_minus_one : integer range 1 to N_VOICES;
+        unison_minus_one        : integer range 0 to UNISON_MAX - 1;
+        active_oscillators_minus_one : integer range 0 to N_VOICES - 1;
         group_done              : std_logic;
         poly_index              : integer range 0 to POLYPHONY_MAX - 1; 
         gain_coeff              : t_ctrl_value;
@@ -50,8 +50,8 @@ architecture arch of unison_mixer is
         unison_count            => 0,
         poly_count              => 0,
         mix_buffer              => (others => '0'),
-        unison_minus_one        => 1,
-        active_oscillators_minus_one => 1,
+        unison_minus_one        => 0,
+        active_oscillators_minus_one => 0,
         group_done              => '0',
         poly_index              => 0,
         gain_coeff              => (others => '0')

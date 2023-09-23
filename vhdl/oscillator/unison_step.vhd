@@ -46,7 +46,6 @@ architecture arch of unison_step is
         mult_b                  : signed(CTRL_SIZE - 1 downto 0);
         mult_d                  : signed(OSC_PHASE_SIZE downto 0);
         center_velocity         : t_osc_phase;
-        voice_max               : integer range 0 to POLYPHONY_MAX - 1;
     end record;
 
     constant REG_INIT : t_unison_step_reg := (
@@ -62,8 +61,7 @@ architecture arch of unison_step is
         mult_a                  => (others => '0'),
         mult_b                  => (others => '0'),
         mult_d                  => (others => '0'),
-        center_velocity         => (others => '0'),
-        voice_max               => 0
+        center_velocity         => (others => '0')
     );
 
     signal r, r_in : t_unison_step_reg;
@@ -118,7 +116,6 @@ begin
                 end loop;
                 r_in.state <= idle;
             else 
-                r_in.voice_max <= 2 * status.polyphony - 1 when config.binaural_enable = '1' else status.polyphony - 1;
                 r_in.state <= busy_0;
             end if;
 
@@ -152,7 +149,7 @@ begin
 
             r_in.state <= busy_0;
 
-            if r.voice_count < r.voice_max then 
+            if r.voice_count < status.active_voices - 1 then 
                 r_in.voice_count <= r.voice_count + 1;
             else 
                 r_in.voice_count <= 0;

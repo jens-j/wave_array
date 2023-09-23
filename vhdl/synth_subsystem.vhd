@@ -29,7 +29,10 @@ entity synth_subsystem is
         new_period              : out std_logic_vector(N_VOICES - 1 downto 0); -- High in first cycle of waveform period.
         pitched_osc_inputs      : out t_pitched_osc_inputs;
         spread_osc_inputs       : out t_spread_osc_inputs;
-        lowest_velocity         : out t_osc_phase
+        lowest_velocity         : out t_osc_phase;
+        osc_samples             : out t_mono_sample_array(0 to POLYPHONY_MAX - 1);
+        filter_samples          : out t_mono_sample_array(0 to POLYPHONY_MAX - 1);
+        addrgen_outputs         : out t_addrgen_output_array
     );
 end entity;
 
@@ -55,6 +58,8 @@ begin
     mod_destinations <= s_mod_destinations;
     mod_sources <= s_mod_sources;
     pitched_osc_inputs <= s_pitched_osc_inputs;
+    osc_samples <= s_osc_samples;
+    filter_samples <= s_filter_samples;
 
     s_pitch_ctrl(0) <= s_mod_destinations(MODD_OSC_0_FREQ);
     s_pitch_ctrl(1) <= s_mod_destinations(MODD_OSC_1_FREQ);
@@ -81,7 +86,6 @@ begin
     port map(
         clk                     => clk,
         reset                   => reset,
-        config                  => config,
         status                  => status,
         next_sample             => next_sample,
         voices                  => voices,
@@ -92,7 +96,6 @@ begin
     port map (
         clk                     => clk,
         reset                   => reset,
-        config                  => config,
         next_sample             => next_sample,
         pitch_ctrl              => s_pitch_ctrl,
         osc_inputs              => s_osc_inputs,
@@ -113,7 +116,8 @@ begin
         output_samples          => s_osc_samples,
         new_period              => new_period,
         spread_osc_inputs       => spread_osc_inputs,
-        lowest_velocity         => lowest_velocity
+        lowest_velocity         => lowest_velocity,
+        addrgen_outputs         => addrgen_outputs
     );
 
 

@@ -55,7 +55,8 @@ architecture arch of table_mixer is
         coefficient_buffer      : t_ctrl_value;
         mult_buffer             : t_mono_sample;
         pipeline_valid          : std_logic_vector(PIPE_SUM_MUX_OUT - 1 downto 0);
-        active_oscillators      : integer range 1 to N_VOICES;
+        active_oscillators_minus_one : integer range 0 to N_VOICES - 1;
+        active_voices_minus_one : integer range 0 to N_VOICES - 1;
     end record;
 
     constant REG_INIT : t_table_mixer_reg := (
@@ -71,7 +72,8 @@ architecture arch of table_mixer is
         coefficient_buffer      => (others => '0'),
         mult_buffer             => (others => '0'),
         pipeline_valid          => (others => '0'),
-        active_oscillators      => 1
+        active_oscillators_minus_one => 1,
+        active_voices_minus_one => 1
     );
 
     signal r, r_in              : t_table_mixer_reg;
@@ -102,7 +104,8 @@ begin
                 r_in.table_count(0) <= 0;
                 r_in.unison_count <= 0;
                 r_in.voice_count <= 0;
-                r_in.active_oscillators <= status.active_oscillators;
+                r_in.active_oscillators_minus_one <= status.active_oscillators - 1;
+                r_in.active_voices_minus_one <= status.active_voices - 1;
         
                 r_in.state <= running;
             end if;
@@ -120,7 +123,7 @@ begin
             else 
                 r_in.table_count(0) <= 0;
 
-                if r.osc_count(0) < r.active_oscillators - 1 then 
+                if r.osc_count(0) < r.active_oscillators_minus_one then 
                     r_in.osc_count(0) <= r.osc_count(0) + 1;
 
                     -- Count unison duplicates within polyphonic voices. Since all oscillators within the same group share mix control.
@@ -128,7 +131,7 @@ begin
                         r_in.unison_count <= r.unison_count + 1;
                     else 
                         r_in.unison_count <= 0;
-                        if r.voice_count < status.polyphony - 1 then 
+                        if r.voice_count < r.active_voices_minus_one then 
                             r_in.voice_count <= r.voice_count + 1;
                         end if;
                     end if;

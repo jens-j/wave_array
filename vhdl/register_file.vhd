@@ -14,6 +14,7 @@ entity register_file is
         status                  : in  t_status;
         config                  : out t_config;
         polyphony               : out integer range 1 to POLYPHONY_MAX;
+        active_voices           : out integer range 1 to POLYPHONY_MAX;
         active_oscillators      : out integer range 1 to N_VOICES;
         register_input          : in  t_register_input;
         register_output         : out t_register_output;
@@ -35,8 +36,10 @@ architecture arch of register_file is
         register_output         : t_register_output;
         faults                  : std_logic_vector(15 downto 0);
         polyphony               : integer range 1 to POLYPHONY_MAX;
+        active_voices           : integer range 1 to POLYPHONY_MAX;
         active_oscillators      : integer range 1 to N_VOICES;
         polyphony_buffer        : integer range 1 to POLYPHONY_MAX;
+        active_voices_buffer    : integer range 1 to POLYPHONY_MAX;
         active_oscillators_buffer : integer range 1 to N_VOICES;
     end record;
 
@@ -47,8 +50,10 @@ architecture arch of register_file is
         register_output         => ('0', '0', (others => '0')),
         faults                  => (others => '0'),
         polyphony               => 1,
+        active_voices           => 1,
         active_oscillators      => 1,
         polyphony_buffer        => 1,
+        active_voices_buffer    => 1,
         active_oscillators_buffer => 1
     );
 
@@ -76,7 +81,9 @@ begin
         r_in.register_output <= ('0', '0', (others => '0'));
 
         polyphony <= r.polyphony;
+        active_voices <= r.active_voices;
         active_oscillators <= r.active_oscillators;
+
 
         -- Clear new_table output after one cycle.
         for i in 0 to N_TABLES - 1 loop 
@@ -88,6 +95,7 @@ begin
 
             r_in.config <= r.config_buffer;
             r_in.polyphony <= r.polyphony_buffer;
+            r_in.active_voices <= r.active_voices_buffer;
             r_in.active_oscillators <= r.active_oscillators_buffer;
 
             -- Reset any new_table flags.
@@ -98,12 +106,14 @@ begin
 
         -- Lookup derived parameters based on unison setting.
         -- Use the config_buffer to ensure the config and status record update simultaneously.
-        if r.config_buffer.binaural_enable = '0' then 
-            r_in.polyphony_buffer <= POLYPHONY_DEFAULT(r.config_buffer.unison_n);
-            r_in.active_oscillators_buffer <= ACTIVE_OSCILLATORS_DEFAULT(r.config_buffer.unison_n);
-        else 
+        if r.config_buffer.binaural_enable = '1' then 
             r_in.polyphony_buffer <= POLYPHONY_BINAURAL(r.config_buffer.unison_n);
+            r_in.active_voices_buffer <= 2 * POLYPHONY_BINAURAL(r.config_buffer.unison_n);
             r_in.active_oscillators_buffer <= ACTIVE_OSCILLATORS_BINAURAL(r.config_buffer.unison_n);
+        else 
+            r_in.polyphony_buffer <= POLYPHONY_DEFAULT(r.config_buffer.unison_n);
+            r_in.active_voices_buffer <= POLYPHONY_DEFAULT(r.config_buffer.unison_n);
+            r_in.active_oscillators_buffer <= ACTIVE_OSCILLATORS_DEFAULT(r.config_buffer.unison_n);
         end if;
 
         -- Handle register read.
