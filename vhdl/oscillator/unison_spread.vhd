@@ -11,11 +11,11 @@ library osc;
 
 
 -- This entity generates the additional oscillator velocities of the unison spread.
--- It also duplicates the output velocities if binaural mode is enabled.
+-- unsion and binaural voices are combined. So a single voice is spead out over the group formed by both binaural unison oscillators.
 -- The velocities are calculated as follows: 
 -- 
 -- f    = center velocity / midi note 
--- N    = unison_n 
+-- N    = unison_n * binaural
 -- ctrl = unison spread control value 
 -- 
 -- D = ctrl * f * 2**(1/12) | D is the maximum distance to the center velocity (one semitone scaled by the control value). 
@@ -40,21 +40,20 @@ end entity;
 
 architecture arch of unison_spread is 
 
-
     type t_state is (idle, prepare, running);
 
     type t_unison_reg is record
         state                   : t_state;
         table_count             : integer range 0 to N_TABLES - 1;
         voice_count             : integer range 0 to POLYPHONY_MAX - 1;
-        unison_count            : integer range 0 to UNISON_MAX - 1;
+        group_count             : integer range 0 to 2 * UNISON_MAX - 1;
+        group_max               : integer range 0 to 2 * UNISON_MAX - 1;
         osc_count               : integer range 0 to N_VOICES - 1;
         mux_table               : integer range 0 to N_TABLES - 1;
         mux_osc                 : integer range 0 to N_VOICES - 1;
         mux_enable              : std_logic;
         mux_value               : t_osc_phase;
         step_value              : t_osc_phase;
-        unison_n_minus_one      : integer range 0 to UNISON_MAX - 1;
         voice_enable            : std_logic;
         spread_osc_inputs       : t_spread_osc_inputs;
         spread_osc_inputs_buffer: t_spread_osc_inputs;
@@ -66,14 +65,14 @@ architecture arch of unison_spread is
         state                   => idle,
         table_count             => 0,
         voice_count             => 0,
-        unison_count            => 0,
+        group_count             => 0,
+        group_max               => 0,
         osc_count               => 0,
         mux_table               => 0,
         mux_osc                 => 0,
         mux_enable              => '0',
         mux_value               => (others => '0'),
         step_value              => (others => '0'),
-        unison_n_minus_one      => 0,
         voice_enable            => '0',
         spread_osc_inputs       => (others => (others => ('0', (others => '0')))),
         spread_osc_inputs_buffer=> (others => (others => ('0', (others => '0')))),
@@ -119,7 +118,7 @@ begin
 
             r_in.table_count <= 0;
             r_in.voice_count <= 0;
-            r_in.unison_count <= 0;
+            r_in.group_count <= 0;
             r_in.osc_count <= 0;
             
             if next_sample = '1' then 
@@ -132,7 +131,7 @@ begin
 
         -- Wait one cycle for the config to update.
         when prepare => 
-            r_in.unison_n_minus_one <= config.unison_n - 1; 
+            r_in.group_max <= config.unison_n * 2 - 1 when config.binaural_enable = '1' else config.unison_n - 1;
                 
             r_in.state <= running;
 
@@ -141,9 +140,10 @@ begin
         when running =>
 
             r_in.mux_enable <= '1'; 
-            r_in.voice_enable <= pitched_osc_inputs(r.table_count)(r.voice_count).enable;
+            r_in.voice_enable <= pitched_osc_inputs(r.table_count)(2 * r.voice_count).enable 
+                when config.binaural_enable = '1' else pitched_osc_inputs(r.table_count)(r.voice_count).enable;
 
-            if r.unison_count = 0 then 
+            if r.group_count = 0 then 
                 r_in.step_value <= s_unison_step(r.table_count)(r.voice_count);
                 r_in.mux_value <= s_unison_start(r.table_count)(r.voice_count);
             else 
@@ -153,12 +153,14 @@ begin
             -- Increment counters.
             r_in.osc_count <= minimum(N_VOICES - 1, r.osc_count + 1);
 
-            if r.unison_count < r.unison_n_minus_one then 
-                r_in.unison_count <= r.unison_count + 1;
+            if r.group_count < r.group_max then 
+                r_in.group_count <= r.group_count + 1;
             else 
-                r_in.unison_count <= 0;
+                r_in.group_count <= 0;
 
-                if r.voice_count = status.active_voices - 1 then 
+                if r.voice_count < status.polyphony - 1 then 
+                    r_in.voice_count <= r.voice_count + 1; 
+                else
                     r_in.osc_count <= 0;
                     r_in.voice_count <= 0;
                     if r.table_count < N_TABLES - 1 then 
@@ -166,8 +168,6 @@ begin
                     else 
                         r_in.state <= idle;
                     end if;
-                else
-                    r_in.voice_count <= r.voice_count + 1;                  
                 end if;
             end if;
             
@@ -178,7 +178,7 @@ begin
             r_in.spread_osc_inputs_buffer(r.mux_table)(r.mux_osc).enable <= r.voice_enable;
             r_in.spread_osc_inputs_buffer(r.mux_table)(r.mux_osc).velocity <= r.mux_value;
 
-            if r.mux_value < r.lowest_velocity_buffer then 
+            if r.voice_enable = '1' and r.mux_value < r.lowest_velocity_buffer then 
                 r_in.lowest_velocity_buffer <= r.mux_value;
             end if;
         end if;

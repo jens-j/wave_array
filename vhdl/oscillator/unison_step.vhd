@@ -46,6 +46,7 @@ architecture arch of unison_step is
         mult_b                  : signed(CTRL_SIZE - 1 downto 0);
         mult_d                  : signed(OSC_PHASE_SIZE downto 0);
         center_velocity         : t_osc_phase;
+        group_size              : integer range 1 to 2 * UNISON_MAX;
     end record;
 
     constant REG_INIT : t_unison_step_reg := (
@@ -61,14 +62,15 @@ architecture arch of unison_step is
         mult_a                  => (others => '0'),
         mult_b                  => (others => '0'),
         mult_d                  => (others => '0'),
-        center_velocity         => (others => '0')
+        center_velocity         => (others => '0'),
+        group_size              => 1
     );
 
     signal r, r_in : t_unison_step_reg;
 
 begin 
 
-    comb_process : process (r, status, next_sample, config, spread_ctrl, pitched_osc_inputs)
+    comb_process : process (r, config, status, next_sample, config, spread_ctrl, pitched_osc_inputs)
 
         variable v_mult_result : signed(OSC_PHASE_SIZE + CTRL_SIZE downto 0);
 
@@ -79,6 +81,7 @@ begin
         -- Default inputs.
         r_in.mult_a <= (others => '0');
         r_in.mult_b <= (others => '0');
+
 
         -- Connect output registers.1
         unison_start <= r.unison_start;
@@ -107,7 +110,10 @@ begin
         -- Pre-calculate stuff which depends on config or status. 
         -- Also skip if unison = 1 and set start to note velocity and step to zero.
         when prepare => 
-            if config.unison_n = 1 then 
+        
+            r_in.group_size <= config.unison_n * 2 when config.binaural_enable = '1' else config.unison_n;
+
+            if config.unison_n = 1 and config.binaural_enable = '0' then 
                 for i in 0 to N_TABLES - 1 loop
                     for j in 0 to POLYPHONY_MAX - 1 loop
                         r_in.unison_start_buffer(i)(j) <= pitched_osc_inputs(i)(j).velocity;
@@ -121,9 +127,20 @@ begin
 
         -- Calculate f * ctrl.
         when busy_0 =>
-            r_in.mult_a <= signed(resize(pitched_osc_inputs(r.table_count)(r.voice_count).velocity, OSC_PHASE_SIZE + 1));
-            r_in.center_velocity <= pitched_osc_inputs(r.table_count)(r.voice_count).velocity;
-            r_in.mult_b <= spread_ctrl(r.voice_count);
+
+            -- In binaural mode, skip every other input velocity and ctrl because sets of two voices are combined.
+            if config.binaural_enable = '1' then 
+                r_in.center_velocity <= pitched_osc_inputs(r.table_count)(2 * r.voice_count).velocity;
+                r_in.mult_b <= spread_ctrl(2 * r.voice_count);
+                r_in.mult_a <= signed(resize(
+                    pitched_osc_inputs(r.table_count)(2 * r.voice_count).velocity, OSC_PHASE_SIZE + 1));
+            else 
+                r_in.center_velocity <= pitched_osc_inputs(r.table_count)(r.voice_count).velocity;
+                r_in.mult_b <= spread_ctrl(r.voice_count);
+                r_in.mult_a <= signed(resize(
+                    pitched_osc_inputs(r.table_count)(r.voice_count).velocity, OSC_PHASE_SIZE + 1));
+            end if;
+
             r_in.next_state <= busy_1;
             r_in.state <= mult_delay;
         
@@ -137,7 +154,7 @@ begin
         -- Calculate d = 2 * D / N and U0 = f - D (step and start respectively).
         when busy_2 => 
             r_in.mult_a <= r.mult_d(OSC_PHASE_SIZE - 1 downto 0) & '0';
-            r_in.mult_b <= DIV_COEFF(config.unison_n);
+            r_in.mult_b <= DIV_COEFF(r.group_size);
             r_in.unison_start_temp <= r.center_velocity - unsigned(r.mult_d(OSC_PHASE_SIZE - 1 downto 0));
             r_in.next_state <= busy_3;
             r_in.state <= mult_delay;
@@ -149,7 +166,7 @@ begin
 
             r_in.state <= busy_0;
 
-            if r.voice_count < status.active_voices - 1 then 
+            if r.voice_count < status.polyphony - 1 then 
                 r_in.voice_count <= r.voice_count + 1;
             else 
                 r_in.voice_count <= 0;
