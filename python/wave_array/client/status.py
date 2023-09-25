@@ -9,7 +9,8 @@ class Status:
     # Packet: entire packet as array of np.int16.
     def __init__(self, client, packet=None):
 
-        self.PACKET_BYTES = (2 + 4 + (ModMap.MODS_LEN + ModMap.MODD_LEN) * client.n_voices) * 2
+        # packet header, status fields, mod source, mod destinations.
+        self.PACKET_BYTES = (2 + 5 + (ModMap.MODS_LEN + ModMap.MODD_LEN) * client.n_voices) * 2
 
         self.client = client
 
@@ -18,6 +19,7 @@ class Status:
             self.voice_enabled = [False] * self.client.n_voices
             self.voice_active = [False] * self.client.n_voices
             self.polyphony = 0
+            self.active_voices = 0
             self.active_oscillators = 0
             self.mod_sources = 0
             self.mod_destinations = 0
@@ -43,12 +45,13 @@ class Status:
         self.voice_enabled      = struct.unpack('<h', data[0:2])[0]
         self.voice_active       = struct.unpack('<h', data[2:4])[0]
         self.polyphony          = struct.unpack('<h', data[4:6])[0]
-        self.active_oscillators = struct.unpack('<h', data[6:8])[0]
+        self.active_voices      = struct.unpack('<h', data[6:8])[0]
+        self.active_oscillators = struct.unpack('<h', data[8:10])[0]
 
         self.mod_sources        = {}
         self.mod_destinations   = {}
 
-        offset = 8
+        offset = 10
 
         for source in range(ModMap.MODS_LEN):
 

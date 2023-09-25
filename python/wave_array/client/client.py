@@ -32,6 +32,7 @@ class WaveArray:
     REG_LFO_VELOCITY            = 0x00000500
     REG_LFO_WAVE                = 0x00000501
     REG_LFO_TRIGGER             = 0x00000502
+    REG_LFO_RESET               = 0x00000503
 
     REG_FILTER_CUTOFF           = 0x00000600
     REG_FILTER_RESONANCE        = 0x00000601

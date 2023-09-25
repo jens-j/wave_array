@@ -124,14 +124,36 @@ class Uart:
                     channel = self._read_bytes(1)
                     length = self._read_bytes(2)
                     data = self._read_bytes(2 * struct.unpack('<h', length)[0])
+                    
                     packet = header + channel + length + data
 
-                    # print('')
-                    # print(header)
-                    # print(channel)
-                    # print(length, struct.unpack('<h', length)[0])
-                    # print(data)
-                    # print(packet)
+                    # if channel == b'\x01':
+
+                    #     bytes_available = self.uart.in_waiting
+
+                    #     print('')
+                    #     print(header)
+                    #     print(channel)
+                    #     print(length, struct.unpack('<h', length)[0])
+                    #     print(bytes_available)
+
+                    #     if bytes_available > 0:
+
+                    #         # print(data)
+                    #         # print('')
+
+                    #         for i in range(len(packet) // 2):
+                    #             word = packet[i:i + 1]
+                    #             print(word)
+                    #             # print(f"{struct.unpack('<h', word)}")
+
+                    #         extra_data = self.uart.read(bytes_available)
+                    #         print('\nBREAK\n')
+
+                    #         for i in range(len(extra_data) // 2):
+                    #             word = extra_data[i:i + 1]
+                    #             print(word)
+
 
                     if struct.unpack('<B', channel)[0] == AutoOffloadType.AO_HK and self.hk_signal != None:
                         self.hk_signal.received.emit(packet)

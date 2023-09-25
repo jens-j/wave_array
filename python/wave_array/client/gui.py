@@ -63,6 +63,7 @@ class WaveArrayGui(QtWidgets.QMainWindow):
         self.oscilloscope_samples = np.zeros(100, dtype=np.int16)
         self.voice_enabled_buttons = []
         self.voice_active_buttons = []
+        self.voice_labels = []
         self.mod_layout = None
 
         self.curve_oscilloscope = None
@@ -70,6 +71,7 @@ class WaveArrayGui(QtWidgets.QMainWindow):
         self.curve_pot = [None]
         self.curves_lfo = [None] * self.client.n_voices
         self.curves_envelope = [None] * self.client.n_voices
+        self.curves_velocity = [None] * self.client.n_voices
         self.curves_cutoff = [None] * self.client.n_voices
         self.curves_resonance = [None] * self.client.n_voices
         self.curves_frame_0 = [None] * self.client.n_voices
@@ -77,6 +79,7 @@ class WaveArrayGui(QtWidgets.QMainWindow):
         self.curves_mix_0 = [None] * self.client.n_voices
         self.curves_mix_1 = [None] * self.client.n_voices
         self.curves_volume = [None] * self.client.n_voices
+        self.curves_spread = [None] * self.client.n_voices
         self.curve_x = np.arange(0, self.PLOT_T, self.PLOT_T / self.PLOT_SAMPLES)[::-1] # Constant used for plotting.
 
         module_path = os.path.dirname(os.path.abspath(__file__))
@@ -115,6 +118,7 @@ class WaveArrayGui(QtWidgets.QMainWindow):
         self.ui.btn_reg_write.released.connect(self.btn_reg_write_clicked)
         self.ui.btn_reset_pitch_0.released.connect(partial(self.btn_reset_pitch_clicked, 0))
         self.ui.btn_reset_pitch_1.released.connect(partial(self.btn_reset_pitch_clicked, 1))
+        self.ui.btn_lfo_reset.released.connect(self.btn_lfo_reset_clicked)
 
         self.ui.box_unison.valueChanged.connect(self.box_unison_n_changed)
         self.ui.box_hk_rate.valueChanged.connect(self.box_hk_rate_changed)
@@ -184,8 +188,9 @@ class WaveArrayGui(QtWidgets.QMainWindow):
 
         self.ui.lbl_voice_enabled.setText(f'0x{self.status.voice_enabled:04X}')
         self.ui.lbl_voice_active.setText(f'0x{self.status.voice_active:04X}')
-        self.ui.lbl_polyphony.setText(f'{self.status.polyphony:04X}')
-        self.ui.lbl_active_oscillators.setText(f'{self.status.active_oscillators:04X}')
+        self.ui.lbl_polyphony.setText(f'{self.status.polyphony:d}')
+        self.ui.lbl_active_voices.setText(f'{self.status.active_voices:d}')
+        self.ui.lbl_active_oscillators.setText(f'{self.status.active_oscillators:d}')
 
         # Set voice leds.
         for i in range(self.client.n_voices):
@@ -193,10 +198,12 @@ class WaveArrayGui(QtWidgets.QMainWindow):
             self.voice_active_buttons[i].setChecked(bool(self.status.voice_active & (1 << i)))
 
             # Grey out any unused voices in current configuration.
-            if i < self.status.polyphony:
+            if i < self.status.active_voices:
+                self.voice_labels[i].show()
                 self.voice_enabled_buttons[i].show()
                 self.voice_active_buttons[i].show()
             else:
+                self.voice_labels[i].hide()
                 self.voice_enabled_buttons[i].hide()
                 self.voice_active_buttons[i].hide()
 
@@ -212,6 +219,9 @@ class WaveArrayGui(QtWidgets.QMainWindow):
 
             self.curves_lfo[i].setData(self.curve_x, np.concatenate(
                 (self.curves_lfo[i].getData()[1][1:], [self.status.mod_sources[ModMap.MODS_LFO][i]])))
+            
+            self.curves_velocity[i].setData(self.curve_x, np.concatenate(
+                (self.curves_velocity[i].getData()[1][1:], [self.status.mod_sources[ModMap.MODS_VELOCITY][i]])))
             
             self.curves_cutoff[i].setData(self.curve_x, np.concatenate(
                 (self.curves_cutoff[i].getData()[1][1:], [self.status.mod_destinations[ModMap.MODD_CUTOFF][i]])))
@@ -234,10 +244,13 @@ class WaveArrayGui(QtWidgets.QMainWindow):
             self.curves_volume[i].setData(self.curve_x, np.concatenate(
                 (self.curves_volume[i].getData()[1][1:], [self.status.mod_destinations[ModMap.MODD_VOLUME][i]])))
             
+            self.curves_spread[i].setData(self.curve_x, np.concatenate(
+                (self.curves_spread[i].getData()[1][1:], [self.status.mod_destinations[ModMap.MODD_UNISON][i]])))
+            
             # Don't show curves for unused polyphonic voices.
             for curves in self.modd_curves:
                 
-                if i < self.status.polyphony:
+                if i < self.status.polyphony * (2 if self.ui.btn_enable_binaural.isChecked() else 1):
                     curves[i].show()
                 else:
                     curves[i].hide()
@@ -260,7 +273,7 @@ class WaveArrayGui(QtWidgets.QMainWindow):
                 elif wavetable.n_frames_log2 == 1: 
                     self.curves_waveforms[j][i].setData(wavetable.frames[0] + np.int16(
                         self.status.mod_destinations[dest][i] 
-                        * np.int32(wavetable.frames[1] - wavetable.frames[0]) // 2**15))
+                        * np.int32(wavetable.frames[1]) - np.int32(wavetable.frames[0]) // 2**15))
 
                 # interpolate between frames a and b.
                 else:
@@ -270,7 +283,13 @@ class WaveArrayGui(QtWidgets.QMainWindow):
                     d_max = 2**(15 - wavetable.n_frames_log2) - 1
                     
                     self.curves_waveforms[j][i].setData(wavetable.frames[index_a] 
-                        + np.int16(d * np.int32(wavetable.frames[index_b] - wavetable.frames[index_a]) // d_max))     
+                        + np.int16(np.int32(d) * (np.int32(wavetable.frames[index_b]) 
+                                                  - np.int32(wavetable.frames[index_a])) // d_max))
+                    
+                if i < self.status.polyphony * (2 if self.ui.btn_enable_binaural.isChecked() else 1):
+                    self.curves_waveforms[j][i].show()
+                else:
+                    self.curves_waveforms[j][i].hide()
 
 
     # Perform a software reset on the fpga and reload the gui.
@@ -418,6 +437,8 @@ class WaveArrayGui(QtWidgets.QMainWindow):
                 else:
                     self.voice_active_buttons.append(btn)
 
+            self.voice_labels.append(label)
+
             count = self.ui.group_voices.layout().count()
             self.ui.group_voices.layout().insertLayout(count - 1, layout, 0) # Insert at the end but before spacer.
 
@@ -478,11 +499,17 @@ class WaveArrayGui(QtWidgets.QMainWindow):
         self.ui.plot_mix_1.hideAxis('bottom')
 
         self.ui.plot_volume.setBackground(bg_color)
-        self.ui.plot_volume.setTitle('volume')
+        self.ui.plot_volume.setTitle('mixer volume')
         self.ui.plot_volume.setYRange(-1, 2**15, padding=0)
         self.ui.plot_volume.hideAxis('left')
         self.ui.plot_volume.hideAxis('bottom')
         
+        self.ui.plot_spread.setBackground(bg_color)
+        self.ui.plot_spread.setTitle('unison spread')
+        self.ui.plot_spread.setYRange(-1, 2**15, padding=0)
+        self.ui.plot_spread.hideAxis('left')
+        self.ui.plot_spread.hideAxis('bottom')
+
         self.ui.plot_pot.setBackground(bg_color)
         self.ui.plot_pot.setTitle('potentiometer')
         self.ui.plot_pot.setYRange(-1, 2**15, padding=0)
@@ -500,6 +527,12 @@ class WaveArrayGui(QtWidgets.QMainWindow):
         self.ui.plot_lfo.setYRange(-2**15, 2**15, padding=0)
         self.ui.plot_lfo.hideAxis('left')
         self.ui.plot_lfo.hideAxis('bottom')
+
+        self.ui.plot_velocity.setBackground(bg_color)
+        self.ui.plot_velocity.setTitle('midi velocity')
+        self.ui.plot_velocity.setYRange(-2**15, 2**15, padding=0)
+        self.ui.plot_velocity.hideAxis('left')
+        self.ui.plot_velocity.hideAxis('bottom')
 
         self.ui.plot_waveform_0.setBackground(bg_color)
         self.ui.plot_waveform_0.setTitle('wavetable A')
@@ -543,6 +576,9 @@ class WaveArrayGui(QtWidgets.QMainWindow):
 
             self.curves_lfo[i] = self.ui.plot_lfo.plot(
                 self.curve_x, np.zeros(self.PLOT_SAMPLES), name=f'voice {i}', pen=pen)
+            
+            self.curves_velocity[i] = self.ui.plot_velocity.plot(
+                self.curve_x, np.zeros(self.PLOT_SAMPLES), name=f'voice {i}', pen=pen)
 
             self.curves_cutoff[i] = self.ui.plot_cutoff.plot(
                 self.curve_x, np.zeros(self.PLOT_SAMPLES), name=f'voice {i}', pen=pen)
@@ -564,13 +600,16 @@ class WaveArrayGui(QtWidgets.QMainWindow):
 
             self.curves_volume[i] = self.ui.plot_volume.plot(
                 self.curve_x, np.zeros(self.PLOT_SAMPLES), name=f'voice {i}', pen=pen)
+            
+            self.curves_spread[i] = self.ui.plot_spread.plot(
+                self.curve_x, np.zeros(self.PLOT_SAMPLES), name=f'voice {i}', pen=pen)
 
             self.curves_waveforms[0][i] = self.ui.plot_waveform_0.plot(np.zeros(2048), name=f'voice {i}', pen=pen)
             self.curves_waveforms[1][i] = self.ui.plot_waveform_1.plot(np.zeros(2048), name=f'voice {i}', pen=pen)
 
-        self.modd_curves = [self.curves_envelope, self.curves_lfo, self.curves_cutoff, self.curves_resonance, 
-                            self.curves_frame_0, self.curves_frame_1, self.curves_mix_0, self.curves_mix_1, 
-                            self.curves_volume]
+        self.modd_curves = [self.curves_envelope, self.curves_lfo, self.curves_velocity, self.curves_cutoff, 
+                            self.curves_resonance, self.curves_frame_0, self.curves_frame_1, self.curves_mix_0, 
+                            self.curves_mix_1, self.curves_volume, self.curves_spread]
 
 
     def show(self):
@@ -693,6 +732,9 @@ class WaveArrayGui(QtWidgets.QMainWindow):
     def btn_enable_hk_clicked(self, checked):
         self.client.write(WaveArray.REG_HK_ENABLE, int(checked))
 
+    def btn_lfo_reset_clicked(self):
+        self.client.write(WaveArray.REG_LFO_RESET, 1)
+
     def box_hk_rate_changed(self, rate):
         period = 100E6 / (1024 * rate)
         self.client.write(WaveArray.REG_HK_PERIOD, np.uint16(period))
@@ -734,6 +776,11 @@ class WaveArrayGui(QtWidgets.QMainWindow):
         self.client.write(WaveArray.REG_LFO_WAVE, index)
 
     def set_mod_amount(self, control_value):
+
+        # Reduce mod amount from frr\equency moduation to make it more usable. 
+        if self.mod_destination in [ModMap.MODD_OSC_0_FREQ, ModMap.MODD_OSC_1_FRAME]:
+            control_value = control_value >> 6
+
         self.modmap.write_amount(self.mod_destination, self.mod_source, control_value)
 
         if control_value <= 0:
