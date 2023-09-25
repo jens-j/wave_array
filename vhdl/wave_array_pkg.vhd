@@ -209,7 +209,7 @@ package wave_array_pkg is
     constant REG_LFO_VELOCITY       : unsigned := x"0000500"; -- rw 15 bit unsigned | LFO velocity control value. 
     constant REG_LFO_WAVE           : unsigned := x"0000501"; -- rw 16 bit unsigned | Select LFO waveform. Clipped to LFO_N_WAVEFORMS - 1.
     constant REG_LFO_TRIGGER        : unsigned := x"0000502"; -- rw  1 bit          | Write '1' to enable LFO sync to voices. 
-
+    constant REG_LFO_RESET          : unsigned := x"0000503"; -- wo  1 bit          | Write '1' reset all LFO phases.
     constant REG_FILTER_CUTOFF      : unsigned := x"0000600"; -- rw 15 bit unsigned | Filter cutoff control value. 
     constant REG_FILTER_RESONANCE   : unsigned := x"0000601"; -- rw 15 bit unsigned | Filter resonance control value. 
     constant REG_FILTER_SELECT      : unsigned := x"0000602"; -- rw 3  bit          | Filter output select. 1 = LP, 2 = HP, 3 = BP, 4 = BS, 5 = bypass.
@@ -290,7 +290,7 @@ package wave_array_pkg is
     type t_frame_position_array is array (natural range <>) of t_frame_position;
 
     type t_gain_coeff_array is array (1 to POLYPHONY_MAX) of t_ctrl_value;
-    type t_div_coeff_array is array (1 to UNISON_MAX) of t_ctrl_value;
+    type t_div_coeff_array is array (1 to 2 * UNISON_MAX) of t_ctrl_value;
 
     type t_active_oscillators_array is array (1 to UNISON_MAX) of integer range 1 to N_VOICES;
 
@@ -347,6 +347,7 @@ package wave_array_pkg is
         binaural_enable         : std_logic;
         unison_n                : integer range 1 to UNISON_MAX; 
         lfo_wave_select         : integer range 0 to LFO_N_WAVEFORMS - 1;
+        lfo_reset               : std_logic; -- phase reset strobe.
         filter_select           : integer range 0 to 4;
         lfo_velocity            : t_ctrl_value;
         lfo_trigger             : std_logic;
@@ -366,8 +367,7 @@ package wave_array_pkg is
         active_oscillators      : integer range 1 to N_VOICES; -- Total active oscillators depending on the unison and binaural settings.
         mod_sources             : t_mods_array;
         mod_destinations        : t_modd_array;
-        debug_wave_state_offload: integer;
-        debug_wave_state_sample : integer;
+        debug_wave_state        : integer;
         debug_wave_fifo_count   : integer;
         debug_wave_timer        : std_logic_vector(15 downto 0); -- Only 16 lsb.
         debug_wave_flags        : std_logic_vector(5 downto 0); -- Flags: wave_req & wave_ready & fifo_empty & fifo_full.
@@ -455,36 +455,7 @@ package wave_array_pkg is
         frames_log2             => 0                -- Log2 of number of frames in the wavetable.
     );
 
-    constant CONFIG_INIT : t_config := (
-        led                     => '0',
-        base_ctrl               => (0 => x"4000",
-                                    1 => x"0400",
-                                    2 => x"0000",
-                                    3 => x"0000",
-                                    4 => x"0000",
-                                    5 => x"7FFF",
-                                    6 => x"7FFF",
-                                    7 => x"0000",
-                                    8 => x"0000",
-                                    9 => x"0000"),
-
-        mod_mapping             => (others => (others => MOD_MAPPING_INIT)),
-        hk_enable               => '0',
-        hk_period               => x"078f", -- 1935 ~= 20 ms => 50 Hz.
-        wave_enable             => '0',
-        wave_period             => x"078f", -- 1935 ~= 20 ms => 50 Hz.
-        binaural_enable         => '0',
-        unison_n                => 1,
-        lfo_wave_select         => 0,
-        lfo_velocity            => (others => '0'),
-        lfo_trigger             => '0',
-        filter_select           => 0, -- Lowpass
-        envelope_attack         => x"0010",
-        envelope_decay          => x"0020",
-        envelope_sustain        => x"4000",
-        envelope_release        => x"0100",
-        dma_input               => (others => DMA_INPUT_INIT)
-    );
+    
 
     constant SDRAM_INPUT_INIT : t_sdram_input := (
         read_enable             => '0',
@@ -583,6 +554,7 @@ package wave_array_pkg is
     function GENERATE_DIV_COEFF_ARRAY return t_div_coeff_array;
     function CALCULATE_POLYPHONY (binaural : in std_logic) return t_polyphony_array;
     function CALCULATE_ACTIVE_OSCILLATORS (binaural : in std_logic) return t_active_oscillators_array;
+    function INITIALIZE_CONFIG return t_config;
 
 end package;
 
@@ -595,6 +567,49 @@ package body wave_array_pkg is
         else 
             return SYNTH_FILE_PATH;
         end if;
+    end;
+
+    function INITIALIZE_CONFIG return t_config is
+        variable mapping : t_mod_mapping_2d_array := (others => (others => MOD_MAPPING_INIT));
+        variable config : t_config;
+    begin
+
+        -- Map envelope to mixer with max amount. 
+        mapping(MODD_MIXER)(0) := (MODS_ENVELOPE, x"7FFF"); 
+
+        config := (
+            led                     => '0',
+            base_ctrl               => (0 => x"4000",
+                                        1 => x"0400",
+                                        2 => x"0000",
+                                        3 => x"0000",
+                                        4 => x"0000",
+                                        5 => x"7FFF",
+                                        6 => x"7FFF",
+                                        7 => x"0000",
+                                        8 => x"0000",
+                                        9 => x"0000"),
+
+            mod_mapping             => mapping, 
+            hk_enable               => '0',
+            hk_period               => x"078F", -- 1935 ~= 20 ms => 50 Hz.
+            wave_enable             => '0',
+            wave_period             => x"0F1E", -- 2870 ~= 40 ms => 25 Hz.
+            binaural_enable         => '0',
+            unison_n                => 1,
+            lfo_wave_select         => 0,
+            lfo_velocity            => (others => '0'),
+            lfo_trigger             => '0',
+            lfo_reset               => '0',
+            filter_select           => 0, -- Lowpass
+            envelope_attack         => x"0010",
+            envelope_decay          => x"0020",
+            envelope_sustain        => x"4000",
+            envelope_release        => x"0100",
+            dma_input               => (others => DMA_INPUT_INIT)
+        );
+
+        return config;
     end;
 
     -- Serialize status record to a std_logic_vector. The debug entries are excluded.
@@ -614,7 +629,7 @@ package body wave_array_pkg is
         -- end if;
 
         v_ser(15 downto 0)  := std_logic_vector(resize(unsigned(status.voice_enabled), 16));
-        v_ser(31 downto 16) := std_logic_vector(resize(unsigned(status.voice_enabled), 16));
+        v_ser(31 downto 16) := std_logic_vector(resize(unsigned(status.voice_active), 16));
         v_ser(47 downto 32) := std_logic_vector(to_unsigned(status.polyphony, 16));
         v_ser(63 downto 48) := std_logic_vector(to_unsigned(status.active_voices, 16));
         v_ser(79 downto 64) := std_logic_vector(to_unsigned(status.active_oscillators, 16));
@@ -654,8 +669,12 @@ package body wave_array_pkg is
     function GENERATE_DIV_COEFF_ARRAY return t_div_coeff_array is
         variable v_coeff_array : t_div_coeff_array;
     begin 
-        for i in 1 to UNISON_MAX loop 
-            v_coeff_array(i) := to_signed((2**15 - 1) / i, CTRL_SIZE);
+        for i in 1 to 2 * UNISON_MAX loop 
+            if i = 1 then 
+                v_coeff_array(i) := (others => '0');
+            else 
+                v_coeff_array(i) := to_signed((2**15 - 1) / (i - 1), CTRL_SIZE);
+            end if;
         end loop;
 
         return v_coeff_array;

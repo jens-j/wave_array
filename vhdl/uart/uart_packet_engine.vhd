@@ -25,6 +25,7 @@ entity uart_packet_engine is
         -- TX fifo interface.
         tx_write_enable         : out std_logic;
         tx_data                 : out std_logic_vector(7 downto 0);
+        tx_data_count           : in  std_logic_vector(11 downto 0);
 
         -- Register file interface.
         register_input          : out t_register_input;
@@ -43,6 +44,7 @@ entity uart_packet_engine is
         wave_write_enable       : in  std_logic;
         wave_data               : in  std_logic_vector(15 downto 0);
         wave_full               : out std_logic;
+        wave_count              : out std_logic_vector(12 downto 0);
 
         debug_flags             : out std_logic_vector(3 downto 0);
         debug_state             : out integer;
@@ -158,6 +160,7 @@ begin
 
     hk_full <= s_hk2u_fifo_full;
     wave_full <= s_wave2u_fifo_full;
+    wave_count <= s_wave2u_fifo_rd_count;
 
     debug_flags <= s_s2u_fifo_full & s_u2s_fifo_full & s_hk2u_fifo_full & s_wave2u_fifo_full;
 
@@ -234,7 +237,7 @@ begin
     sdram_input.write_data <= s_u2s_fifo_dout;
     s_u2s_fifo_rd_en <= sdram_output.write_req or sdram_output.done;
 
-    comb_process : process (r, rx_empty, rx_data, register_output, sdram_output, s_s2u_fifo_dout,
+    comb_process : process (r, rx_empty, rx_data, tx_data_count, register_output, sdram_output, s_s2u_fifo_dout,
         s_s2u_fifo_empty, s_u2s_fifo_rd_count, s_s2u_fifo_rd_count, 
         s_hk2u_fifo_rd_count, s_hk2u_fifo_dout, s_wave2u_fifo_rd_count, s_wave2u_fifo_dout, s_wave2u_fifo_empty)
 
@@ -306,7 +309,7 @@ begin
         -- Write opcode to UART.
         elsif r.state = offload_wave_0 then 
 
-            if s_wave2u_fifo_empty = '0' then
+            if s_wave2u_fifo_empty = '0' and to_integer(unsigned(tx_data_count)) < 2046 then
                 r_in.tx_write_enable <= '1';
                 r_in.tx_data <= s_wave2u_fifo_dout;
                 s_wave2u_fifo_rd_en <= '1';
@@ -316,7 +319,7 @@ begin
         -- Write channel to UART.
         elsif r.state = offload_wave_1 then 
 
-            if s_wave2u_fifo_empty = '0' then
+            if s_wave2u_fifo_empty = '0' and to_integer(unsigned(tx_data_count)) < 2046 then
                 r_in.tx_write_enable <= '1';
                 r_in.tx_data <= s_wave2u_fifo_dout;
                 s_wave2u_fifo_rd_en <= '1';
@@ -326,7 +329,7 @@ begin
         -- Write lsb byte of packet data length to UART.
         elsif r.state = offload_wave_2 then 
 
-            if s_wave2u_fifo_empty = '0' then
+            if s_wave2u_fifo_empty = '0' and to_integer(unsigned(tx_data_count)) < 2046 then
                 r_in.tx_write_enable <= '1';
                 r_in.tx_data <= s_wave2u_fifo_dout;
                 r_in.length_lsb <= s_wave2u_fifo_dout;
@@ -337,18 +340,18 @@ begin
         -- Write msb and calculate length.
         elsif r.state = offload_wave_3 then 
 
-            if s_wave2u_fifo_empty = '0' then
+            if s_wave2u_fifo_empty = '0' and to_integer(unsigned(tx_data_count)) < 2046 then
                 r_in.tx_write_enable <= '1';
                 r_in.tx_data <= s_wave2u_fifo_dout;
                 s_wave2u_fifo_rd_en <= '1';
-                r_in.wave_count <= 2 * to_integer(unsigned(s_wave2u_fifo_dout) & unsigned(r.length_lsb)); -- Convert from words to bytes.
+                r_in.wave_count <= minimum(65335, 2 * to_integer(unsigned(s_wave2u_fifo_dout) & unsigned(r.length_lsb))); -- Convert from words to bytes. Minimum is to avoid transient out of range simulation issues.  
                 r_in.state <= offload_wave_4;
             end if;
 
         -- Write packet data bytes.
         elsif r.state = offload_wave_4 then 
 
-            if s_wave2u_fifo_empty = '0' then
+            if s_wave2u_fifo_empty = '0' and to_integer(unsigned(tx_data_count)) < 2046 then
                 r_in.tx_write_enable <= '1';
                 r_in.tx_data <= s_wave2u_fifo_dout;
                 s_wave2u_fifo_rd_en <= '1';
@@ -363,14 +366,16 @@ begin
         -- Write a hk packet from the hk fifo to the uart tx fifo.
         elsif r.state = offload_hk then 
 
-            r_in.tx_write_enable <= '1';
-            r_in.tx_data <= s_hk2u_fifo_dout;
-            s_hk2u_fifo_rd_en <= '1';
+            if to_integer(unsigned(tx_data_count)) < 2046 then
+                r_in.tx_write_enable <= '1';
+                r_in.tx_data <= s_hk2u_fifo_dout;
+                s_hk2u_fifo_rd_en <= '1';
 
-            if r.hk_count < HK_PACKET_BYTES - 1 then 
-                r_in.hk_count <= r.hk_count + 1;
-            else
-                r_in.state <= idle;
+                if r.hk_count < HK_PACKET_BYTES - 1 then 
+                    r_in.hk_count <= r.hk_count + 1;
+                else
+                    r_in.state <= idle;
+                end if;
             end if;
                 
         -- Read a predefined number of bytes MSB first from the rx fifo into the word buffer.
@@ -437,7 +442,7 @@ begin
 
         -- Send ack or error response.
         elsif r.state = write_reg_2 then
-            if register_output.valid = '1' then
+            if register_output.valid = '1' and to_integer(unsigned(tx_data_count)) < 2046 then
                 r_in.tx_write_enable <= '1';
                 if register_output.fault = '1' then 
                     r_in.tx_data <= UART_ERROR_REP;
@@ -560,9 +565,11 @@ begin
 
         -- Send the error code that is part of an error response and return to the idle state.
         elsif r.state = send_error_rep then
-            r_in.tx_write_enable <= '1';
-            r_in.tx_data <= r.error_code;
-            r_in.state <= idle;
+            if to_integer(unsigned(tx_data_count)) < 2046 then
+                r_in.tx_write_enable <= '1';
+                r_in.tx_data <= r.error_code;
+                r_in.state <= idle;
+            end if;
         end if;
 
         -- -- If a message takes more than a second an error response is sent.

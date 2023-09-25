@@ -32,6 +32,7 @@ entity uart_subsystem is
         wave_write_enable       : in  std_logic;
         wave_data               : in  std_logic_vector(15 downto 0);
         wave_full               : out std_logic;
+        wave_count              : out std_logic_vector(12 downto 0);
 
         -- UART ports.
         UART_RX                 : in  std_logic;
@@ -57,10 +58,13 @@ architecture arch of uart_subsystem is
     signal s_tx_fifo_empty      : std_logic;
     signal s_tx_fifo_rd_en      : std_logic;
     signal s_tx_fifo_din        : std_logic_vector(7 downto 0);
+    signal s_tx_fifo_full       : std_logic;
+    signal s_tx_fifo_data_count : std_logic_vector(11 downto 0);
 
     signal s_rx_fifo_empty      : std_logic;
     signal s_rx_fifo_rd_en      : std_logic;
     signal s_rx_fifo_dout       : std_logic_vector(7 downto 0);
+    signal s_rx_fifo_full       : std_logic;
 
 begin
 
@@ -77,6 +81,7 @@ begin
         rx_data                 => s_rx_fifo_dout,
         tx_write_enable         => s_tx_fifo_wr_en,
         tx_data                 => s_tx_fifo_din,
+        tx_data_count           => s_tx_fifo_data_count,
         register_output         => register_output,
         register_input          => register_input,
         sdram_input             => sdram_input,
@@ -87,6 +92,7 @@ begin
         wave_write_enable       => wave_write_enable,
         wave_data               => wave_data,
         wave_full               => wave_full,
+        wave_count              => wave_count,
         debug_flags             => debug_flags,
         debug_state             => debug_state,
         debug_hk_fifo_count     => debug_hk_fifo_count
@@ -114,8 +120,9 @@ begin
         wr_en                   => s_rx_fifo_wr_en,
         rd_en                   => s_rx_fifo_rd_en,
         dout                    => s_rx_fifo_dout,
-        full                    => open,
-        empty                   => s_rx_fifo_empty
+        full                    => s_rx_fifo_full,
+        empty                   => s_rx_fifo_empty,
+        data_count              => open
     );
 
 
@@ -142,7 +149,8 @@ begin
         wr_en                   => s_tx_fifo_wr_en,
         rd_en                   => s_tx_fifo_rd_en,
         dout                    => s_tx_fifo_dout,
-        full                    => open,
-        empty                   => s_tx_fifo_empty
+        full                    => s_tx_fifo_full,
+        empty                   => s_tx_fifo_empty,
+        data_count              => s_tx_fifo_data_count
     );
 end architecture;
