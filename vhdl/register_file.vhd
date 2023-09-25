@@ -45,8 +45,8 @@ architecture arch of register_file is
 
     constant REG_INIT : t_packet_engine_reg := (
         software_reset          => '0',
-        config                  => CONFIG_INIT,
-        config_buffer           => CONFIG_INIT,
+        config                  => INITIALIZE_CONFIG,
+        config_buffer           => INITIALIZE_CONFIG,
         register_output         => ('0', '0', (others => '0')),
         faults                  => (others => '0'),
         polyphony               => 1,
@@ -79,6 +79,7 @@ begin
         r_in <= r;
         r_in.software_reset <= '0';
         r_in.register_output <= ('0', '0', (others => '0'));
+        r_in.config.lfo_reset <= '0'; -- Clear lfo_reset output after one cycle.
 
         polyphony <= r.polyphony;
         active_voices <= r.active_voices;
@@ -97,8 +98,9 @@ begin
             r_in.polyphony <= r.polyphony_buffer;
             r_in.active_voices <= r.active_voices_buffer;
             r_in.active_oscillators <= r.active_oscillators_buffer;
+            r_in.config_buffer.lfo_reset <= '0'; -- Reset  lfo_reset flag.
 
-            -- Reset any new_table flags.
+            -- Reset new_table flags.
             for i in 0 to N_TABLES - 1 loop 
                 r_in.config_buffer.dma_input(i).new_table <= '0'; 
             end loop;
@@ -346,6 +348,9 @@ begin
 
             elsif register_input.address = REG_LFO_TRIGGER then
                 r_in.config_buffer.lfo_trigger <= register_input.write_data(0);
+
+            elsif register_input.address = REG_LFO_RESET then
+                r_in.config_buffer.lfo_reset <= '1';
 
             elsif register_input.address = REG_FILTER_CUTOFF then
                 r_in.config_buffer.base_ctrl(MODD_FILTER_CUTOFF) <= signed(register_input.write_data);

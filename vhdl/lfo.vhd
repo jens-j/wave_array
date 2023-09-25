@@ -188,10 +188,10 @@ begin
             r_in.phase_raw <= r.phase(r.index_shift(PIPE_SUM_ACC - 1)) + signed(r.phase_delta);
         end if;
 
-        -- Pipeline stage 3: clip accumulator. Reset phase if a sync pulse is received.
+        -- Pipeline stage 3: clip accumulator. Reset phase if a sync pulse is received or the LFO phase is reset.
         if r.valid_shift(PIPE_SUM_CLIP - 1) = '1' then 
 
-            if r.sync(r.index_shift(PIPE_SUM_CLIP - 1)) = '1' then 
+            if config.lfo_reset = '1' or r.sync(r.index_shift(PIPE_SUM_CLIP - 1)) = '1' then 
 
                 r_in.sync(r.index_shift(PIPE_SUM_CLIP - 1)) <= '0';
                 r_in.phase(r.index_shift(PIPE_SUM_CLIP - 1)) <= (others => '0');

@@ -46,7 +46,6 @@ architecture arch of midi_slave is
         lowest_voice            : integer range 0 to POLYPHONY_MAX - 1;
         highest_note            : t_midi_number;
         highest_voice           : integer range 0 to POLYPHONY_MAX - 1;
-        polyphony               : integer range 1 to POLYPHONY_MAX;
     end record;
 
     constant REG_INIT : t_midi_slave_reg := (
@@ -63,8 +62,7 @@ architecture arch of midi_slave is
         lowest_note             => 127,
         lowest_voice            => 0,
         highest_note            => 0,
-        highest_voice           => 0,
-        polyphony               => 1
+        highest_voice           => 0
     );
 
     -- Register.
@@ -124,7 +122,13 @@ begin
                     --     voice_off_0 when MIDI_VOICE_MSG_OFF,
                     --     idle when others;
 
-                    r_in.polyphony <= status.polyphony;
+                    -- Clear all notes playing in unused voices.
+                    for i in 0 to POLYPHONY_MAX - 1 loop 
+                        if i >= status.active_voices then 
+                            r_in.voices(i) <= ('0', '0', (0, 0, 0), (others => '0'));
+                        end if;
+                    end loop;
+
                     r_in.octave <= -1;
                     r_in.voice_select <= 0;
                     r_in.midi_command <= midi_message_s.status_byte(7 downto 4);
@@ -142,15 +146,15 @@ begin
             when voice_on_1 =>
                 v_enable := '0' when r.midi_velocity = (0 to 6 => '0') else '1';
 
+
+                r_in.voices(r.voice_select) <= 
+                    (v_enable, '1', (r.midi_number, r.midi_key, r.octave), r.midi_velocity);
+
+                -- Voices are doubled in binaural mode.
                 if config.binaural_enable = '1' then 
-                    r_in.voices(2 * r.voice_select) <= 
+                    r_in.voices(r.voice_select + 1) <= 
                         (v_enable, '1', (r.midi_number, r.midi_key, r.octave), r.midi_velocity);
-                    r_in.voices(2 * r.voice_select + 1) <= 
-                        (v_enable, '1', (r.midi_number, r.midi_key, r.octave), r.midi_velocity);
-                else 
-                    r_in.voices(r.voice_select) <= 
-                        (v_enable, '1', (r.midi_number, r.midi_key, r.octave), r.midi_velocity);
-                end if;
+                end if; 
 
                 -- Update lowest and highest notes and voices.
                 if r.midi_number < r.lowest_note then 
@@ -170,14 +174,12 @@ begin
 
             when voice_off_1 =>
 
+                r_in.voices(r.voice_select) <= 
+                    ('0', '1', (r.midi_number, r.midi_key, r.octave), (others => '0'));
+
                 if config.binaural_enable = '1' then 
-                    r_in.voices(2 * r.voice_select) <= 
-                        ('0', '1', (r.midi_number, r.midi_key, r.octave), (others => '0'));
-                    r_in.voices(2 * r.voice_select + 1) <= 
-                        ('0', '1', (r.midi_number, r.midi_key, r.octave), (others => '0'));
-                else
-                    r_in.voices(r.voice_select) <= 
-                        ('0', '1', (r.midi_number, r.midi_key, r.octave), (others => '0'));
+                    r_in.voices(r.voice_select + 1) <= 
+                        ('0', '1', (r.midi_number, r.midi_key, r.octave), (others => '0'));                   
                 end if;
 
                 -- Always run the min max search when a note is released. Even when there are no active notes, 
@@ -190,8 +192,13 @@ begin
 
                 if r.voices(r.voice_select).note.number = r.midi_number then
                     r_in.state <= r.next_state;
-                elsif r.voice_select < r.polyphony - 1 then
+                
+                elsif config.binaural_enable = '1' and r.voice_select < status.active_voices - 2  then 
+                    r_in.voice_select <= r.voice_select + 2;
+
+                elsif config.binaural_enable = '0' and r.voice_select < status.active_voices - 1 then 
                     r_in.voice_select <= r.voice_select + 1;
+
                 else
                     if r.midi_command = MIDI_VOICE_MSG_ON then
                         r_in.voice_select <= 0;
@@ -206,13 +213,17 @@ begin
 
                 -- Take into account that in binaural mode the control signals (which determine the envelope) are doubled for each voice.
                 if (config.binaural_enable = '0' and envelope_active(r.voice_select) = '0') 
-                        or (config.binaural_enable = '1' and envelope_active(2 * r.voice_select) = '0' 
-                            and envelope_active(2 * r.voice_select + 1) = '0') then
+                        or (config.binaural_enable = '1' and envelope_active(r.voice_select) = '0' 
+                            and envelope_active(r.voice_select + 1) = '0') then
 
                     r_in.state <= r.next_state;
-            
-                elsif r.voice_select < r.polyphony - 1 then
+
+                elsif config.binaural_enable = '1' and r.voice_select < status.active_voices - 2 then 
+                    r_in.voice_select <= r.voice_select + 2;
+
+                elsif config.binaural_enable = '0' and r.voice_select < status.active_voices - 1 then 
                     r_in.voice_select <= r.voice_select + 1;
+
                 else
                     r_in.voice_select <= 0;
                     r_in.state <= find_released_voice; -- No free voices.
@@ -222,11 +233,16 @@ begin
             when find_released_voice =>
                 if r.voices(r.voice_select).enable = '0' then
                     r_in.state <= r.next_state;
-                elsif r.voice_select = r.polyphony - 1 then
+
+                elsif config.binaural_enable = '1' and r.voice_select < status.active_voices - 2 then
+                    r_in.voice_select <= r.voice_select + 2;
+                    
+                elsif config.binaural_enable = '0' and r.voice_select < status.active_voices - 1 then 
+                    r_in.voice_select <= r.voice_select + 1;
+
+                else
                     r_in.voice_select <= 0;
                     r_in.state <= steal_voice; -- No free voices.
-                else
-                    r_in.voice_select <= r.voice_select + 1;
                 end if;
 
             -- Loop over all voices and replace the first active voice that is not the lowest or highest note.
@@ -241,8 +257,12 @@ begin
                     
                     r_in.state <= voice_on_1;
                 
-                elsif r.voice_select < r.polyphony - 1 then 
+                elsif config.binaural_enable = '1' and r.voice_select < status.active_voices - 2 then
+                    r_in.voice_select <= r.voice_select + 2;
+
+                elsif config.binaural_enable = '0' and r.voice_select < status.active_voices - 1 then 
                     r_in.voice_select <= r.voice_select + 1;
+
                 else 
                     r_in.state <= idle; -- This should never happen
                 end if;
@@ -282,10 +302,13 @@ begin
                     end if;
                 end if;
 
-                if r.voice_select >= r.polyphony - 1 then 
-                    r_in.state <= r.next_state;
-                else 
+                if config.binaural_enable = '1' and r.voice_select < status.active_voices - 2 then
+                    r_in.voice_select <= r.voice_select + 2;
+
+                elsif config.binaural_enable = '0' and r.voice_select < status.active_voices - 1 then 
                     r_in.voice_select <= r.voice_select + 1;
+                else 
+                    r_in.state <= r.next_state;
                 end if;
 
         end case;

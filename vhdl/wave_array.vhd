@@ -102,15 +102,15 @@ architecture arch of wave_array is
     signal s_wave_write_enable  : std_logic;
     signal s_wave_data          : std_logic_vector(15 downto 0);
     signal s_wave_full          : std_logic;
+    signal s_wave_count         : std_logic_vector(12 downto 0);
 
     signal s_polyphony          : integer range 1 to POLYPHONY_MAX;
     signal s_active_voices      : integer range 1 to POLYPHONY_MAX;
     signal s_active_oscillators : integer range 1 to N_VOICES;
 
     signal s_new_period         : std_logic_vector(N_VOICES - 1 downto 0);
-    signal s_debug_wave_state_offload   : integer;
-    signal s_debug_wave_state_sample    : integer;
-    signal s_debug_wave_fifo_count      : integer range 0 to 2047;
+    signal s_debug_wave_state   : integer;
+    signal s_debug_wave_fifo_count : integer range 0 to 2047;
     signal s_debug_wave_timer   : std_logic_vector(15 downto 0);
     signal s_debug_wave_flags   : std_logic_vector(5 downto 0);
     signal s_debug_uart_flags   : std_logic_vector(3 downto 0);
@@ -163,9 +163,8 @@ begin
     s_status.polyphony          <= s_polyphony;
     s_status.active_voices      <= s_active_voices;
     s_status.active_oscillators <= s_active_oscillators;
-    s_status.debug_wave_state_offload   <= s_debug_wave_state_offload;
-    s_status.debug_wave_state_sample    <= s_debug_wave_state_sample;
-    s_status.debug_wave_fifo_count      <= s_debug_wave_fifo_count;
+    s_status.debug_wave_state   <= s_debug_wave_state;
+    s_status.debug_wave_fifo_count <= s_debug_wave_fifo_count;
     s_status.debug_wave_timer   <= s_debug_wave_timer;
     s_status.debug_wave_flags   <= s_debug_wave_flags;
     s_status.debug_uart_flags   <= s_debug_uart_flags;
@@ -224,6 +223,7 @@ begin
         wave_write_enable       => s_wave_write_enable,
         wave_data               => s_wave_data,
         wave_full               => s_wave_full,
+        wave_count              => s_wave_count,
         UART_RX                 => UART_RX,
         UART_TX                 => UART_TX,
         debug_flags             => s_debug_uart_flags,
@@ -254,8 +254,8 @@ begin
         wave_write_enable       => s_wave_write_enable,
         wave_data               => s_wave_data,
         wave_full               => s_wave_full,
-        debug_state_offload     => s_debug_wave_state_offload,
-        debug_state_sample      => s_debug_wave_state_sample,
+        wave_count              => s_wave_count,
+        debug_state             => s_debug_wave_state,
         debug_fifo_count        => s_debug_wave_fifo_count,
         debug_timer             => s_debug_wave_timer,
         debug_flags             => s_debug_wave_flags
