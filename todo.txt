@@ -1,0 +1,23 @@
+Issues: 
+- GUI: wave view overflow
+- envelope: audio glitches during transition to sustain and on note stealing during release
+- wave offload does not work
+
+Features:
+- envelope looping
+- extra envelope
+- extra LFO
+- LFO: binaural phase difference
+- legato/slew limiter
+- better filter
+- envelope to mixer mod connection at startup
+
+Modifications:
+- Use single process for wave offload and continuously update sampled wave when idle
+- combine unison and binaural oscillators when calculating spreads
+
+Optimizations:
+table interpolator: frame indices and positions are calculated for every voice in parallel while ony one is uses each cycle
+
+Open Problems:
+- integrating midi velocity in the voice mixer
