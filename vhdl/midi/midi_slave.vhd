@@ -291,7 +291,8 @@ begin
             
             when find_min_max_1 =>
 
-                if r.voices(r.voice_select).enable = '1' then 
+                -- if r.voices(r.voice_select).enable = '1' then 
+                if envelope_active(r.voice_select) = '1' then
                     if r.voices(r.voice_select).note.number < r.lowest_note then 
                         r_in.lowest_note <= r.voices(r.voice_select).note.number;
                         r_in.lowest_voice <= r.voice_select;

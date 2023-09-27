@@ -17,7 +17,7 @@ entity envelope is
         clk                     : in  std_logic;
         reset                   : in  std_logic;
         next_sample             : in  std_logic;
-        config                  : in  t_config;
+        envelope_control        : in  t_envelope_control;
         osc_inputs              : in  t_osc_input_array(0 to N_INPUTS - 1);
         ctrl_out                : out t_ctrl_value_array;
         envelope_active         : out std_logic_vector(POLYPHONY_MAX - 1 downto 0)
@@ -101,10 +101,10 @@ architecture linear of envelope is
     -- Register.
     signal r, r_in              : t_envelope_reg;
 
-    signal s_mult_a             : std_logic_vector(16 downto 0);
+    signal s_mult_a             : std_logic_vector(17 downto 0);
     signal s_mult_b             : std_logic_vector(16 downto 0);
     signal s_mult_c             : std_logic_vector(32 downto 0); 
-    signal s_mult_p             : std_logic_vector(34 downto 0); 
+    signal s_mult_p             : std_logic_vector(35 downto 0); 
     signal s_mult_sel           : std_logic_vector(0 downto 0);
 
     signal s_phase_tvalid       : std_logic;
@@ -112,8 +112,8 @@ architecture linear of envelope is
     signal s_dout_tvalid        : std_logic;
     signal s_dout_tdata         : std_logic_vector(47 downto 0); -- Sin & cos.
 
-    signal s_cordic_sin         : signed(16 downto 0); -- 1.16 fixed point.
-    signal s_cordic_cos         : signed(16 downto 0);
+    signal s_cordic_sin         : signed(17 downto 0); -- 2.16 fixed point.
+    signal s_cordic_cos         : signed(17 downto 0);
 
     signal s_data_in_valid      : std_logic;
     signal s_data_in            : t_ctrl_value;
@@ -128,7 +128,7 @@ architecture linear of envelope is
         
         variable v_phase : unsigned(31 downto 0);
     begin
-        -- Increment phase .
+        -- Increment phase.
         v_phase := r.phase(r.index_array(0)) + velocity;
 
         -- Check for overflow.
@@ -141,7 +141,7 @@ architecture linear of envelope is
     end procedure;
  
     -- Check if the voice is still enabled and go to release state if not.
-    procedure check_relase(signal r          : in  t_envelope_reg;
+    procedure check_release(signal r          : in  t_envelope_reg;
                            signal r_in       : out t_envelope_reg;
                            signal osc_inputs : in  t_osc_input_array(0 to N_INPUTS - 1)) is
     begin
@@ -183,7 +183,7 @@ begin
         m_axis_dout_tdata       => s_dout_tdata
     );
 
-    combinatorial : process (r, next_sample, config, osc_inputs, s_mult_p, s_dout_tvalid, s_dout_tdata, 
+    combinatorial : process (r, next_sample, envelope_control, osc_inputs, s_mult_p, s_dout_tvalid, s_dout_tdata, 
             s_cordic_cos, s_cordic_sin, s_data_out_valid, s_data_out)
     begin
 
@@ -206,8 +206,8 @@ begin
         s_phase_tvalid <= '0';
         s_phase_tdata <= (others => '0');
 
-        s_cordic_cos <= signed(s_dout_tdata(16 downto 0));
-        s_cordic_sin <= signed(s_dout_tdata(40 downto 24));
+        s_cordic_cos <= signed(s_dout_tdata(17 downto 0));
+        s_cordic_sin <= signed(s_dout_tdata(41 downto 24));
 
         s_data_in_valid <= '0';
         s_data_in <= (others => '0');
@@ -226,7 +226,7 @@ begin
         when map_attack =>
 
             s_data_in_valid <= '1';
-            s_data_in <= x"0000" when config.envelope_attack < 0 else config.envelope_attack;
+            s_data_in <= x"0020" when envelope_control.attack < x"0020" else envelope_control.attack; -- Use small minimum value to avoid clicking noise.
 
             r_in.state <= map_decay;
 
@@ -235,7 +235,7 @@ begin
             if s_data_out_valid = '1' then 
                 r_in.velocity_attack <= s_data_out;
                 s_data_in_valid <= '1';
-                s_data_in <= x"0000" when config.envelope_decay < 0 else config.envelope_decay;
+                s_data_in <= x"0000" when envelope_control.decay < 0 else envelope_control.decay;
                 r_in.state <= map_release;
             end if;
 
@@ -244,7 +244,7 @@ begin
             if s_data_out_valid = '1' then 
                 r_in.velocity_decay <= s_data_out;
                 s_data_in_valid <= '1';
-                s_data_in <= x"0000" when config.envelope_release < 0 else config.envelope_release;
+                s_data_in <= x"0020" when envelope_control.release_value < x"0020" else envelope_control.release_value; -- Use small minimum value to avoid clicking noise.
                 r_in.state <= wait_valid;
             end if;
             
@@ -280,14 +280,14 @@ begin
                 
                     when attack =>
                         increment_phase(r, r_in, r.velocity_attack, decay);
-                        check_relase(r, r_in, osc_inputs);
+                        check_release(r, r_in, osc_inputs);
 
                     when decay => 
                         increment_phase(r, r_in, r.velocity_decay, sustain);
-                        check_relase(r, r_in, osc_inputs);
+                        check_release(r, r_in, osc_inputs);
 
                     when sustain => 
-                        check_relase(r, r_in, osc_inputs);
+                        check_release(r, r_in, osc_inputs);
 
                     when state_release => 
                         increment_phase(r, r_in, r.velocity_release, closed);
@@ -320,13 +320,13 @@ begin
                 -- envelope = 1 + (1 - sustain) * cordic_output
                 when decay => 
                     s_mult_a <= std_logic_vector(s_cordic_cos);
-                    s_mult_b <= std_logic_vector(17x"0_7FFF" - resize(config.envelope_sustain, 17));
+                    s_mult_b <= std_logic_vector(17x"0_7FFF" - resize(envelope_control.sustain, 17));
                     s_mult_c <= 33x"0_7FFF_FFFF";
 
                 -- envelope = sustain
                 when sustain =>
-                    s_mult_c <= 33x"000000000" when config.envelope_sustain < 0 
-                        else '0' & std_logic_vector(config.envelope_sustain) & x"0000";
+                    s_mult_c <= 33x"000000000" when envelope_control.sustain < 0 
+                        else '0' & std_logic_vector(envelope_control.sustain) & x"0000";
 
                 -- envelope = release_amp + release_amp * cordic_output
                 when state_release => 

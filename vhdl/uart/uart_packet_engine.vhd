@@ -90,6 +90,7 @@ architecture arch of uart_packet_engine is
         wave_count              : integer range 0 to 2**CTRL_SIZE - 1;
         length_lsb              : std_logic_vector(7 downto 0);
         error_code              : std_logic_vector(7 downto 0);
+        output_valid_sticky     : std_logic;
     end record;
 
     constant REG_INIT : t_packet_engine_reg := (
@@ -113,7 +114,8 @@ architecture arch of uart_packet_engine is
         hk_count                => 0,
         wave_count              => 0,
         length_lsb              => (others => '0'),
-        error_code              => x"00"
+        error_code              => x"00",
+        output_valid_sticky     => '0'
     );
 
     signal r, r_in              : t_packet_engine_reg;
@@ -435,6 +437,7 @@ begin
 
         -- Issue a write to the register file and write the reply header to the tx fifo
         elsif r.state = write_reg_1 then
+            r_in.output_valid_sticky <= '0';
             r_in.register_input.write_enable <= '1';
             r_in.register_input.write_data <= r.word_buffer(15 downto 0);
             r_in.register_input.address <= r.address;
@@ -442,16 +445,23 @@ begin
 
         -- Send ack or error response.
         elsif r.state = write_reg_2 then
-            if register_output.valid = '1' and to_integer(unsigned(tx_data_count)) < 2046 then
-                r_in.tx_write_enable <= '1';
-                if register_output.fault = '1' then 
-                    r_in.tx_data <= UART_ERROR_REP;
-                    r_in.error_code <= UART_ERR_WRITE_FAULT;
-                    r_in.state <= send_error_rep;
-                else
-                    r_in.tx_data <= UART_WRITE_REP;
-                    r_in.state <= idle;
-                end if;                
+
+            if register_output.valid = '1' or r.output_valid_sticky = '1' then 
+
+                r_in.output_valid_sticky <= '1';
+            
+                if  to_integer(unsigned(tx_data_count)) < 2046 then
+
+                    r_in.tx_write_enable <= '1';
+                    if register_output.fault = '1' then 
+                        r_in.tx_data <= UART_ERROR_REP;
+                        r_in.error_code <= UART_ERR_WRITE_FAULT;
+                        r_in.state <= send_error_rep;
+                    else
+                        r_in.tx_data <= UART_WRITE_REP;
+                        r_in.state <= idle;
+                    end if;          
+                end if;      
             end if;
 
         -- Read the 4 byte lenth field from the rx fifo.

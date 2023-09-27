@@ -93,6 +93,7 @@ package wave_array_pkg is
     constant CTRL_SIZE              : integer := 16;
 
     -- LFO contants.
+    constant LFO_N                  : integer := 2;  -- Number of LFOs.
     constant LFO_PHASE_SIZE         : integer := 48; -- Phase accumulator bit width.
     constant LFO_PHASE_INT          : integer := 3;  -- Integer bit width of phase.
     constant LFO_PHASE_FRAC         : integer := LFO_PHASE_SIZE - LFO_PHASE_INT; -- Fractional bit width of phase.
@@ -115,6 +116,7 @@ package wave_array_pkg is
     --pragma synthesis_on
                                      , 25);
 
+    constant ENV_N                  : integer := 2; -- Number of envelopes.
     constant ENV_MIN_ATTACK_T       : real := 1.0 / real(2**10); -- In seconds.
     constant ENV_MAX_ATTACK_T       : real := real(2**3);   
     constant ENV_MIN_DECAY_T        : real := 1.0 / real(2**10); 
@@ -165,11 +167,13 @@ package wave_array_pkg is
 
     constant MODS_NONE              : natural := 0;
     constant MODS_POT               : natural := 1;
-    constant MODS_ENVELOPE          : natural := 2;
-    constant MODS_LFO               : natural := 3;
-    constant MODS_VELOCITY          : natural := 4;
+    constant MODS_ENVELOPE_0        : natural := 2;
+    constant MODS_ENVELOPE_1        : natural := 3;
+    constant MODS_LFO_0             : natural := 4;
+    constant MODS_LFO_1             : natural := 5;
+    constant MODS_VELOCITY          : natural := 6;
 
-    constant MODS_LEN               : natural := 5;
+    constant MODS_LEN               : natural := 7;
     constant MODD_LEN               : natural := 10;
     constant MODS_LEN_LOG2          : natural := integer(ceil(log2(real(MODS_LEN))));
     constant MODD_LEN_LOG2          : natural := integer(ceil(log2(real(MODD_LEN))));
@@ -206,18 +210,27 @@ package wave_array_pkg is
     constant REG_POLYPHONY          : unsigned := x"0000203"; -- ro 16 bit          | Available polyphony based on current unison setting.
     constant REG_ACTIVE_OSCILLATORS : unsigned := x"0000204"; -- ro 16 bit          | Total active oscillators based on current unison setting.
 
-    constant REG_LFO_VELOCITY       : unsigned := x"0000500"; -- rw 15 bit unsigned | LFO velocity control value. 
-    constant REG_LFO_WAVE           : unsigned := x"0000501"; -- rw 16 bit unsigned | Select LFO waveform. Clipped to LFO_N_WAVEFORMS - 1.
-    constant REG_LFO_TRIGGER        : unsigned := x"0000502"; -- rw  1 bit          | Write '1' to enable LFO sync to voices. 
-    constant REG_LFO_RESET          : unsigned := x"0000503"; -- wo  1 bit          | Write '1' reset all LFO phases.
+    constant REG_LFO_0_VELOCITY     : unsigned := x"0000500"; -- rw 15 bit unsigned | LFO velocity control value. 
+    constant REG_LFO_0_WAVE         : unsigned := x"0000501"; -- rw 16 bit unsigned | Select LFO waveform. Clipped to LFO_N_WAVEFORMS - 1.
+    constant REG_LFO_0_TRIGGER      : unsigned := x"0000502"; -- rw  1 bit          | Write '1' to enable LFO sync to voices. 
+    constant REG_LFO_0_RESET        : unsigned := x"0000503"; -- wo  1 bit          | Write '1' reset all LFO phases.
+    constant REG_LFO_1_VELOCITY     : unsigned := x"0000510"; -- rw 15 bit unsigned | LFO velocity control value. 
+    constant REG_LFO_1_WAVE         : unsigned := x"0000511"; -- rw 16 bit unsigned | Select LFO waveform. Clipped to LFO_N_WAVEFORMS - 1.
+    constant REG_LFO_1_TRIGGER      : unsigned := x"0000512"; -- rw  1 bit          | Write '1' to enable LFO sync to voices. 
+    constant REG_LFO_1_RESET        : unsigned := x"0000513"; -- wo  1 bit          | Write '1' reset all LFO phases.
+
     constant REG_FILTER_CUTOFF      : unsigned := x"0000600"; -- rw 15 bit unsigned | Filter cutoff control value. 
     constant REG_FILTER_RESONANCE   : unsigned := x"0000601"; -- rw 15 bit unsigned | Filter resonance control value. 
     constant REG_FILTER_SELECT      : unsigned := x"0000602"; -- rw 3  bit          | Filter output select. 1 = LP, 2 = HP, 3 = BP, 4 = BS, 5 = bypass.
 
-    constant REG_ENVELOPE_ATTACK    : unsigned := x"0000700"; -- rw 15 bit unsigned | Envelope attack time control value.
-    constant REG_ENVELOPE_DECAY     : unsigned := x"0000701"; -- rw 15 bit unsigned | Envelope decay time control value.
-    constant REG_ENVELOPE_SUSTAIN   : unsigned := x"0000702"; -- rw 15 bit unsigned | Envelope sustain level control value.
-    constant REG_ENVELOPE_RELEASE   : unsigned := x"0000703"; -- rw 15 bit unsigned | Envelope release time control value.
+    constant REG_ENVELOPE_0_ATTACK  : unsigned := x"0000700"; -- rw 15 bit unsigned | Envelope attack time control value.
+    constant REG_ENVELOPE_0_DECAY   : unsigned := x"0000701"; -- rw 15 bit unsigned | Envelope decay time control value.
+    constant REG_ENVELOPE_0_SUSTAIN : unsigned := x"0000702"; -- rw 15 bit unsigned | Envelope sustain level control value.
+    constant REG_ENVELOPE_0_RELEASE : unsigned := x"0000703"; -- rw 15 bit unsigned | Envelope release time control value.
+    constant REG_ENVELOPE_1_ATTACK  : unsigned := x"0000710"; -- rw 15 bit unsigned | Envelope attack time control value.
+    constant REG_ENVELOPE_1_DECAY   : unsigned := x"0000711"; -- rw 15 bit unsigned | Envelope decay time control value.
+    constant REG_ENVELOPE_1_SUSTAIN : unsigned := x"0000712"; -- rw 15 bit unsigned | Envelope sustain level control value.
+    constant REG_ENVELOPE_1_RELEASE : unsigned := x"0000713"; -- rw 15 bit unsigned | Envelope release time control value.
 
     constant REG_MIXER_CTRL         : unsigned := x"0000800"; -- rw 15 bit unsigned | Mixer base value value.
 
@@ -335,6 +348,24 @@ package wave_array_pkg is
 
     type t_dma_input_array is array (0 to N_TABLES - 1) of t_dma_input;
 
+    type t_lfo_control is record 
+        wave_select             : integer range 0 to LFO_N_WAVEFORMS - 1;
+        reset                   : std_logic; -- phase reset strobe.
+        velocity                : t_ctrl_value;
+        trigger                 : std_logic;
+    end record;
+
+    type t_lfo_control_array is array (0 to LFO_N - 1) of t_lfo_control;
+
+    type t_envelope_control is record 
+        attack                  : t_ctrl_value;
+        decay                   : t_ctrl_value;
+        sustain                 : t_ctrl_value;
+        release_value           : t_ctrl_value; -- Release is a reserved keyword in vivado.
+    end record;
+
+    type t_envelope_control_array is array (0 to ENV_N - 1) of t_envelope_control;
+
     -- Register file outputs.
     type t_config is record
         led                     : std_logic;
@@ -346,15 +377,9 @@ package wave_array_pkg is
         wave_period             : unsigned(CTRL_SIZE - 1 downto 0); -- Housekeeping update period in steps of 1024 cycles (~10 ms).
         binaural_enable         : std_logic;
         unison_n                : integer range 1 to UNISON_MAX; 
-        lfo_wave_select         : integer range 0 to LFO_N_WAVEFORMS - 1;
-        lfo_reset               : std_logic; -- phase reset strobe.
         filter_select           : integer range 0 to 4;
-        lfo_velocity            : t_ctrl_value;
-        lfo_trigger             : std_logic;
-        envelope_attack         : t_ctrl_value;
-        envelope_decay          : t_ctrl_value;
-        envelope_sustain        : t_ctrl_value;
-        envelope_release        : t_ctrl_value;
+        lfo_control             : t_lfo_control_array;
+        envelope_control        : t_envelope_control_array;
         dma_input               : t_dma_input_array;
     end record;
 
@@ -575,7 +600,7 @@ package body wave_array_pkg is
     begin
 
         -- Map envelope to mixer with max amount. 
-        mapping(MODD_MIXER)(0) := (MODS_ENVELOPE, x"7FFF"); 
+        mapping(MODD_MIXER)(0) := (MODS_ENVELOPE_0, x"7FFF"); 
 
         config := (
             led                     => '0',
@@ -597,15 +622,9 @@ package body wave_array_pkg is
             wave_period             => x"0F1E", -- 2870 ~= 40 ms => 25 Hz.
             binaural_enable         => '0',
             unison_n                => 1,
-            lfo_wave_select         => 0,
-            lfo_velocity            => (others => '0'),
-            lfo_trigger             => '0',
-            lfo_reset               => '0',
             filter_select           => 0, -- Lowpass
-            envelope_attack         => x"0010",
-            envelope_decay          => x"0020",
-            envelope_sustain        => x"4000",
-            envelope_release        => x"0100",
+            lfo_control             => (others => (0, '0', (others => '0'), '0')),
+            envelope_control        => (others => (x"0000", x"0000", x"7FFF", x"0000")),
             dma_input               => (others => DMA_INPUT_INIT)
         );
 

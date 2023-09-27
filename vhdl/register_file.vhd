@@ -79,12 +79,12 @@ begin
         r_in <= r;
         r_in.software_reset <= '0';
         r_in.register_output <= ('0', '0', (others => '0'));
-        r_in.config.lfo_reset <= '0'; -- Clear lfo_reset output after one cycle.
+        r_in.config.lfo_control(0).reset <= '0'; -- Clear lfo_reset output after one cycle.
+        r_in.config.lfo_control(1).reset <= '0';
 
         polyphony <= r.polyphony;
         active_voices <= r.active_voices;
-        active_oscillators <= r.active_oscillators;
-
+        active_oscillators <= r.active_oscillators; 
 
         -- Clear new_table output after one cycle.
         for i in 0 to N_TABLES - 1 loop 
@@ -98,7 +98,8 @@ begin
             r_in.polyphony <= r.polyphony_buffer;
             r_in.active_voices <= r.active_voices_buffer;
             r_in.active_oscillators <= r.active_oscillators_buffer;
-            r_in.config_buffer.lfo_reset <= '0'; -- Reset  lfo_reset flag.
+            r_in.config_buffer.lfo_control(0).reset <= '0'; -- Reset lfo_reset flag.
+            r_in.config_buffer.lfo_control(1).reset <= '0'; -- 
 
             -- Reset new_table flags.
             for i in 0 to N_TABLES - 1 loop 
@@ -169,15 +170,25 @@ begin
             elsif register_input.address = REG_VOICES then
                 r_in.register_output.read_data <= std_logic_vector(to_unsigned(POLYPHONY_MAX, REGISTER_WIDTH));
 
-            elsif register_input.address = REG_LFO_VELOCITY then
-                r_in.register_output.read_data <= std_logic_vector(r.config.lfo_velocity);
+            elsif register_input.address = REG_LFO_0_VELOCITY then
+                r_in.register_output.read_data <= std_logic_vector(r.config.lfo_control(0).velocity);
 
-            elsif register_input.address = REG_LFO_WAVE then
+            elsif register_input.address = REG_LFO_0_WAVE then
                 r_in.register_output.read_data <= 
-                    std_logic_vector(to_unsigned(r.config.lfo_wave_select, REGISTER_WIDTH));
+                    std_logic_vector(to_unsigned(r.config.lfo_control(0).wave_select, REGISTER_WIDTH));
 
-            elsif register_input.address = REG_LFO_TRIGGER then
-                r_in.register_output.read_data(0) <= r.config.lfo_trigger;
+            elsif register_input.address = REG_LFO_0_TRIGGER then
+                r_in.register_output.read_data(0) <= r.config.lfo_control(0).trigger;
+
+            elsif register_input.address = REG_LFO_1_VELOCITY then
+                r_in.register_output.read_data <= std_logic_vector(r.config.lfo_control(1).velocity);
+
+            elsif register_input.address = REG_LFO_1_WAVE then
+                r_in.register_output.read_data <= 
+                    std_logic_vector(to_unsigned(r.config.lfo_control(1).wave_select, REGISTER_WIDTH));
+
+            elsif register_input.address = REG_LFO_1_TRIGGER then
+                r_in.register_output.read_data(0) <= r.config.lfo_control(1).trigger;
 
             elsif register_input.address = REG_FILTER_CUTOFF then
                 r_in.register_output.read_data <= std_logic_vector(r.config.base_ctrl(MODD_FILTER_CUTOFF));
@@ -188,17 +199,29 @@ begin
             elsif register_input.address = REG_FILTER_SELECT then
                 r_in.register_output.read_data(2 downto 0) <= std_logic_vector(to_unsigned(r.config.filter_select, 3));
 
-            elsif register_input.address = REG_ENVELOPE_ATTACK then
-                r_in.register_output.read_data <= std_logic_vector(r.config.envelope_attack);
+            elsif register_input.address = REG_ENVELOPE_0_ATTACK then
+                r_in.register_output.read_data <= std_logic_vector(r.config.envelope_control(0).attack);
 
-            elsif register_input.address = REG_ENVELOPE_DECAY then
-                r_in.register_output.read_data <= std_logic_vector(r.config.envelope_decay);
+            elsif register_input.address = REG_ENVELOPE_0_DECAY then
+                r_in.register_output.read_data <= std_logic_vector(r.config.envelope_control(0).decay);
 
-            elsif register_input.address = REG_ENVELOPE_SUSTAIN then
-                r_in.register_output.read_data <= std_logic_vector(r.config.envelope_sustain);
+            elsif register_input.address = REG_ENVELOPE_0_SUSTAIN then
+                r_in.register_output.read_data <= std_logic_vector(r.config.envelope_control(0).sustain);
 
-            elsif register_input.address = REG_ENVELOPE_RELEASE then
-                r_in.register_output.read_data <= std_logic_vector(r.config.envelope_release);
+            elsif register_input.address = REG_ENVELOPE_0_RELEASE then
+                r_in.register_output.read_data <= std_logic_vector(r.config.envelope_control(0).release_value);
+
+            elsif register_input.address = REG_ENVELOPE_1_ATTACK then
+                r_in.register_output.read_data <= std_logic_vector(r.config.envelope_control(1).attack);
+
+            elsif register_input.address = REG_ENVELOPE_1_DECAY then
+                r_in.register_output.read_data <= std_logic_vector(r.config.envelope_control(1).decay);
+
+            elsif register_input.address = REG_ENVELOPE_1_SUSTAIN then
+                r_in.register_output.read_data <= std_logic_vector(r.config.envelope_control(1).sustain);
+
+            elsif register_input.address = REG_ENVELOPE_1_RELEASE then
+                r_in.register_output.read_data <= std_logic_vector(r.config.envelope_control(1).release_value);
 
             elsif register_input.address = REG_MIXER_CTRL then
                 r_in.register_output.read_data <= std_logic_vector(r.config.base_ctrl(MODD_MIXER));
@@ -339,18 +362,31 @@ begin
             elsif register_input.address = REG_WAVE_PERIOD then
                 r_in.config_buffer.binaural_enable <= register_input.write_data(0);
 
-            elsif register_input.address = REG_LFO_VELOCITY then
-                r_in.config_buffer.lfo_velocity <= signed(register_input.write_data);
+            elsif register_input.address = REG_LFO_0_VELOCITY then
+                r_in.config_buffer.lfo_control(0).velocity <= signed(register_input.write_data);
 
-            elsif register_input.address = REG_LFO_WAVE then
-                r_in.config_buffer.lfo_wave_select <= minimum(LFO_N_WAVEFORMS - 1, 
+            elsif register_input.address = REG_LFO_0_WAVE then
+                r_in.config_buffer.lfo_control(0).wave_select <= minimum(LFO_N_WAVEFORMS - 1, 
                     to_integer(unsigned(register_input.write_data)));
 
-            elsif register_input.address = REG_LFO_TRIGGER then
-                r_in.config_buffer.lfo_trigger <= register_input.write_data(0);
+            elsif register_input.address = REG_LFO_0_TRIGGER then
+                r_in.config_buffer.lfo_control(0).trigger <= register_input.write_data(0);
 
-            elsif register_input.address = REG_LFO_RESET then
-                r_in.config_buffer.lfo_reset <= '1';
+            elsif register_input.address = REG_LFO_0_RESET then
+                r_in.config_buffer.lfo_control(0).reset <= '1';
+
+            elsif register_input.address = REG_LFO_1_VELOCITY then
+                r_in.config_buffer.lfo_control(1).velocity <= signed(register_input.write_data);
+
+            elsif register_input.address = REG_LFO_1_WAVE then
+                r_in.config_buffer.lfo_control(1).wave_select <= minimum(LFO_N_WAVEFORMS - 1, 
+                    to_integer(unsigned(register_input.write_data)));
+
+            elsif register_input.address = REG_LFO_1_TRIGGER then
+                r_in.config_buffer.lfo_control(1).trigger <= register_input.write_data(0);
+
+            elsif register_input.address = REG_LFO_1_RESET then
+                r_in.config_buffer.lfo_control(1).reset <= '1';
 
             elsif register_input.address = REG_FILTER_CUTOFF then
                 r_in.config_buffer.base_ctrl(MODD_FILTER_CUTOFF) <= signed(register_input.write_data);
@@ -365,17 +401,29 @@ begin
                     r_in.config_buffer.filter_select <= 4;
                 end if;
             
-            elsif register_input.address = REG_ENVELOPE_ATTACK then
-                r_in.config_buffer.envelope_attack <= signed(register_input.write_data); 
+            elsif register_input.address = REG_ENVELOPE_0_ATTACK then
+                r_in.config_buffer.envelope_control(0).attack <= signed(register_input.write_data); 
 
-            elsif register_input.address = REG_ENVELOPE_DECAY then
-                r_in.config_buffer.envelope_decay <= signed(register_input.write_data); 
+            elsif register_input.address = REG_ENVELOPE_0_DECAY then
+                r_in.config_buffer.envelope_control(0).decay <= signed(register_input.write_data); 
 
-            elsif register_input.address = REG_ENVELOPE_SUSTAIN then
-                r_in.config_buffer.envelope_sustain <= signed(register_input.write_data); 
+            elsif register_input.address = REG_ENVELOPE_0_SUSTAIN then
+                r_in.config_buffer.envelope_control(0).sustain <= signed(register_input.write_data); 
 
-            elsif register_input.address = REG_ENVELOPE_RELEASE then
-                r_in.config_buffer.envelope_release <= signed(register_input.write_data); 
+            elsif register_input.address = REG_ENVELOPE_0_RELEASE then
+                r_in.config_buffer.envelope_control(0).release_value <= signed(register_input.write_data); 
+
+            elsif register_input.address = REG_ENVELOPE_1_ATTACK then
+                r_in.config_buffer.envelope_control(1).attack <= signed(register_input.write_data); 
+
+            elsif register_input.address = REG_ENVELOPE_1_DECAY then
+                r_in.config_buffer.envelope_control(1).decay <= signed(register_input.write_data); 
+
+            elsif register_input.address = REG_ENVELOPE_1_SUSTAIN then
+                r_in.config_buffer.envelope_control(1).sustain <= signed(register_input.write_data); 
+
+            elsif register_input.address = REG_ENVELOPE_1_RELEASE then
+                r_in.config_buffer.envelope_control(1).release_value <= signed(register_input.write_data);
 
             elsif register_input.address = REG_MIXER_CTRL then
                 r_in.config_buffer.base_ctrl(MODD_MIXER) <= signed(register_input.write_data); 

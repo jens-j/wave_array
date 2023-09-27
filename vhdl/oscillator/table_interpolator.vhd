@@ -307,6 +307,10 @@ begin
 
         v_level := addrgen_input(r.osc_counter(0)).mipmap_level;
 
+        -- Pre-calculate the lowest bit of the index part of the control value.
+        -- Note that since the control value is signed, bit 15 is the msb.
+        v_frame_index_lsb := CTRL_SIZE - dma2table.frames_log2 - 1;
+
         -- Clip the control value to positive only values and register.
         for i in 0 to POLYPHONY_MAX - 1 loop 
             r_in.frame_control(i) <= x"0000" when frame_control(i) < 0 else frame_control(i);
@@ -319,10 +323,6 @@ begin
             if dma2table.frames_log2 < 2 then
                 r_in.frame_index(i) <= 0;
             else 
-                -- Pre-calculate the lowest bit of the index part of the control value.
-                -- Note that since the control value is signed, bit 15 is the msb.
-                v_frame_index_lsb := CTRL_SIZE - dma2table.frames_log2 - 1;
-
                 -- Slice the frame index from the msb part of the control value.
                 r_in.frame_index(i) <= to_integer(unsigned(
                     r.frame_control(r.voice_counter)(CTRL_SIZE - 2 downto v_frame_index_lsb)));

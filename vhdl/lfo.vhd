@@ -15,7 +15,7 @@ entity lfo is
     port (
         clk                     : in  std_logic;
         reset                   : in  std_logic;
-        config                  : in  t_config;
+        lfo_control             : in  t_lfo_control;
         next_sample             : in  std_logic;
         osc_inputs              : in  t_osc_input_array(0 to N_OUTPUTS - 1);
         lfo_out                 : out t_ctrl_value_array(0 to N_OUTPUTS - 1)
@@ -115,15 +115,15 @@ begin
         m_axis_dout_tdata       => s_dout_tdata
     );
 
-    combinatorial : process (r, next_sample, config, osc_inputs, s_dout_tvalid, s_dout_tdata)
+    combinatorial : process (r, next_sample, lfo_control, osc_inputs, s_dout_tvalid, s_dout_tdata)
         variable v_lfo_velocity_squared : unsigned(2 * CTRL_SIZE - 1 downto 0);
     begin
 
         r_in <= r;
 
         -- Select which waveform to output.
-        lfo_out <= r.sine_out when config.lfo_wave_select = 0 else
-                   r.saw_out when config.lfo_wave_select = 1 else 
+        lfo_out <= r.sine_out when lfo_control.wave_select = 0 else
+                   r.saw_out when lfo_control.wave_select = 1 else 
                    r.square_out;
 
         -- Default inputs.
@@ -137,7 +137,7 @@ begin
         r_in.index_shift(1 to PIPE_SUM_CORDIC - 1) <= r.index_shift(0 to PIPE_SUM_CORDIC - 2);
 
         -- Clip ctrl value to positive only.
-        r_in.lfo_velocity_clipped <= x"0000" when config.lfo_velocity < 0 else unsigned(config.lfo_velocity);
+        r_in.lfo_velocity_clipped <= x"0000" when lfo_control.velocity < 0 else unsigned(lfo_control.velocity);
 
         -- Square clipped control value.
         v_lfo_velocity_squared := r.lfo_velocity_clipped * r.lfo_velocity_clipped;
@@ -146,7 +146,7 @@ begin
         -- Detect edge of voice enable to use as sync pulse.
         for i in 0 to N_OUTPUTS - 1 loop 
             r_in.osc_enable(i) <= osc_inputs(i).enable;
-            if config.lfo_trigger = '1' and osc_inputs(i).enable = '1' and r.osc_enable(i) = '0' then 
+            if lfo_control.trigger = '1' and osc_inputs(i).enable = '1' and r.osc_enable(i) = '0' then 
                 r_in.sync(i) <= '1';
             end if;
         end loop;
@@ -191,7 +191,7 @@ begin
         -- Pipeline stage 3: clip accumulator. Reset phase if a sync pulse is received or the LFO phase is reset.
         if r.valid_shift(PIPE_SUM_CLIP - 1) = '1' then 
 
-            if config.lfo_reset = '1' or r.sync(r.index_shift(PIPE_SUM_CLIP - 1)) = '1' then 
+            if lfo_control.reset = '1' or r.sync(r.index_shift(PIPE_SUM_CLIP - 1)) = '1' then 
 
                 r_in.sync(r.index_shift(PIPE_SUM_CLIP - 1)) <= '0';
                 r_in.phase(r.index_shift(PIPE_SUM_CLIP - 1)) <= (others => '0');
