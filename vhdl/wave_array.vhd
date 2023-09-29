@@ -110,7 +110,6 @@ architecture arch of wave_array is
     signal s_active_voices      : integer range 1 to POLYPHONY_MAX;
     signal s_active_oscillators : integer range 1 to N_VOICES;
 
-    signal s_new_period         : std_logic_vector(N_VOICES - 1 downto 0);
     signal s_debug_wave_state   : integer;
     signal s_debug_wave_fifo_count : integer range 0 to 2047;
     signal s_debug_wave_timer   : std_logic_vector(15 downto 0);
@@ -296,7 +295,6 @@ begin
         envelope_1_active       => s_envelope_1_active,
         mod_sources             => s_mod_sources,
         mod_destinations        => s_mod_destinations,
-        new_period              => s_new_period,
         pitched_osc_inputs      => s_pitched_osc_inputs,
         spread_osc_inputs       => s_spread_osc_inputs,
         lowest_velocity         => s_lowest_velocity,

@@ -32,10 +32,10 @@ entity table_interpolator is
         table2dma               : out t_table2dma;
 
         osc_inputs              : in  t_osc_input_array(0 to N_VOICES - 1);
+        frame_ctrl_index        : in  t_frame_ctrl_index; -- Voice index for each oscillator used to select the correct frame control value. 
         frame_control           : in  t_ctrl_value_array(0 to POLYPHONY_MAX - 1);
         addrgen_input           : in  t_addrgen2table_array(0 to N_VOICES - 1);
         output_samples          : out t_stereo_sample_array(0 to N_VOICES - 1); -- Two samples are needed for the downsampling.
-        new_period              : out std_logic_vector(N_VOICES - 1 downto 0); -- High in first cycle of waveform period.
 
         -- Debug ports.
         overflow                : out std_logic; -- Flag numeric overflow.
@@ -46,50 +46,52 @@ end entity;
 architecture arch of table_interpolator is
 
     -- Pipeline stage lengths.
+    constant PIPE_LEN_SPLIT     : integer := 1; -- Split frame control into frame index and position based on number of frames in table.
     constant PIPE_LEN_MEM       : integer := 1; -- Sample & coefficient memory access.
     constant PIPE_LEN_INTP      : integer := 4; -- Sample & coefficient linear interpolation.
     constant PIPE_LEN_MACC      : integer := 4; -- Polyphase filter multiply-accumulate.
     constant PIPE_LEN_TOTAL     : integer := PIPE_LEN_MEM + PIPE_LEN_INTP + PIPE_LEN_MACC; -- Total pipeline length.
 
     -- Cumulative pipeline lengths.
-    constant PIPE_SUM_INTP      : integer := PIPE_LEN_MEM + PIPE_LEN_INTP;
-
+    constant PIPE_SUM_MEM       : integer := PIPE_LEN_SPLIT + PIPE_LEN_MEM;
+    constant PIPE_SUM_INTP      : integer := PIPE_SUM_MEM + PIPE_LEN_INTP;
 
     type t_state is (idle, init, running, update_table);
-    type t_counter_array is array (0 to PIPE_LEN_TOTAL) of integer range 0 to N_VOICES - 1; -- One extra register to use in the writeback stage which is not really part of the pipeline.
+    type t_osc_counter_array is array (0 to PIPE_LEN_TOTAL) of integer range 0 to N_VOICES - 1; -- One extra register to use in the writeback stage which is not really part of the pipeline.
     type t_sample_counter_array is array (0 to PIPE_LEN_TOTAL) of integer range 0 to 2;
-    type t_frame_index_array is array (0 to N_VOICES - 1) of natural range 0 to FRAMES_MAX - 1;
+    type t_coeff_counter_array is array (0 to PIPE_SUM_INTP) of integer range 0 to POLY_N - 1;
 
     type t_oscillator_reg is record
         state                   : t_state;
-        coeff_counter           : integer range 0 to POLY_N - 1; -- Count coeffients/input samples (inner loop).
+        coeff_counter           : t_coeff_counter_array; -- Count coeffients/input samples (inner loop).
         osc_counter_next        : integer range 0 to N_VOICES; -- The value of the next oscillator (osc_counter + 1).
         sample_counter_next     : integer range 0 to 2;
         output_samples          : t_stereo_sample_array(0 to N_VOICES - 1);
-        new_period              : std_logic_vector(N_VOICES - 1 downto 0);
-        new_period_buffer       : std_logic_vector(N_VOICES - 1 downto 0);
         sample_buffers          : t_stereo_sample_array(0 to N_VOICES - 1);
         mipmap_address          : t_mipmap_address; -- Increment to get successive input samples.
+        mipmap_address_buffer   : t_mipmap_address; -- Buffer one cycle because it is calculated in stage 0 and used in stage 1.
         coeff_base_address      : unsigned(POLY_M_LOG2 - 2 downto 0); -- Concatenated with coeff_counter gives the coeff memory address.
+        coeff_base_address_buffer : unsigned(POLY_M_LOG2 - 2 downto 0); -- Concatenated with coeff_counter gives the coeff memory address.
         table2dma               : t_table2dma;
-        prev_phase              : t_osc_phase_array(0 to N_VOICES - 1);
         frame_control           : t_ctrl_value_array(0 to POLYPHONY_MAX - 1);
+        frame_index_max         : integer range 0 to FRAMES_MAX - 1;
         frames_log2             : integer range 0 to FRAMES_MAX_LOG2;
+        frame_index_lsb         : integer range CTRL_SIZE - FRAMES_MAX_LOG2 - 1 to CTRL_SIZE - 1;
+        level                   : t_mipmap_level; -- Buffer one cycle to use in pipeline stage 1.
 
-        frame_index             : t_frame_index_array; 
-        frame_index_a           : t_frame_index_array; 
-        frame_index_b           : t_frame_index_array; 
-        frame_position          : t_frame_position_array(0 to N_VOICES - 1);
-        frame_position_buffer   : t_frame_position_array(0 to N_VOICES - 1);
+        frame_index_a           : integer range 0 to FRAMES_MAX - 1; 
+        frame_index_b           : integer range 0 to FRAMES_MAX - 1; 
+        frame_position          : t_frame_position;
+        frame_position_buffer   : t_frame_position;
 
         -- Writeback pipeline registers (9 cycles).
         sample_counter          : t_sample_counter_array;  -- Count the two output samples plus one for pipeline winddown.
-        osc_counter             : t_counter_array; -- Count oscillators (outer loop). Registered PIPE_LEN_TOTAL times to be used for writeback.
+        osc_counter             : t_osc_counter_array; -- Count oscillators (outer loop). Registered PIPE_LEN_TOTAL times to be used for writeback.
         writeback               : std_logic_vector(PIPE_LEN_TOTAL downto 0);
 
         -- Interpolation pipeline registers (2 cycles).
-        odd_phase               : std_logic_vector(PIPE_LEN_MEM downto 0); -- '1' when m is odd (changes coefficient memory access).
-        phase_position          : t_osc_phase_position_array(0 to PIPE_LEN_MEM); -- Interpolation coefficient for phase interpolation.
+        odd_phase               : std_logic_vector(PIPE_SUM_MEM downto 0); -- '1' when bank coefficient m is odd (changes coefficient memory access).
+        phase_position          : t_osc_phase_position; -- Interpolation coefficient for phase interpolation.
 
         zero_coeff              : std_logic_vector(PIPE_SUM_INTP downto 0);
 
@@ -105,29 +107,30 @@ architecture arch of table_interpolator is
 
     constant REG_INIT : t_oscillator_reg := (
         state                   => idle,
-        coeff_counter           => 0,
+        coeff_counter           => (others => 0),
         osc_counter_next        => 0,
         sample_counter_next     => 0,
         output_samples          => (others => (others => (others => '0'))),
-        new_period              => (others => '0'),
-        new_period_buffer       => (others => '0'),
         sample_buffers  	    => (others => (others => (others => '0'))),
         mipmap_address          => (others => '0'),
+        mipmap_address_buffer   => (others => '0'),
         coeff_base_address      => (others => '0'),
+        coeff_base_address_buffer => (others => '0'),
         table2dma               => (ack => '0'),
-        prev_phase              => (others => (others => '0')),
         frame_control           => (others => (others => '0')),
+        frame_index_max         => 0,
         frames_log2             => 0,
-        frame_index             => (others => 0),
-        frame_index_a           => (others => 0),
-        frame_index_b           => (others => 0),
-        frame_position          => (others => (others => '0')),
-        frame_position_buffer   => (others => (others => '0')),
+        frame_index_lsb         => CTRL_SIZE - 1,
+        level                   => 0,
+        frame_index_a           => 0,
+        frame_index_b           => 0,
+        frame_position          => (others => '0'),
+        frame_position_buffer   => (others => '0'),
         sample_counter          => (others => 0),
         osc_counter             => (others => 0),
         writeback               => (others => '0'),
         odd_phase               => (others => '0'),
-        phase_position          => (others => (others => '0')),
+        phase_position          => (others => '0'),
         zero_coeff              => (others => '0'),
         overflow                => '0',
         timeout                 => '0',
@@ -266,15 +269,16 @@ begin
     overflow        <= r.overflow;
     timeout         <= r.timeout;
     table2dma       <= r.table2dma;
-    new_period      <= r.new_period;
 
-    combinatorial : process (r, config, status, osc_inputs, addrgen_input, next_sample, dma2table, frame_control,
+    combinatorial : process (r, config, status, osc_inputs, frame_ctrl_index, addrgen_input, next_sample, dma2table, 
+                             frame_control, 
                              s_frame_interp_p, s_coeff_interp_p, s_macc_p,
                              s_wave_read_data_a, s_wave_read_data_b, s_coeff_even_douta, s_coeff_odd_douta)
 
         variable v_level : t_mipmap_level;
         variable v_odd_phase_0 : std_logic;
         variable v_frame_index_lsb : natural;
+        variable v_frame_index : integer range 0 to FRAMES_MAX - 1;
 
     begin
 
@@ -283,8 +287,11 @@ begin
         r_in.table2dma.ack <= '0';
         r_in.writeback(0)  <= '0';
         r_in.zero_coeff(0) <= '0';
-        r_in.new_period <= (others => '0');
         r_in.frames_log2 <= dma2table.frames_log2;
+        r_in.frame_index_max <= 2**dma2table.frames_log2 - 1;
+        r_in.frame_position <= r.frame_position_buffer;
+        r_in.mipmap_address <= r.mipmap_address_buffer;
+        r_in.coeff_base_address <= r.coeff_base_address_buffer;
 
         s_frame_interp_a <= (others => '0');
         s_frame_interp_b <= (others => '0');
@@ -305,53 +312,24 @@ begin
         s_coeff_odd_addra  <= (others => '0');
         s_coeff_even_addra <= (others => '0');
 
-        v_level := addrgen_input(r.osc_counter(0)).mipmap_level;
-
         -- Pre-calculate the lowest bit of the index part of the control value.
         -- Note that since the control value is signed, bit 15 is the msb.
-        v_frame_index_lsb := CTRL_SIZE - dma2table.frames_log2 - 1;
+        r_in.frame_index_lsb <= CTRL_SIZE - dma2table.frames_log2 - 1;
+
+        v_level := addrgen_input(r.osc_counter(0)).mipmap_level;
+        r_in.level <= v_level;
+
+        if r.sample_counter(0) < 2 then
+            r_in.odd_phase(0) <= addrgen_input(r.osc_counter(0)).phase(r.sample_counter(0))(OSC_COEFF_FRAC + v_level);
+        else
+            r_in.odd_phase(0) <= '0';
+        end if;
 
         -- Clip the control value to positive only values and register.
         for i in 0 to POLYPHONY_MAX - 1 loop 
             r_in.frame_control(i) <= x"0000" when frame_control(i) < 0 else frame_control(i);
         end loop;
-
-        -- Split control value into frame index and position.
-        -- This is split over two cycles to allow timing closure.
-        for i in 0 to N_VOICES - 1 loop          
-
-            if dma2table.frames_log2 < 2 then
-                r_in.frame_index(i) <= 0;
-            else 
-                -- Slice the frame index from the msb part of the control value.
-                r_in.frame_index(i) <= to_integer(unsigned(
-                    r.frame_control(r.voice_counter)(CTRL_SIZE - 2 downto v_frame_index_lsb)));
-            end if;
-
-            r_in.frame_index_a(i) <= r.frame_index(i);
-            r_in.frame_index_b(i) <= minimum(2**r.frames_log2 - 1, r.frame_index(i) + 1);
-            r_in.frame_position(i) <= r.frame_position_buffer(i);
-
-            -- Calculate frame position but buffer one extra cycle to align with two cycle index calculation.
-            if dma2table.frames_log2 = 0 then -- Special case: dont do any frame interpolation.
-                r_in.frame_position_buffer(i) <= (others => '0');
-
-            elsif dma2table.frames_log2 = 1 then -- Special case: always interpolate between frames 0 & 1.
-
-                 -- Use MSBs of frame_control as frame_position (msb is always 0)..
-                r_in.frame_position_buffer(i) <= unsigned(
-                    r.frame_control(r.voice_counter)(CTRL_SIZE - 2 downto CTRL_SIZE - OSC_SAMPLE_FRAC - 1));
-            else 
-                r_in.frame_position_buffer(i) <= unsigned(
-                    r.frame_control(r.voice_counter)(v_frame_index_lsb - 1 downto v_frame_index_lsb - OSC_SAMPLE_FRAC));
-            end if;   
-        end loop;
-
-        if r.sample_counter(0) < 2 then
-            v_odd_phase_0 := addrgen_input(r.osc_counter(0)).phase(r.sample_counter(0))(OSC_COEFF_FRAC + v_level);
-        else
-            v_odd_phase_0 := '0';
-        end if;
+        
 
         if r.state = idle then
 
@@ -365,12 +343,11 @@ begin
 
                 -- Load new output samples from buffer.
                 r_in.output_samples <= r.sample_buffers;
-                r_in.new_period <= r.new_period_buffer;
 
                 r_in.sample_counter(0) <= 0;
                 r_in.sample_counter_next <= 0;
                 r_in.osc_counter(0) <= 0;
-                r_in.coeff_counter <= 0;
+                r_in.coeff_counter(0) <= 0;
                 r_in.unison_counter <= 0;
                 r_in.voice_counter <= 0;
 
@@ -381,20 +358,9 @@ begin
         -- Start new cycle
         elsif r.state = init then 
 
-            -- Check for phase overflow and assert new_period flag.
-            for i in 0 to N_VOICES - 1 loop
-                if addrgen_input(i).phase(0) < r.prev_phase(i) then 
-                    r_in.new_period_buffer(i) <= '1';
-                else 
-                    r_in.new_period_buffer(i) <= '0';
-                end if;
-                r_in.prev_phase(i) <= addrgen_input(i).phase(0);
-            end loop;
-
             r_in.odd_phase(0) <= v_odd_phase_0;
-            r_in.phase_position(0) <= addrgen_input(0).phase(0)(OSC_COEFF_FRAC + v_level - 1 downto v_level);
-            r_in.mipmap_address <= addrgen_input(0).mipmap_address(0);
-            r_in.coeff_base_address <= shift_right(addrgen_input(0).phase(0), addrgen_input(0).mipmap_level)
+            r_in.mipmap_address_buffer <= addrgen_input(0).mipmap_address(0);
+            r_in.coeff_base_address_buffer <= shift_right(addrgen_input(0).phase(0), addrgen_input(0).mipmap_level)
                 (t_osc_phase_frac'length - 1 downto OSC_COEFF_FRAC + 1);
 
             r_in.state <= running;
@@ -402,25 +368,25 @@ begin
         elsif r.state = running then
 
             -- Increment mipmap address (wrap around based on mipmap level).
-            if r.mipmap_address = MIPMAP_LEVEL_LIMITS(v_level) then
-                r_in.mipmap_address <= MIPMAP_LEVEL_OFFSETS(v_level);
+            if r.mipmap_address_buffer = MIPMAP_LEVEL_LIMITS(v_level) then
+                r_in.mipmap_address_buffer <= MIPMAP_LEVEL_OFFSETS(v_level);
             else
-                r_in.mipmap_address <= r.mipmap_address + 1;
+                r_in.mipmap_address_buffer <= r.mipmap_address_buffer + 1;
             end if;
 
             -- Increment coefficient counter.
-            if r.coeff_counter < POLY_N - 1 then
-                r_in.coeff_counter <= r.coeff_counter + 1;
+            if r.coeff_counter(0) < POLY_N - 1 then
+                r_in.coeff_counter(0) <= r.coeff_counter(0) + 1;
 
                  -- Pre-increment the osc_counter and sample_counter because they are needed for indexing in the next cycle.
-                if r.coeff_counter = POLY_N - 2 then
+                if r.coeff_counter(0) = POLY_N - 2 then
 
                     if r.osc_counter(0) < N_VOICES - 1 then
                         r_in.osc_counter_next <= r.osc_counter(0) + 1;
                     else
                         r_in.osc_counter_next <= 0;
 
-                       if r.coeff_counter = POLY_N - 2 and r.sample_counter(0) < 2 then
+                       if r.coeff_counter(0) = POLY_N - 2 and r.sample_counter(0) < 2 then
                            r_in.sample_counter_next <= r.sample_counter(0) + 1;
                        end if;
                     end if;
@@ -430,52 +396,88 @@ begin
                     end if;
                 end if;
             else
-                r_in.coeff_counter <= 0;
+                r_in.coeff_counter(0) <= 0;
 
                 -- Check for end of sample cycle.
                 if r.osc_counter(0) = N_VOICES - 1 then
                     r_in.sample_counter(0) <= r.sample_counter_next;
                 end if;
 
-                r_in.osc_counter(0) <= r.osc_counter_next;
+                if r.osc_counter_next = 0 then 
+                    r_in.unison_counter <= 0;
+                    r_in.voice_counter <= 0;
+                else 
+                    r_in.osc_counter(0) <= r.osc_counter_next;
+
+                    -- Count unison duplicates within polyphonic voices. Since all oscillators within the same group share frame control.
+                    if r.unison_counter < config.unison_n - 1 then 
+                        r_in.unison_counter <= r.unison_counter + 1;
+                    else 
+                        r_in.unison_counter <= 0;
+                        if r.voice_counter < status.active_voices - 1 then 
+                            r_in.voice_counter <= r.voice_counter + 1;
+                        end if;
+                    end if;
+                end if;
 
                 -- Load sample and coeffient base addresses for next oscillator.
                 if r.sample_counter_next < 2 then
 
-                    r_in.mipmap_address <= addrgen_input(r.osc_counter_next).mipmap_address(r.sample_counter_next);
+                    r_in.mipmap_address_buffer <= addrgen_input(r.osc_counter_next).mipmap_address(r.sample_counter_next);
 
-                    r_in.coeff_base_address <= shift_right(
+                    r_in.coeff_base_address_buffer <= shift_right(
                         addrgen_input(r.osc_counter_next).phase(r.sample_counter_next),
                         addrgen_input(r.osc_counter_next).mipmap_level)
                             (t_osc_phase_frac'length - 1 downto OSC_COEFF_FRAC + 1);
                 end if;
             end if;
 
-            -- Check for end of pipeline
-            if (r.sample_counter(0) = 2) and (r.coeff_counter = PIPE_LEN_TOTAL) then
-                r_in.state <= idle;
+            
+
+            -- Pipeline stage 0: Split control value into frame index and position.
+            if r.frames_log2 < 2 then
+                v_frame_index := 0;
+            else 
+                v_frame_index := to_integer(unsigned(r.frame_control(r.voice_counter)(CTRL_SIZE - 2 downto r.frame_index_lsb)));
             end if;
 
-            -- Pipeline stage 0: Pipeline register inputs.
-            if r.sample_counter(0) < 2 then
-                r_in.odd_phase(0) <= v_odd_phase_0;
-                r_in.phase_position(0) <= addrgen_input(r.osc_counter(0)).phase(r.sample_counter(0))
-                    (OSC_COEFF_FRAC + v_level - 1 downto v_level);
+            r_in.frame_index_a <= v_frame_index;
+            r_in.frame_index_b <= minimum(r.frame_index_max, v_frame_index + 1);
+
+            if r.frames_log2 = 0 then -- Special case: dont do any frame interpolation.
+                r_in.frame_position_buffer <= (others => '0');
+
+            elsif r.frames_log2 = 1 then -- Special case: always interpolate between frames 0 & 1.
+
+                -- Use MSBs of frame_control as frame_position (msb is always 0)..
+                r_in.frame_position_buffer <= unsigned(
+                    r.frame_control(r.voice_counter)(CTRL_SIZE - 2 downto CTRL_SIZE - OSC_SAMPLE_FRAC - 1));
+            else 
+                r_in.frame_position_buffer <= unsigned(
+                    r.frame_control(r.voice_counter)(r.frame_index_lsb - 1 downto r.frame_index_lsb - OSC_SAMPLE_FRAC));
+            end if;  
+
+
+            -- Pipeline stage 1: Pipeline register inputs.
+            if r.sample_counter(PIPE_LEN_SPLIT) < 2 then
+                r_in.phase_position <= 
+                    addrgen_input(r.osc_counter(PIPE_LEN_SPLIT)).phase(r.sample_counter(PIPE_LEN_SPLIT))
+                        (OSC_COEFF_FRAC + r.level - 1 downto r.level);
             end if;
 
-            -- Pipeline stage 0: Wave memory access.
-            s_wave_address_a <=  std_logic_vector(to_unsigned(r.frame_index_a(r.osc_counter(0)), FRAMES_MAX_LOG2)) 
+            -- Pipeline stage 1: Wave memory access.
+            s_wave_address_a <= std_logic_vector(to_unsigned(r.frame_index_a, FRAMES_MAX_LOG2)) 
                 & std_logic_vector(r.mipmap_address);
 
-            s_wave_address_b <=  std_logic_vector(to_unsigned(r.frame_index_b(r.osc_counter(0)), FRAMES_MAX_LOG2)) 
+            s_wave_address_b <= std_logic_vector(to_unsigned(r.frame_index_b, FRAMES_MAX_LOG2)) 
                 & std_logic_vector(r.mipmap_address);
 
-            -- Pipeline stage 0: Coefficient memory access.
+            -- Pipeline stage 1: Coefficient memory access.
             -- Get coefficient for phase m and m+1 from the two coefficient memories.
             s_coeff_odd_addra <= std_logic_vector(r.coeff_base_address)
-                & std_logic_vector(to_unsigned(r.coeff_counter, POLY_N_LOG2));
+                & std_logic_vector(to_unsigned(r.coeff_counter(PIPE_LEN_SPLIT), POLY_N_LOG2));
 
-            if v_odd_phase_0 = '1' then
+            if r.odd_phase(PIPE_LEN_SPLIT) = '1' then
 
                 -- Edge case where interpolation wraps around.
                 -- Solve by shifting the coefficient forward one position and append with a zero.
@@ -483,29 +485,23 @@ begin
                 -- and shift the rest back one position.
                 if r.coeff_base_address = POLY_M / 2 - 1 then
 
-                    if r.coeff_counter = 0 then
-                        r_in.zero_coeff(0) <= '1';
+                    if r.coeff_counter(PIPE_LEN_SPLIT) = 0 then
+                        r_in.zero_coeff(PIPE_LEN_SPLIT) <= '1';
                     else
                         s_coeff_even_addra <= std_logic_vector(r.coeff_base_address + 1)
-                            & std_logic_vector(to_unsigned(r.coeff_counter, POLY_N_LOG2) - 1);
+                            & std_logic_vector(to_unsigned(r.coeff_counter(PIPE_LEN_SPLIT), POLY_N_LOG2) - 1);
                     end if;
 
                 else
                     s_coeff_even_addra <= std_logic_vector(r.coeff_base_address + 1)
-                        & std_logic_vector(to_unsigned(r.coeff_counter, POLY_N_LOG2));
+                        & std_logic_vector(to_unsigned(r.coeff_counter(PIPE_LEN_SPLIT), POLY_N_LOG2));
                 end if;
             else
                 s_coeff_even_addra <= std_logic_vector(r.coeff_base_address)
-                    & std_logic_vector(to_unsigned(r.coeff_counter, POLY_N_LOG2));
+                    & std_logic_vector(to_unsigned(r.coeff_counter(PIPE_LEN_SPLIT), POLY_N_LOG2));
             end if;
 
-            -- Pipeline stage 0 shift pipeline registers.
-            for i in PIPE_LEN_MEM downto 1 loop
-                r_in.phase_position(i) <= r.phase_position(i - 1);
-                r_in.odd_phase(i) <= r.odd_phase(i - 1);
-            end loop;
-
-            -- Pipeline stage 1: Read wave memory (mux by active buffer indices) and send to frame
+            -- Pipeline stage 2: Read wave memory (mux by active buffer indices) and send to frame
             -- interpolator. Interpolation is performed in a single DSP slice (4 stage pipeline).
             -- (D - A) * B + C = (sampleB - sampleA) * frac(position) + sampleA.
             -- The input samples are also shifted right by one bit to leave some headroom to
@@ -518,11 +514,11 @@ begin
                 & (0 to OSC_SAMPLE_FRAC - 2 => '0');                -- shift
 
             s_frame_interp_d <= std_logic_vector(shift_right(signed(s_wave_read_data_b), 1));
-            s_frame_interp_b <= '0' & std_logic_vector(r.frame_position(r.osc_counter(1))); -- Add zero msb to make B unsigned.
+            s_frame_interp_b <= '0' & std_logic_vector(r.frame_position); -- Add zero msb to make B unsigned.
 
-            -- Pipeline stage 1: Read coefficient memory and send to interpolator. The values for the
+            -- Pipeline stage 2: Read coefficient memory and send to interpolator. The values for the
             -- even and odd coefficient memories are swapped if the phase m is odd.
-            if r.odd_phase(PIPE_LEN_MEM) = '1' then
+            if r.odd_phase(PIPE_SUM_MEM) = '1' then
                 s_coeff_interp_a <= s_coeff_odd_douta;
                 s_coeff_interp_d <= s_coeff_even_douta;
                 s_coeff_interp_c <= s_coeff_odd_douta(POLY_COEFF_SIZE - 1) -- Sign extend by one bit.
@@ -534,28 +530,21 @@ begin
                     & s_coeff_even_douta & (0 to OSC_COEFF_FRAC - 1 => '0');
             end if;
 
-            s_coeff_interp_b <= '0' & std_logic_vector(r.phase_position(PIPE_LEN_MEM - 1)); -- Add zero msb to make B unsigned.
+            s_coeff_interp_b <= '0' & std_logic_vector(r.phase_position); -- Add zero msb to make B unsigned.
 
-            -- Pipeline stage 5: Connect linear interpolator outputs to the MACC.
+            -- Pipeline stage 6: Connect linear interpolator outputs to the MACC.
             if r.zero_coeff(PIPE_SUM_INTP) = '0' then
                 s_macc_b <= s_coeff_interp_p(POLY_COEFF_SIZE - 1 downto 0);
             end if;
             s_macc_a <= s_frame_interp_p(SAMPLE_SIZE - 1 downto 0);
-            s_macc_sel <= "1" when r.coeff_counter = PIPE_SUM_INTP else "0";
+            s_macc_sel <= "1" when r.coeff_counter(PIPE_SUM_INTP) = 0 else "0";
 
-            -- Pipeline stage 0-5: Zero coefficient pipeline registers.
+            -- Pipeline stage 0-6: Zero coefficient pipeline registers.
             for i in PIPE_SUM_INTP downto 1 loop
                 r_in.zero_coeff(i) <= r.zero_coeff(i - 1);
             end loop;
 
-            -- Pipeline stage 0-7: Register writeback parameters.
-            for i in PIPE_LEN_TOTAL downto 1 loop
-                r_in.osc_counter(i) <= r.osc_counter(i - 1);
-                r_in.sample_counter(i) <= r.sample_counter(i - 1);
-                r_in.writeback(i) <= r.writeback(i - 1);
-            end loop;
-
-            -- Pipeline stage 9: Store output sample.
+            -- Pipeline stage 10: Store output sample.
             if r.writeback(PIPE_LEN_TOTAL) = '1' then
 
                 -- Shift by 15 because coefficient is 16 bit signed (+2 extra, not sure why necessary).
@@ -564,14 +553,25 @@ begin
                         s_macc_p(SAMPLE_SIZE + POLY_COEFF_SIZE - 4 downto POLY_COEFF_SIZE - 3)); 
             end if;
 
-            -- Count unison duplicates within polyphonic voices. Since all oscillators within the same group share frame control.
-            if r.unison_counter < config.unison_n - 1 then 
-                r_in.unison_counter <= r.unison_counter + 1;
-            else 
-                r_in.unison_counter <= 0;
-                if r.voice_counter < status.active_voices - 1 then 
-                    r_in.voice_counter <= r.voice_counter + 1;
+            -- Pipeline stage 0-10: Shift register writeback parameters.
+            for i in PIPE_LEN_TOTAL downto 1 loop
+                r_in.osc_counter(i) <= r.osc_counter(i - 1);
+                r_in.sample_counter(i) <= r.sample_counter(i - 1);
+                r_in.writeback(i) <= r.writeback(i - 1);
+
+                if i <= PIPE_SUM_INTP then 
+                    r_in.coeff_counter(i) <= r.coeff_counter(i - 1);
                 end if;
+            end loop;
+
+            -- Pipeline stage 0 - 2: shift pipeline registers.
+            for i in PIPE_LEN_MEM downto 1 loop
+                r_in.odd_phase(i) <= r.odd_phase(i - 1);
+            end loop;
+
+            -- Check for end of pipeline
+            if (r.sample_counter(0) = 2) and (r.coeff_counter(0) = PIPE_LEN_TOTAL) then
+                r_in.state <= idle;
             end if;
 
         -- Mux wave memory address to dma to allow writing the wavetable.
@@ -583,7 +583,6 @@ begin
                 r_in.state <= idle;
             end if;
         end if;
-
 
     end process;
 

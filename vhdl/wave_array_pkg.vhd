@@ -466,8 +466,10 @@ package wave_array_pkg is
 
     type t_pitched_osc_inputs is array (0 to N_TABLES - 1) of t_osc_input_array(0 to POLYPHONY_MAX - 1);
     type t_spread_osc_inputs is array (0 to N_TABLES - 1) of t_osc_input_array(0 to N_VOICES - 1);
+    type t_frame_ctrl_index is array (0 to N_VOICES - 1) of integer range 0 to POLYPHONY_MAX - 1;
     type t_unison_step_array is array (0 to N_TABLES - 1) of t_osc_phase_array(0 to POLYPHONY_MAX - 1);
     type t_addrgen_output_array is array (0 to N_TABLES - 1) of t_addrgen2table_array(0 to N_VOICES - 1);
+
 
     constant MOD_MAPPING_INIT : t_mod_mapping := (
         source                  => MODS_NONE,

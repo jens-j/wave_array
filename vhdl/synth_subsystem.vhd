@@ -27,7 +27,6 @@ entity synth_subsystem is
         envelope_1_active       : out std_logic_vector(POLYPHONY_MAX - 1 downto 0);
         mod_sources             : out t_mods_array;
         mod_destinations        : out t_modd_array;
-        new_period              : out std_logic_vector(N_VOICES - 1 downto 0); -- High in first cycle of waveform period.
         pitched_osc_inputs      : out t_pitched_osc_inputs;
         spread_osc_inputs       : out t_spread_osc_inputs;
         lowest_velocity         : out t_osc_phase;
@@ -119,7 +118,6 @@ begin
         table2dma               => s_table2dma,
         mod_destinations        => s_mod_destinations,
         output_samples          => s_osc_samples,
-        new_period              => new_period,
         spread_osc_inputs       => spread_osc_inputs,
         lowest_velocity         => lowest_velocity,
         addrgen_outputs         => addrgen_outputs

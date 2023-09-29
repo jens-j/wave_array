@@ -16,11 +16,11 @@ entity oscillator is
         status                  : in  t_status;
         next_sample             : in  std_logic; -- Next sample trigger.
         osc_inputs              : in  t_osc_input_array(0 to N_VOICES - 1);
+        frame_ctrl_index        : in  t_frame_ctrl_index;
         dma2table               : in  t_dma2table;
         table2dma               : out t_table2dma;
         frame_control           : in  t_ctrl_value_array(0 to POLYPHONY_MAX - 1);
         output_samples          : out t_mono_sample_array(0 to N_VOICES - 1);
-        new_period              : out std_logic_vector(N_VOICES - 1 downto 0); -- High in first cycle of waveform period.
         addrgen_output          : out t_addrgen2table_array(0 to N_VOICES - 1)
     );
 end entity;
@@ -55,10 +55,10 @@ begin
         dma2table               => dma2table,
         table2dma               => table2dma,
         osc_inputs              => osc_inputs,
+        frame_ctrl_index        => frame_ctrl_index,
         frame_control           => frame_control,
         addrgen_input           => s_addrgen2table,
         output_samples          => s_intermediate_samples,
-        new_period              => new_period,
         overflow                => s_overflow,
         timeout                 => s_timeout
     );
