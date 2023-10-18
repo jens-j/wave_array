@@ -76,12 +76,12 @@ architecture arch of uart_packet_engine is
         register_input          : t_register_input;
         sdram_read_enable       : std_logic;
         sdram_write_enable      : std_logic;
-        sdram_burst_length      : integer range 1 to SDRAM_MAX_BURST;
+        sdram_burst_n           : integer range 1 to SDRAM_MAX_BURST;
         sdram_address           : unsigned(SDRAM_DEPTH_LOG2 - 1 downto 0);
         timeout                 : std_logic;
         byte_counter            : integer range 0 to 2 * SDRAM_MAX_BURST - 1;
-        fifo_counter            : integer range 1 to 2 * SDRAM_MAX_BURST;
-        block_counter           : integer;
+        fifo_counter            : integer range 1 to 16; -- Count 16 bytes for one 8 word SDRAM burst.
+        burst_counter           : integer;
         word_buffer             : std_logic_vector(31 downto 0); -- Buffer used to receive words byte for byte.
         address                 : unsigned(31 downto 0); -- Address field buffer.
         watchdog                : unsigned(WDT_WIDTH downto 0);
@@ -101,12 +101,12 @@ architecture arch of uart_packet_engine is
         register_input          => ('0', '0', (others => '0'), (others => '0')),
         sdram_read_enable       => '0',
         sdram_write_enable      => '0',
-        sdram_burst_length      => 1,
+        sdram_burst_n           => 1,
         sdram_address           => (others => '0'),
         timeout                 => '0',
         byte_counter            => 0,
         fifo_counter            => 1,
-        block_counter           => 0,
+        burst_counter           => 0,
         word_buffer             => (others => '0'),
         address                 => (others => '0'),
         watchdog                => (others => '0'),
@@ -231,7 +231,7 @@ begin
     register_input              <= r.register_input;
     sdram_input.read_enable     <= r.sdram_read_enable;
     sdram_input.write_enable    <= r.sdram_write_enable;
-    sdram_input.burst_length    <= r.sdram_burst_length;
+    sdram_input.burst_n         <= r.sdram_burst_n;
     sdram_input.address         <= r.sdram_address;
 
 
@@ -475,14 +475,14 @@ begin
         -- Issue SDRAM read and wait for ack.
         elsif r.state = read_block_1 then
 
-            r_in.sdram_burst_length <= to_integer(unsigned(r.word_buffer));
+            r_in.sdram_burst_n <= to_integer(unsigned(r.word_buffer));
             r_in.sdram_address <= r.address(SDRAM_DEPTH_LOG2 - 1 downto 0);
 
             -- Write reply header to the tx fifo.
             if sdram_output.ack = '1' then
                 r_in.tx_write_enable <= '1';
                 r_in.tx_data <= UART_READ_BLOCK_REP;
-                r_in.byte_counter <= 2 * r.sdram_burst_length - 1;
+                r_in.byte_counter <= 2 * to_integer(unsigned(r.word_buffer)) - 1;
                 r_in.state <= read_block_2;
             else
                 r_in.sdram_read_enable <= '1';
@@ -520,29 +520,23 @@ begin
             r_in.next_state <= write_block_1;
             r_in.state <= read_word;
 
-        -- Store the length field.
+        -- Store the length field (number of bursts).
         elsif r.state = write_block_1 then
-            r_in.block_counter <= to_integer(unsigned(r.word_buffer));
+            r_in.burst_counter <= to_integer(unsigned(r.word_buffer));
             r_in.state <= write_block_2;
 
         -- Move data from the UART RX fifo to the SDRAM fifo.
-        -- Start a SDRAM burst if max 128 words are in the fifo (256 bytes).
+        -- The stream is spit in multiple 8 word bursts.
         elsif r.state = write_block_2 then
 
             if rx_empty = '0' then
                 rx_read_enable <= '1';
                 s_u2s_fifo_wr_en <= '1'; 
 
-                -- A full burst of 128 words is in the fifo
-                if r.fifo_counter = 2 * SDRAM_MAX_BURST then 
-                    r_in.sdram_burst_length <= SDRAM_MAX_BURST;
-                    r_in.block_counter <= r.block_counter - SDRAM_MAX_BURST;
-                    r_in.state <= write_block_3;
-
-                -- block is smaller than 128 words or this is the last (non-full) burst in a block.
-                elsif r.fifo_counter = 2 * r.block_counter then
-                    r_in.sdram_burst_length <= r.block_counter;
-                    r_in.block_counter <= 0;
+                -- A full burst of 8 words (16 bytes) is in the fifo.
+                if r.fifo_counter = 16 then 
+                    r_in.sdram_burst_n <= 1;
+                    r_in.burst_counter <= r.burst_counter - 1;
                     r_in.state <= write_block_3;
                 else
                     r_in.fifo_counter <= r.fifo_counter + 1;
@@ -552,7 +546,7 @@ begin
         -- Issue SDRAM write and wait for ack.
         elsif r.state = write_block_3 then
             if sdram_output.ack = '1' then
-                r_in.address <= r.address + to_unsigned(SDRAM_MAX_BURST, 32);
+                r_in.address <= r.address + to_unsigned(8, 32); -- Increase address by SDRAM burst size.
                 r_in.state <= write_block_4;
             else
                 r_in.sdram_write_enable <= '1';
@@ -563,7 +557,7 @@ begin
         -- Continue with next burst if block is not yet completed.
         elsif r.state = write_block_4 then
             if sdram_output.done = '1' then
-                if r.block_counter = 0 then 
+                if r.burst_counter = 0 then 
                     r_in.state <= idle;
                     r_in.tx_write_enable <= '1';
                     r_in.tx_data <= UART_WRITE_BLOCK_REP;

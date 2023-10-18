@@ -77,7 +77,7 @@ architecture arch of uart_reader is
             readline(data_file, v_line);
             hread(v_line, v_data);
 
-            report "write byte " & to_hstring(v_data);
+            -- report "write byte " & to_hstring(v_data);
 
             wait until rising_edge(clk) and full = '0';
             write_enable <= '1';

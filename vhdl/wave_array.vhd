@@ -44,29 +44,31 @@ entity wave_array is
         XADC_3N                 : in  std_logic;
 
         -- SDRAM interface.
-        SDRAM_CLK               : out   std_logic;
-        SDRAM_ADVN              : out   std_logic;
-        SDRAM_CEN               : out   std_logic;
-        SDRAM_CRE               : out   std_logic;
-        SDRAM_OEN               : out   std_logic;
-        SDRAM_WEN               : out   std_logic;
-        SDRAM_LBN               : out   std_logic;
-        SDRAM_UBN               : out   std_logic;
-        SDRAM_WAIT              : in    std_logic;
-        SDRAM_ADDRESS           : out   std_logic_vector(SDRAM_DEPTH_LOG2 - 1 downto 0);
-        SDRAM_DQ                : inout std_logic_vector(SDRAM_WIDTH - 1 downto 0)
+        DDR3_DQ                 : inout std_logic_vector(15 downto 0);
+        DDR3_DQS_P              : inout std_logic_vector(1 downto 0);
+        DDR3_DQS_N              : inout std_logic_vector(1 downto 0);
+        DDR3_ADDR               : out   std_logic_vector(14 downto 0);
+        DDR3_BA                 : out   std_logic_vector(2 downto 0);
+        DDR3_RAS_N              : out   std_logic;
+        DDR3_CAS_N              : out   std_logic;
+        DDR3_WE_N               : out   std_logic;
+        DDR3_RESET_N            : out   std_logic;
+        DDR3_CK_P               : out   std_logic;
+        DDR3_CK_N               : out   std_logic;
+        DDR3_CKE                : out   std_logic;
+        DDR3_DM                 : out   std_logic_vector(1 downto 0);
+        DDR3_ODT                : out   std_logic
     );
 end entity;
 
 architecture arch of wave_array is
 
     signal s_system_clk         : std_logic;
-    signal s_sdram_clk          : std_logic;
+    signal s_mig_ref_clk        : std_logic;
     signal s_i2s_clk            : std_logic;
     signal s_system_reset       : std_logic; -- Active high.
     signal s_i2s_reset          : std_logic; -- Active high.
     signal s_pll_locked         : std_logic;
-    signal s_sdram_clk_enable   : std_logic;
 
     signal s_next_sample        : std_logic;
     signal s_voices             : t_voice_array(0 to POLYPHONY_MAX - 1);
@@ -137,7 +139,6 @@ begin
     LEDS(0) <= s_config.led;
 
     I2S_SCLK <= s_i2s_clk;
-    SDRAM_CLK <= s_sdram_clk;
 
     -- 7 segment display.
     -- s_display_data <= std_logic_vector(to_unsigned(s_voices(0).note.number, 8))
@@ -183,8 +184,7 @@ begin
         ext_clk                 => EXT_CLK,         -- 100 MHz.
         system_clk              => s_system_clk,    -- 100 MHz.
         i2s_clk                 => s_i2s_clk,       -- 1.5360175 MHz.
-        sdram_clk               => s_sdram_clk,     -- 100 MHz gated output clock shifted -72 degrees (2 ns early).
-        sdram_clk_enable        => s_sdram_clk_enable,
+        mig_ref_clk             => s_mig_ref_clk,   -- 400 MHz gated output clock.
         pll_locked              => s_pll_locked
     );
 
@@ -335,28 +335,31 @@ begin
         anodes                  => DISPLAY_ANODES
     );
 
-    arbiter : entity sdram.sdram_arbiter
+    arbiter : entity sdram.ddr_arbiter
     generic map (
         N_CLIENTS               => 1 + N_TABLES
     )
     port map (
         clk                     => s_system_clk,
-        sdram_clk               => s_sdram_clk,
+        mig_ref_clk             => s_mig_ref_clk,
         reset                   => s_system_reset,
         pll_locked              => s_pll_locked,
-        sdram_clk_enable        => s_sdram_clk_enable,
         sdram_inputs            => s_sdram_inputs,
         sdram_outputs           => s_sdram_outputs,
-        SDRAM_ADVN              => SDRAM_ADVN,
-        SDRAM_CEN               => SDRAM_CEN,
-        SDRAM_CRE               => SDRAM_CRE,
-        SDRAM_OEN               => SDRAM_OEN,
-        SDRAM_WEN               => SDRAM_WEN,
-        SDRAM_LBN               => SDRAM_LBN,
-        SDRAM_UBN               => SDRAM_UBN,
-        SDRAM_WAIT              => SDRAM_WAIT,
-        SDRAM_ADDRESS           => SDRAM_ADDRESS,
-        SDRAM_DQ                => SDRAM_DQ
+        DDR3_DQ                 => DDR3_DQ,
+        DDR3_DQS_P              => DDR3_DQS_P,
+        DDR3_DQS_N              => DDR3_DQS_N,
+        DDR3_ADDR               => DDR3_ADDR,
+        DDR3_BA                 => DDR3_BA,
+        DDR3_RAS_N              => DDR3_RAS_N,
+        DDR3_CAS_N              => DDR3_CAS_N,
+        DDR3_WE_N               => DDR3_WE_N,
+        DDR3_RESET_N            => DDR3_RESET_N,
+        DDR3_CK_P               => DDR3_CK_P,
+        DDR3_CK_N               => DDR3_CK_N,
+        DDR3_CKE                => DDR3_CKE,
+        DDR3_DM                 => DDR3_DM,
+        DDR3_ODT                => DDR3_ODT
     );
 
 

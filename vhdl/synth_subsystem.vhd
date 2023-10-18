@@ -45,23 +45,27 @@ architecture arch of synth_subsystem is
     signal s_mixer_right_sample_out : t_mono_sample;
     signal s_dma2table          : t_dma2table_array(0 to N_TABLES - 1);
     signal s_table2dma          : t_table2dma_array(0 to N_TABLES - 1);
-    signal s_lfo_0_ctrl         : t_ctrl_value_array(0 to POLYPHONY_MAX - 1);
-    signal s_lfo_1_ctrl         : t_ctrl_value_array(0 to POLYPHONY_MAX - 1);
-    signal s_envelope_0_ctrl    : t_ctrl_value_array(0 to POLYPHONY_MAX - 1);
-    signal s_envelope_1_ctrl    : t_ctrl_value_array(0 to POLYPHONY_MAX - 1);
+    signal s_lfo_ctrl           : t_ctrl_value_array(0 to POLYPHONY_MAX - 1);
+    signal s_envelope_ctrl      : t_ctrl_value_array(0 to POLYPHONY_MAX - 1);
     signal s_mod_sources        : t_mods_array;
     signal s_mod_destinations   : t_modd_array;
     signal s_pot_ctrl           : t_ctrl_value;
     signal s_pitch_ctrl         : t_osc_ctrl_array;
     signal s_pitched_osc_inputs : t_pitched_osc_inputs;
+    signal s_lfo_out            : t_lfo_out(0 to LFO_N - 1);
+    signal s_envelope_out       : t_envelope_out(0 to ENV_N - 1);
+    signal s_envelope_active    : std_logic_vector(ENV_N * POLYPHONY_MAX - 1 downto 0);
 
 begin
 
+    -- Connect output ports.
     mod_destinations <= s_mod_destinations;
     mod_sources <= s_mod_sources;
     pitched_osc_inputs <= s_pitched_osc_inputs;
     osc_samples <= s_osc_samples;
     filter_samples <= s_filter_samples;
+    envelope_0_active <= s_envelope_active(POLYPHONY_MAX - 1 downto 0);
+    envelope_1_active <= s_envelope_active(2 * POLYPHONY_MAX - 1 downto POLYPHONY_MAX);
 
     s_pitch_ctrl(0) <= s_mod_destinations(MODD_OSC_0_FREQ);
     s_pitch_ctrl(1) <= s_mod_destinations(MODD_OSC_1_FREQ);
@@ -73,18 +77,12 @@ begin
     mods_assign : for i in 0 to POLYPHONY_MAX - 1 generate
         s_mod_sources(MODS_NONE)(i)       <= (others => '0');
         s_mod_sources(MODS_POT)(i)        <= s_pot_ctrl;
-        s_mod_sources(MODS_ENVELOPE_0)(i) <= s_envelope_0_ctrl(i);
-        s_mod_sources(MODS_ENVELOPE_1)(i) <= s_envelope_1_ctrl(i);
-        s_mod_sources(MODS_LFO_0)(i)      <= s_lfo_0_ctrl(i);
-        s_mod_sources(MODS_LFO_1)(i)      <= s_lfo_1_ctrl(i);
+        s_mod_sources(MODS_ENVELOPE_0)(i) <= s_envelope_out(0)(i);
+        s_mod_sources(MODS_ENVELOPE_1)(i) <= s_envelope_out(1)(i);
+        s_mod_sources(MODS_LFO_0)(i)      <= s_lfo_out(0)(i);
+        s_mod_sources(MODS_LFO_1)(i)      <= s_lfo_out(1)(i);
         s_mod_sources(MODS_VELOCITY)(i)   <= '0' & signed(voices(i).midi_velocity) & (7 downto 0 => '0'); -- Extend 7 bit midi velocity to signed 16 bit control value.
     end generate;
-
-    -- This does not synthesize correctly.
-    -- s_mod_sources(MODS_NONE)     <= (0 to POLYPHONY_MAX - 1 => (others => '0'));
-    -- s_mod_sources(MODS_POT)      <= (0 to POLYPHONY_MAX - 1 => s_pot_ctrl);
-    -- s_mod_sources(MODS_ENVELOPE) <= s_envelope_ctrl;
-    -- s_mod_sources(MODS_LFO)      <= (0 to POLYPHONY_MAX - 1 => s_lfo_ctrl(0));
 
     osc_controller : entity osc.osc_controller
     port map(
@@ -139,64 +137,35 @@ begin
         sample_out              => s_filter_samples
     );
 
-    lfo_0 : entity wave.lfo
+    lfo : entity wave.lfo
     generic map (
+        N_INSTANCES             => LFO_N,
         N_OUTPUTS               => POLYPHONY_MAX
     )
     port map (
         clk                     => clk,
         reset                   => reset,
-        lfo_control             => config.lfo_control(0),
+        config                  => config,
+        lfo_input               => config.lfo_input,
         next_sample             => next_sample,
         osc_inputs              => s_osc_inputs,
-        lfo_out                 => s_lfo_0_ctrl
+        lfo_out                 => s_lfo_out
     );
 
-    -- lfo_1 : entity wave.lfo
-    -- generic map (
-    --     N_OUTPUTS               => POLYPHONY_MAX
-    -- )
-    -- port map (
-    --     clk                     => clk,
-    --     reset                   => reset,
-    --     lfo_control             => config.lfo_control(1),
-    --     next_sample             => next_sample,
-    --     osc_inputs              => s_osc_inputs,
-    --     lfo_out                 => s_lfo_1_ctrl
-    -- );
-
-    s_lfo_1_ctrl <= (others => (others => '0'));
-
-    envelope_0 : entity wave.envelope 
+    envelope : entity wave.envelope 
     generic map(
-        N_INPUTS                => POLYPHONY_MAX
+        N_INSTANCES             => ENV_N,
+        N_OUTPUTS               => POLYPHONY_MAX
     )
     port map (
         clk                     => clk,
         reset                   => reset,
-        envelope_control        => config.envelope_control(0),
+        envelope_input          => config.envelope_input,
         next_sample             => next_sample,
         osc_inputs              => s_osc_inputs,
-        ctrl_out                => s_envelope_0_ctrl,
-        envelope_active         => envelope_0_active
+        envelope_out            => s_envelope_out,
+        envelope_active         => s_envelope_active
     );
-
-    -- envelope_1 : entity wave.envelope 
-    -- generic map(
-    --     N_INPUTS                => POLYPHONY_MAX
-    -- )
-    -- port map (
-    --     clk                     => clk,
-    --     reset                   => reset,
-    --     envelope_control        => config.envelope_control(1),
-    --     next_sample             => next_sample,
-    --     osc_inputs              => s_osc_inputs,
-    --     ctrl_out                => s_envelope_1_ctrl,
-    --     envelope_active         => envelope_1_active
-    -- );
-
-    s_envelope_1_ctrl <= (others => (others => '0'));
-    envelope_1_active <= (others => '0');
 
     voice_mixer_subsys : entity wave.voice_mixer_subsystem
     port map (

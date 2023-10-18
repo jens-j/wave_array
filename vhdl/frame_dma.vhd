@@ -92,7 +92,7 @@ begin
     when sdram_read => 
 
         r_in.sdram_input.address <= config.dma_input(r.table_index).base_address;
-        r_in.sdram_input.burst_length <= 2**config.dma_input(r.table_index).frames_log2 * MIPMAP_TABLE_SIZE;
+        r_in.sdram_input.burst_n <= 2**config.dma_input(r.table_index).frames_log2 * MIPMAP_TABLE_SIZE / 8; -- Number of bursts of 8 words.
 
         -- Register and wait until the DMA transfer is complete to update the table size.
         r_in.frames_log2 <= config.dma_input(r.table_index).frames_log2;

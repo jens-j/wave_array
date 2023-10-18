@@ -16,8 +16,7 @@ entity clk_subsystem is
         ext_clk                 : in  std_logic; -- 100 MHz.
         system_clk              : out std_logic; -- 100 MHz.
         i2s_clk                 : out std_logic; -- 1.5360175 MHz.
-        sdram_clk               : out std_logic; -- 100 MHz 270 degrees shifted.
-        sdram_clk_enable        : in  std_logic;
+        mig_ref_clk             : out std_logic; -- 400 MHz.
         pll_locked              : out std_logic  -- SDRAM clock PLL locked.
     );
 end entity;
@@ -28,44 +27,44 @@ architecture arch of clk_subsystem is
     signal s_i2s_intermediate_clk : std_logic;
     signal s_counter              : unsigned(1 downto 0) := "00";
 
-    -- -- Component is necessary because the ip is in verilog.
-    -- component sys_clk_generator
-    -- port (
-    --      system_clk             : out std_logic;
-    --      sdram_clk              : out std_logic;
-    --      reset                  : in  std_logic;
-    --      ext_clk                : in  std_logic
-    -- );
-    -- end component;
-    --
-    -- -- Component is necessary because the ip is in verilog.
-    -- component i2s_clk_generator
-    -- port (
-    --      i2s_intermediate_clk   : out std_logic;
-    --      reset                  : in  std_logic;
-    --      sys_clk                : in  std_logic
-    -- );
-    -- end component;
+    -- Component is necessary because the ip is in verilog.
+    component sys_clk_generator
+    port (
+        system_clk             : out std_logic;
+        mig_ref_clk            : out std_logic;
+        reset                  : in  std_logic;
+        ext_clk                : in  std_logic;
+        locked              : out std_logic
+    );
+    end component;
+    
+    -- Component is necessary because the ip is in verilog.
+    component i2s_clk_generator
+    port (
+        i2s_intermediate_clk   : out std_logic;
+        reset                  : in  std_logic;
+        sys_clk                : in  std_logic
+    );
+    end component;
 
 begin
 
     system_clk <= s_system_clk;
 
-    sys_clk_gen : entity xil_defaultlib.sys_clk_generator
+    sys_clk_gen : sys_clk_generator
     port map (
-         system_clk             => s_system_clk,
-         sdram_clk              => sdram_clk,
-         reset                  => reset,
-         ext_clk                => ext_clk,
-         sdram_clk_ce           => sdram_clk_enable,
-         locked                 => pll_locked
+        system_clk             => s_system_clk,
+        mig_ref_clk            => mig_ref_clk,
+        reset                  => reset,
+        ext_clk                => ext_clk,
+        locked                 => pll_locked
     );
 
-    i2s_clk_gen : entity xil_defaultlib.i2s_clk_generator
+    i2s_clk_gen : i2s_clk_generator
     port map (
-         i2s_intermediate_clk   => s_i2s_intermediate_clk,
-         reset                  => reset,
-         sys_clk                => s_system_clk
+        i2s_intermediate_clk   => s_i2s_intermediate_clk,
+        reset                  => reset,
+        sys_clk                => s_system_clk
     );
 
     -- Global clock buffer for the I2S clock.

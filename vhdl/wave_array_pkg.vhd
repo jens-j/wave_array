@@ -145,10 +145,10 @@ package wave_array_pkg is
 
     -- SDRAM constants.
     constant SDRAM_WIDTH            : integer := 16;
-    constant SDRAM_DEPTH_LOG2       : integer := 23;
+    constant SDRAM_DEPTH_LOG2       : integer := 28;
     constant SDRAM_DEPTH            : integer := 2**SDRAM_DEPTH_LOG2;
-    constant SDRAM_MAX_BURST_LOG2   : integer := 7;
-    constant SDRAM_MAX_BURST        : integer := 2**SDRAM_MAX_BURST_LOG2;
+    constant SDRAM_MAX_BURST_LOG2   : integer := 29;
+    constant SDRAM_MAX_BURST        : integer := 2**SDRAM_MAX_BURST_LOG2 - 1;
 
     -- Register file constants.
     constant REGISTER_WIDTH         : integer := 16;
@@ -214,10 +214,12 @@ package wave_array_pkg is
     constant REG_LFO_0_WAVE         : unsigned := x"0000501"; -- rw 16 bit unsigned | Select LFO waveform. Clipped to LFO_N_WAVEFORMS - 1.
     constant REG_LFO_0_TRIGGER      : unsigned := x"0000502"; -- rw  1 bit          | Write '1' to enable LFO sync to voices. 
     constant REG_LFO_0_RESET        : unsigned := x"0000503"; -- wo  1 bit          | Write '1' reset all LFO phases.
+    constant REG_LFO_0_PHASE        : unsigned := x"0000504"; -- rw 15 bit unsigned | Binaural LFO phase difference, [-180 - 180] degrees.
     constant REG_LFO_1_VELOCITY     : unsigned := x"0000510"; -- rw 15 bit unsigned | LFO velocity control value. 
     constant REG_LFO_1_WAVE         : unsigned := x"0000511"; -- rw 16 bit unsigned | Select LFO waveform. Clipped to LFO_N_WAVEFORMS - 1.
     constant REG_LFO_1_TRIGGER      : unsigned := x"0000512"; -- rw  1 bit          | Write '1' to enable LFO sync to voices. 
     constant REG_LFO_1_RESET        : unsigned := x"0000513"; -- wo  1 bit          | Write '1' reset all LFO phases.
+    constant REG_LFO_1_PHASE        : unsigned := x"0000514"; -- rw 15 bit unsigned | Binaural LFO phase difference, [-180 - 180] degrees.
 
     constant REG_FILTER_CUTOFF      : unsigned := x"0000600"; -- rw 15 bit unsigned | Filter cutoff control value. 
     constant REG_FILTER_RESONANCE   : unsigned := x"0000601"; -- rw 15 bit unsigned | Filter resonance control value. 
@@ -274,6 +276,9 @@ package wave_array_pkg is
 
     -- 2D control array for oscillator parameters like frame position and table mixing coefficient.
     type t_osc_ctrl_array is array (0 to N_TABLES - 1) of t_ctrl_value_array(0 to POLYPHONY_MAX - 1);
+
+    type t_lfo_out is array (natural range <>) of t_ctrl_value_array(0 to POLYPHONY_MAX - 1);
+    type t_envelope_out is array (natural range <>) of t_ctrl_value_array(0 to POLYPHONY_MAX - 1);
 
     -- Address in the oscillator coefficient memory. It consists of two memories that each hold
     -- either the even or odd coefficients.
@@ -348,23 +353,24 @@ package wave_array_pkg is
 
     type t_dma_input_array is array (0 to N_TABLES - 1) of t_dma_input;
 
-    type t_lfo_control is record 
+    type t_lfo_input is record 
         wave_select             : integer range 0 to LFO_N_WAVEFORMS - 1;
         reset                   : std_logic; -- phase reset strobe.
         velocity                : t_ctrl_value;
         trigger                 : std_logic;
+        phase_shift             : t_ctrl_value;
     end record;
 
-    type t_lfo_control_array is array (0 to LFO_N - 1) of t_lfo_control;
+    type t_lfo_input_array is array (natural range <>) of t_lfo_input;
 
-    type t_envelope_control is record 
+    type t_envelope_input is record 
         attack                  : t_ctrl_value;
         decay                   : t_ctrl_value;
         sustain                 : t_ctrl_value;
         release_value           : t_ctrl_value; -- Release is a reserved keyword in vivado.
     end record;
 
-    type t_envelope_control_array is array (0 to ENV_N - 1) of t_envelope_control;
+    type t_envelope_input_array is array (natural range <>) of t_envelope_input;
 
     -- Register file outputs.
     type t_config is record
@@ -378,8 +384,8 @@ package wave_array_pkg is
         binaural_enable         : std_logic;
         unison_n                : integer range 1 to UNISON_MAX; 
         filter_select           : integer range 0 to 4;
-        lfo_control             : t_lfo_control_array;
-        envelope_control        : t_envelope_control_array;
+        lfo_input               : t_lfo_input_array(0 to LFO_N - 1);
+        envelope_input          : t_envelope_input_array(0 to ENV_N - 1);
         dma_input               : t_dma_input_array;
     end record;
 
@@ -427,7 +433,7 @@ package wave_array_pkg is
     type t_sdram_input is record
         read_enable             : std_logic;
         write_enable            : std_logic;
-        burst_length            : integer range 1 to SDRAM_DEPTH;
+        burst_n                 : integer range 1 to 2**29 - 1; -- Number of 8 word bursts.
         address                 : unsigned(SDRAM_DEPTH_LOG2 - 1 downto 0);
         write_data              : std_logic_vector(SDRAM_WIDTH - 1 downto 0);
     end record;
@@ -483,11 +489,10 @@ package wave_array_pkg is
     );
 
     
-
     constant SDRAM_INPUT_INIT : t_sdram_input := (
         read_enable             => '0',
         write_enable            => '0',
-        burst_length            => 1,
+        burst_n                 => 1,
         address                 => (others => '0'),
         write_data              => (others => '0')
     );
@@ -625,8 +630,8 @@ package body wave_array_pkg is
             binaural_enable         => '0',
             unison_n                => 1,
             filter_select           => 0, -- Lowpass
-            lfo_control             => (others => (0, '0', (others => '0'), '0')),
-            envelope_control        => (others => (x"0000", x"0000", x"7FFF", x"0000")),
+            lfo_input               => (others => (0, '0', (others => '0'), '0', x"0000")),
+            envelope_input          => (others => (x"0000", x"0000", x"7FFF", x"0000")),
             dma_input               => (others => DMA_INPUT_INIT)
         );
 
