@@ -1,0 +1,37 @@
+m255
+K4
+z2
+!s11f vlog 2022.2 2022.04, Apr 25 2022
+13
+!s112 1.1
+!i10d 8192
+!i10e 25
+!i10f 100
+cModel Technology
+Z0 dC:/Users/jens_/wave_array/vhdl/ddr3
+vddr3
+DXx6 sv_std 3 std 0 22 9oUSJO;AeEaW`l:M@^WG92
+!s110 1697366290
+!i10b 1
+!s100 =[j3cmmenAh[9c3mR2efQ1
+IO^2H>jBNnGU@5oHKAnRfg3
+S1
+R0
+w1441837613
+8ddr3.v
+Fddr3.v
+F4096Mb_ddr3_parameters.vh
+!i122 0
+L0 99 3548
+VDg1SIo80bB@j0V0VzS_@n1
+OL;L;2022.2;75
+r1
+!s85 0
+31
+!s108 1697366289.000000
+!s107 4096Mb_ddr3_parameters.vh|ddr3.v|
+!s90 +define+sg125|+define+den4096Mb|+define+x16|-sv|ddr3.v|
+!i113 0
+o-sv -L mtiAvm -L mtiRnm -L mtiOvm -L mtiUvm -L mtiUPF -L infact
+!s92 +define+sg125 +define+den4096Mb +define+x16 -sv -L mtiAvm -L mtiRnm -L mtiOvm -L mtiUvm -L mtiUPF -L infact
+tCvgOpt 0
