@@ -29,7 +29,7 @@ architecture arch of table_address_generator is
         state                   : t_state;
         osc_counter             : integer range 0 to N_VOICES - 1;
         sample_counter          : integer range 0 to 1; -- Two samples are needed before downsampling.
-        level_counter           : integer range 0 to MIPMAP_LEVELS - 1;
+        level_counter           : integer range 1 to MIPMAP_LEVELS;
         table_phases            : t_osc_phase_array(0 to N_VOICES - 1);
         local_address           : t_mipmap_address;
         mipmap_addresses        : t_mipmap_address_array(0 to 2 * N_VOICES - 1);
@@ -57,7 +57,7 @@ architecture arch of table_address_generator is
         state                   => idle,
         osc_counter             => 0,
         sample_counter          => 0,
-        level_counter           => 0,
+        level_counter           => 1,
         table_phases            => GENERATE_PHASES,
         local_address           => (others => '0'),
         mipmap_addresses        => (others => (others => '0')),
@@ -105,7 +105,7 @@ begin
             r_in.phases_buffer <= (others => (others => '0'));
             r_in.osc_counter <= 0;
             r_in.sample_counter <= 0;
-            r_in.level_counter <= 0;
+            r_in.level_counter <= 1;
             r_in.state <= init;
 
         -- Register signals from the osc_controller.
@@ -122,10 +122,10 @@ begin
 
             -- Both samples have the same mipmap level.
             if osc_inputs(r.osc_counter).velocity > MIPMAP_THRESHOLDS(r.level_counter) then
-                r_in.mipmap_level_buffers(r.osc_counter) <= r.level_counter + 1;
+                r_in.mipmap_level_buffers(r.osc_counter) <= r.level_counter;
             end if;
 
-            if r.level_counter < MIPMAP_LEVELS - 2 then
+            if r.level_counter < MIPMAP_LEVELS - 1 then
                 r_in.level_counter <= r.level_counter + 1;
             else
                 r_in.state <= calculate_address_0;
@@ -180,7 +180,7 @@ begin
             elsif r.osc_counter < N_VOICES - 1 then
                 r_in.osc_counter <= r.osc_counter + 1;
                 r_in.sample_counter <= 0;
-                r_in.level_counter <= 0;
+                r_in.level_counter <= 1;
                 r_in.state <= select_level;
             else
                 r_in.state <= idle;
@@ -195,6 +195,8 @@ begin
         if rising_edge(clk) then
             if reset = '1' then
                 r <= REG_INIT;
+                -- r.state <= idle;
+                -- r.table_phases <= GENERATE_PHASES;
             else
                 r <= r_in;
             end if;

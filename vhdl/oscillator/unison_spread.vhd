@@ -81,8 +81,8 @@ architecture arch of unison_spread is
         voice_enable            => '0',
         spread_osc_inputs       => (others => (others => ('0', (others => '0')))),
         spread_osc_inputs_buffer=> (others => (others => ('0', (others => '0')))),
-        frame_ctrl_index       => (others => 0),
-        frame_ctrl_index_buffer=> (others => 0),
+        frame_ctrl_index        => (others => 0),
+        frame_ctrl_index_buffer => (others => 0),
         lowest_velocity         => (others => '0'),
         lowest_velocity_buffer  => (others => '0')
     );
@@ -201,6 +201,7 @@ begin
         if rising_edge(clk) then
             if reset = '1' then
                 r <= REG_INIT;
+                -- r.state <= idle;
             else
                 r <= r_in;
             end if;

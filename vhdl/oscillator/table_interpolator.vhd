@@ -592,6 +592,7 @@ begin
         if rising_edge(clk) then
             if reset = '1' then
                 r <= REG_INIT;
+                -- r.state <= idle;
             else
                 r <= r_in;
             end if;
