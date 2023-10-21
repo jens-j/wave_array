@@ -152,28 +152,26 @@ begin
         end if;
 
         -- Pipeline stage 1: multiply mod source with mod amount.
-        if r.valid_shift(PIPE_SUM_MULT - 1) = '1' then 
-            for i in 0 to POLYPHONY_MAX - 1 loop
-                v_mult := r.source_values(i) * r.amount;
-                r_in.scaled_source_values(i) <= v_mult(2 * CTRL_SIZE - 2 downto CTRL_SIZE - 1);
-            end loop;
-        end if;
+        -- if r.valid_shift(PIPE_SUM_MULT - 1) = '1' then 
+        for i in 0 to POLYPHONY_MAX - 1 loop
+            v_mult := r.source_values(i) * r.amount;
+            r_in.scaled_source_values(i) <= v_mult(2 * CTRL_SIZE - 2 downto CTRL_SIZE - 1);
+        end loop;
+        -- end if;
 
         -- Pipeline stage 2: add source control values to accumulators.
-        if r.valid_shift(PIPE_SUM_ADD - 1) = '1' then 
-
-            for i in 0 to POLYPHONY_MAX - 1 loop 
-                if r.source_counter(PIPE_SUM_ADD - 1) = 0 then 
-                    r_in.accumulator(i) <= resize(r.scaled_source_values(i), ACC_WIDTH);
-                else 
-                    r_in.accumulator(i) <= r.accumulator(i) + r.scaled_source_values(i);
-                end if;
-            end loop;
-        end if;
+        -- if r.valid_shift(PIPE_SUM_ADD - 1) = '1' then 
+        for i in 0 to POLYPHONY_MAX - 1 loop 
+            if r.source_counter(PIPE_SUM_ADD - 1) = 0 then 
+                r_in.accumulator(i) <= resize(r.scaled_source_values(i), ACC_WIDTH);
+            else 
+                r_in.accumulator(i) <= r.accumulator(i) + r.scaled_source_values(i);
+            end if;
+        end loop;
+        -- end if;
 
         -- Pipeline stage 3: clip accumulator and set control values for unused voices to zero.
         if r.valid_shift(PIPE_SUM_CLIP - 1) = '1' and r.source_counter(PIPE_SUM_CLIP - 1) = MAX_MOD_SOURCES then 
-
             for i in 0 to POLYPHONY_MAX - 1 loop 
 
                 if i >= status.active_voices then 

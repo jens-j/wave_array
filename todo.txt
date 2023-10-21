@@ -1,7 +1,8 @@
 Issues: 
 - GUI: wave view overflow
-- envelope: audio glitches during transition to sustain and on note stealing during release
-- wave offload does not work
+- Envelope does not re-trigger on note stealing
+- clicking when a note is re-triggered during the release
+- GUI: reading back negative parameters fails
 
 Features:
 - envelope looping
@@ -10,14 +11,20 @@ Features:
 - LFO: binaural phase difference
 - legato/slew limiter
 - better filter
-- envelope to mixer mod connection at startup
-
-Modifications:
-- Use single process for wave offload and continuously update sampled wave when idle
-- combine unison and binaural oscillators when calculating spreads
+- LFO: delayed start
+- ring modulator 
+- LFO: single cycle mode (only in trigger mode)
+- Better mod matrix GUI
+- more waveforms 
+- n_frames in waveform name
+- high frequency LFO mode
+- Step like frame interpolation
+- filter: allow filter to open further
 
 Optimizations:
-table interpolator: frame indices and positions are calculated for every voice in parallel while ony one is uses each cycle
+- LFO: use smaller phase accumulator to allow natural overflow
+- Replace output buffers by using accumulators e.g. directly.
+- Table address generator can be unified
 
 Open Problems:
 - integrating midi velocity in the voice mixer

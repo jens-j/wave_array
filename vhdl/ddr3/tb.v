@@ -154,7 +154,7 @@ module tb;
 `ifdef period
         tck <= `period; 
 `else
-        tck <= ceil(TCK_MIN);
+        tck <= ceil(TCK_MIN * 2);
 `endif
         ck <= 1'b1;
         odt_fifo <= 0;

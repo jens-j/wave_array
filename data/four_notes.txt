@@ -1,18 +1,19 @@
+#send 95 00 7F    # note C-1 on with max velocity
 send 95 68 7F   # note G#7 on with max velocity
 send 95 64 7F   # note E7 on with max velocity
 send 95 58 7F   # note E6 on with max velocity
 send 95 50 7F   # note A#6 on with max velocity
 send 95 48 7F   # steal a note
 
-wait 5          # wait for 5 ms
-send 96 68 00   # note G#7 off using note-off command
-send 96 64 00   # note E7 off using note-off command
-send 95 58 00   # note E6 off using 0 velocity
-send 95 50 00   # note A#6 off using 0 velocity
+wait 1          # wait for 1 ms
+send 85 68 00   # note G#7 off using note-off command
+send 85 64 00   # note E7 off using note-off command
+send 85 58 00   # note G#7 off using note-off command
+send 85 50 00   # note E7 off using note-off command
 
 wait 1          # wait for 1 ms
 send 95 50 7F   # note A#6 on with max velocity
-send 95 68 7F   # note G#7 on with max velocity
+#send 95 68 7F   # note G#7 on with max velocity
 wait 5          # wait for 5 ms
 #send 95 50 00   # note A#6 off using 0 velocity
 #send 96 68 00   # note G#7 off using note-off command

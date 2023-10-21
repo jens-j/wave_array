@@ -88,7 +88,7 @@ begin
         elsif r.state = sdram_read then
 
             r_in.sdram_input.address <= r.sdram_address;
-            r_in.sdram_input.burst_length <= MIPMAP_TABLE_SIZE;
+            r_in.sdram_input.burst_n <= MIPMAP_TABLE_SIZE;
 
             if sdram_output.ack = '1' then
                 r_in.state <= transfer;

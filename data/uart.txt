@@ -1,53 +1,59 @@
 write  00000002     0001                        # enable LED
 read   00000002                                 # read back LED
-write  00000500     4000                        # write LFO frequency (64 Hz?)
+write  00000500     7FFF                        # write LFO_0 frequency
+write  00000502     0001                        # Enable LFO_0 trigger
+write  00000504     7FFF                        # write LFO_0 phase (180 degrees)
+write  00000510     6000                        # Write LFO_1 velocity
+write  00000514     2000                        # write LFO_0 phase (45 degrees)
 
-write  00000700     0010                        # write envelope attack
-write  00000701     0020                        # write envelope decay
-write  00000702     4000                        # write envelope sustain
-write  00000703     0100                        # write envelope release
+write  00000700     0020                        # write envelope_0 attack
+write  00000701     0025                        # write envelope_0 decay
+write  00000702     3DE7                        # write envelope_0 sustain
+write  00000703     002B                        # write envelope_0 release
+write  00000710     0070                        # write envelope_1 attack
+write  00000711     0110                        # write envelope_1 decay
+write  00000712     2DE7                        # write envelope_1 sustain
+write  00000713     0222                        # write envelope_1 release
 
-write  00000600     4000                        # write filter cutoff
+write  00000600     7FFF                        # write filter cutoff
 write  00000601     2000                        # write filter resonance
 write  00006001     2000                        # write table 1 freq base value
 
-write  00000500     2000                        # Write LFO velocity
-write  00000502     0001                        # Enable LFO trigger
-
-write  00005001     0000                        # Set table 1 mix to 0
+#write  00005001     0000                        # Set table 1 mix to 0
 
 write  00000201     0001                        # Set unison to 2 (register holds unison - 1)
 write  00000202     4000                        # Set unison spread to 1/2 semitone.
+write  00000200     0001                        # Enable binaural mode.
 
 # Mod mapping (each destination has 4x2 registers)
-write  00001000     0002                        # Map envelope to filter cutoff 
+write  00001000     0002                        # Map envelope_0 to filter cutoff 
 write  00001001     3FFF                        # Set mod amount
-write  00001010     0002                        # Map envelope to mixer
+write  00001010     0002                        # Map envelope_0 to mixer
 write  00001011     7FFF                                  
-write  00001018     0003                        # Map lfo to oscillator 0 frame
+write  00001018     0004                        # Map lfo_0 to oscillator_0 frame
 write  00001019     3FFF  
-write  00001040     0003                        # Map lfo to oscillator 1 frequency
+write  00001020     0002                        # Map envelope_0 to oscillator_1 frame
+write  00001021     3FFF  
+write  00001040     0004                        # Map lfo_0 to oscillator_1 frequency
 write  00001041     3FFF
 
-#wait   1000                                     
+# Housekeeping 
+write  00000901     0020                        # Set high HK rate
+#write  00000900     0001                        # Enable HK
+write  00000903     0010                        # Set high oscilloscope rate
+#write  00000902     0001                        # Enable oscilloscope   
+
+#wait   10                                     
 #writeb 00000000 00000004 0001000200030004       # write [1,2,3,4] to SDRAM address 0x00000000
 #readb  00000000 00000004                        # read back SDRAM
 #read   00000100                                 # read uart count
 
-wait   1000
-writef 00000000 00002000                        # write wavetable to the SDRAM at address 0x0
+wait   10
+writef 00000000 00000400                        # write wavetable to the SDRAM at address 0x0
 write  00003000     0000                        # Write low half of table base address 
 write  00003001     0000                        # Write high half of table base address
 write  00003002     0001                        # write frames_log2
 write  00003003     0001                        # initialize wavetable RAM
 
-wait   1000 
-read   00000300                                 # read frame index 
-read   00000301                                 # read frame position       
-read   00000302                                 # read wave memory bank index
 
-# Housekeeping 
-write  00000901     0020                        # Set high HK rate
-write  00000900     0001                        # Enable HK
-write  00000903     0010                        # Set high oscilloscope rate
-write  00000902     0001                        # Enable oscilloscope             
+          
