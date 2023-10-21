@@ -15,9 +15,11 @@ entity ddr_arbiter is
         N_CLIENTS               : integer
     );
     port (
-        clk                     : in    std_logic;
+        mig_ctrl_clk            : in    std_logic;
         mig_ref_clk             : in    std_logic;
-        reset                   : in    std_logic;
+        mig_ui_clk              : out   std_logic; 
+        mig_reset               : in    std_logic;
+        mig_ui_reset            : out   std_logic;
         pll_locked              : in    std_logic; -- SDRAM clock needs to be running before becoming active.
 
         -- Client interfaces.
@@ -98,9 +100,10 @@ architecture arch of ddr_arbiter is
     signal s_app_rdy            : std_logic;
     signal s_app_wdf_rdy        : std_logic;
 
-    signal s_ui_clk             : std_logic;
+    signal s_mig_ui_clk         : std_logic;
     signal s_ui_sync_rst        : std_logic;
     signal s_init_calib_complete: std_logic;
+    signal s_mig_ui_reset       : std_logic;
 
 
 begin
@@ -108,8 +111,8 @@ begin
     -- 18 word deep FWFT fifo.
     prefetch : entity xil_defaultlib.arbiter_fifo
     port map (
-        clk                     => clk,
-        srst                    => reset,
+        clk                     => s_mig_ui_clk,
+        srst                    => s_mig_ui_reset,
         din                     => s_fifo_din,
         wr_en                   => r.fifo_wr_en,
         rd_en                   => s_fifo_rd_en,
@@ -121,17 +124,17 @@ begin
 
     sdram_controller : entity xil_defaultlib.ddr3_interface_gen
     port map (
-        sys_clk_i               => clk,
+        sys_clk_i               => mig_ctrl_clk,
         clk_ref_i               => mig_ref_clk,
         device_temp             => open,
-        sys_rst                 => reset,
+        sys_rst                 => mig_reset,
 
         app_addr                => r.app_addr,
         app_cmd                 => r.app_cmd,
         app_en                  => r.app_en,
         app_wdf_data            => r.app_wdf_data,
         app_wdf_end             => r.app_wdf_end,
-        app_wdf_mask            => (others => '1'), -- Always use full 8 word width.
+        app_wdf_mask            => (others => '0'),
         app_wdf_wren            => r.app_wdf_wren,
         app_rd_data             => s_app_rd_data,
         app_rd_data_end         => s_app_rd_data_end,
@@ -145,8 +148,8 @@ begin
         app_ref_ack             => open,
         app_zq_ack              => open,
 
-        ui_clk                  => s_ui_clk,
-        ui_clk_sync_rst         => s_ui_sync_rst,
+        ui_clk                  => s_mig_ui_clk,
+        ui_clk_sync_rst         => s_mig_ui_reset,
         init_calib_complete     => s_init_calib_complete,
 
         ddr3_dq                 => DDR3_DQ,
@@ -168,8 +171,7 @@ begin
     -- Connect output registers.
     sdram_outputs <= r.sdram_outputs;
 
-
-    comb_process : process (r, sdram_inputs, 
+    comb_process : process (r, sdram_inputs, s_mig_ui_clk, 
         s_app_rd_data, s_app_rd_data_end, s_app_rd_data_valid, s_app_rdy, s_app_wdf_rdy,
         s_fifo_dout, s_fifo_full, s_fifo_empty, s_fifo_data_count, s_init_calib_complete)
 
@@ -187,6 +189,10 @@ begin
 
         s_fifo_rd_en <= '0';
         s_fifo_wr_en <= '0';
+
+        -- Output ui clock to be used as system clock.
+        mig_ui_clk <= s_mig_ui_clk;
+        mig_ui_reset <= s_mig_ui_reset;
 
         -- Prefetch write words to avoid latency issues with handshaking. Wait for the write_enable is deasserted to start prefetching after the ack is returned. 
         if r.prefetch_count > 0 and to_integer(unsigned(s_fifo_data_count)) < 16 
@@ -309,10 +315,10 @@ begin
 
     end process;
 
-    reg_process : process (clk)
+    reg_process : process (s_mig_ui_clk)
     begin
-        if rising_edge(clk) then
-            if reset = '1' then
+        if rising_edge(s_mig_ui_clk) then
+            if s_mig_ui_reset = '1' then
                 r <= REG_INIT;
             else
                 r <= r_in;

@@ -514,7 +514,7 @@ package wave_array_pkg is
         frames_log2             => 0
     );
 
-    constant MIPMAP_THRESHOLDS : t_osc_phase_array(0 to MIPMAP_LEVELS - 2) := (
+    constant MIPMAP_THRESHOLDS : t_osc_phase_array(1 to MIPMAP_LEVELS - 1) := (
         to_unsigned(2**(t_osc_phase_frac'length), t_osc_phase'length), -- Go to next level when resample rate r < 1 (less than 1x supersampling).
         to_unsigned(2**(t_osc_phase_frac'length + 1), t_osc_phase'length),
         to_unsigned(2**(t_osc_phase_frac'length + 2), t_osc_phase'length),

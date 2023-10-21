@@ -18,8 +18,9 @@ architecture arch of tb_sdram is
     constant N_BURSTS           : integer := 3; -- 3 SDRAM bursts of 8 words.
 
     signal s_clk                : std_logic := '0';
-    signal s_system_clk         : std_logic;
+    signal s_ui_clk             : std_logic;
     signal s_reset              : std_logic;
+    signal s_mig_ctrl_clk       : std_logic;
     signal s_mig_ref_clk        : std_logic;
     signal s_pll_locked         : std_logic;
 
@@ -78,12 +79,12 @@ begin
         s_sdram_inputs(0).burst_n <= N_BURSTS;
         s_sdram_inputs(0).address <= to_unsigned(0, SDRAM_DEPTH_LOG2);
 
-        wait until rising_edge(s_system_clk) and s_sdram_outputs(0).ack = '1';
+        wait until rising_edge(s_ui_clk) and s_sdram_outputs(0).ack = '1';
         s_sdram_inputs(0).write_enable <= '0';
 
         for i in 0 to 8 * N_BURSTS - 1 loop 
             s_sdram_inputs(0).write_data <= std_logic_vector(to_unsigned(i, SDRAM_WIDTH));
-            wait until rising_edge(s_system_clk) and 
+            wait until rising_edge(s_ui_clk) and 
                 (s_sdram_outputs(0).write_req = '1' or s_sdram_outputs(0).done = '1');
         end loop;
 
@@ -92,17 +93,17 @@ begin
         s_sdram_inputs(1).burst_n <= N_BURSTS;
         s_sdram_inputs(1).address <= to_unsigned(0, SDRAM_DEPTH_LOG2);
 
-        wait until rising_edge(s_system_clk) and s_sdram_outputs(1).ack = '1';
+        wait until rising_edge(s_ui_clk) and s_sdram_outputs(1).ack = '1';
         s_sdram_inputs(1).read_enable <= '0';        
 
     end process;
 
     sys_clk : entity wave.clk_subsystem
     port map (
-        ext_clk                 => s_clk,
-        system_clk              => s_system_clk,
-        i2s_clk                 => open,
         reset                   => s_reset,
+        ext_clk                 => s_clk,
+        mig_ctrl_clk            => s_mig_ctrl_clk,
+        i2s_clk                 => open,
         mig_ref_clk             => s_mig_ref_clk,
         pll_locked              => s_pll_locked
     );
@@ -112,8 +113,9 @@ begin
         N_CLIENTS               => 2
     )
     port map (
-        clk                     => s_system_clk,
+        mig_ctrl_clk            => s_mig_ctrl_clk,
         mig_ref_clk             => s_mig_ref_clk,
+        ui_clk                  => s_ui_clk,
         reset                   => s_reset,
         pll_locked              => s_pll_locked,
         sdram_inputs            => s_sdram_inputs,

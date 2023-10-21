@@ -22,10 +22,8 @@ entity wave_array is
         BTN_RESET               : in  std_logic;
 
         -- Board I/O.
-        SWITCHES                : in  std_logic_vector(15 downto 0);
-        LEDS                    : out std_logic_vector(15 downto 0);
-        DISPLAY_SEGMENTS        : out std_logic_vector(6 downto 0);
-        DISPLAY_ANODES          : out std_logic_vector(7 downto 0);
+        SWITCHES                : in  std_logic_vector(7 downto 0);
+        LEDS                    : out std_logic_vector(7 downto 0);
 
         -- PC UART interface.
         UART_RX                 : in  std_logic;
@@ -39,9 +37,9 @@ entity wave_array is
         I2S_WSEL                : out std_logic;
         I2S_SDATA               : out std_logic;
 
-        -- XADC analog input.
-        XADC_3P                 : in  std_logic;
-        XADC_3N                 : in  std_logic;
+        -- -- XADC analog input.
+        -- XADC_3P                 : in  std_logic;
+        -- XADC_3N                 : in  std_logic;
 
         -- SDRAM interface.
         DDR3_DQ                 : inout std_logic_vector(15 downto 0);
@@ -64,6 +62,7 @@ end entity;
 architecture arch of wave_array is
 
     signal s_system_clk         : std_logic;
+    signal s_mig_ctrl_clk       : std_logic;
     signal s_mig_ref_clk        : std_logic;
     signal s_i2s_clk            : std_logic;
     signal s_system_reset       : std_logic; -- Active high.
@@ -83,6 +82,8 @@ architecture arch of wave_array is
     signal s_status             : t_status;
     signal s_config             : t_config;
     signal s_software_reset     : std_logic;
+    signal s_mig_ui_reset       : std_logic;
+    signal s_mig_reset          : std_logic;
 
     signal s_sdram_inputs       : t_sdram_input_array(0 to N_TABLES); -- 1 for the UART and 1 for each wavetable.
     signal s_sdram_outputs      : t_sdram_output_array(0 to N_TABLES);
@@ -128,15 +129,14 @@ architecture arch of wave_array is
     signal s_addrgen_outputs    : t_addrgen_output_array;
 
 begin
-
-    -- Connect outputs.
-    gen_voice_led : for i in 0 to minimum(4, POLYPHONY_MAX - 1) generate
-        LEDS(15 - i) <= s_voices(i).enable;
-    end generate;
-
-    LEDS(2) <= s_i2s_reset;
-    LEDS(1) <= s_system_reset;
+    
     LEDS(0) <= s_config.led;
+    LEDS(1) <= s_system_reset;
+    LEDS(2) <= s_i2s_reset;
+    LEDS(3) <= '0';
+    gen_voice_led : for i in 0 to minimum(3, POLYPHONY_MAX - 1) generate
+        LEDS(4 + i) <= s_voices(i).enable;
+    end generate;
 
     I2S_SCLK <= s_i2s_clk;
 
@@ -169,7 +169,6 @@ begin
     s_status.debug_wave_timer   <= s_debug_wave_timer;
     s_status.debug_wave_flags   <= s_debug_wave_flags;
     s_status.debug_uart_flags   <= s_debug_uart_flags;
-
     
 
     status_gen : for i in 0 to POLYPHONY_MAX - 1 generate 
@@ -182,18 +181,21 @@ begin
     port map (
         reset                   => '0',             -- The reset system uses the clock.,
         ext_clk                 => EXT_CLK,         -- 100 MHz.
-        system_clk              => s_system_clk,    -- 100 MHz.
+        mig_ctrl_clk            => s_mig_ctrl_clk,  -- 100 MHz. This goes to the MIG which outputs a ui clock that is used as system clock.
         i2s_clk                 => s_i2s_clk,       -- 1.5360175 MHz.
-        mig_ref_clk             => s_mig_ref_clk,   -- 400 MHz gated output clock.
+        mig_ref_clk             => s_mig_ref_clk,   -- 200 MHz.
         pll_locked              => s_pll_locked
     );
 
+    -- NOTE: This uses the clk directly from the pll for now to avoid a deadlock. 
     reset_subsys : entity wave.reset_subsystem
     port map (
-        system_clk              => s_system_clk,  
+        system_clk              => s_mig_ctrl_clk,  
         i2s_clk                 => s_i2s_clk,
         BTN_RESET               => BTN_RESET,
         software_reset          => s_software_reset,
+        mig_ui_reset            => s_mig_ui_reset,
+        mig_reset               => s_mig_reset,
         system_reset            => s_system_reset,
         i2s_reset               => s_i2s_reset
     );
@@ -205,7 +207,7 @@ begin
         config                  => s_config,
         status                  => s_status,
         uart_rx                 => MIDI_RX,
-        midi_channel            => SWITCHES(3 downto 0),
+        midi_channel            => '0' & SWITCHES(2 downto 0),
         envelope_active         => s_envelope_active,
         voices                  => s_voices,
         status_byte             => s_midi_status_byte,
@@ -315,34 +317,29 @@ begin
         wsel                    => I2S_WSEL
     );
 
-    input : entity wave.input_subsystem
-    port map (
-        clk                     => s_system_clk,
-        reset                   => s_system_reset,
-        vauxp3                  => XADC_3P,
-        vauxn3                  => XADC_3N,
-        average                 => SWITCHES(11 downto 10),
-        filter_length           => SWITCHES(14 downto 12),
-        value                   => s_pot_value
-    );
+    -- input : entity wave.input_subsystem
+    -- port map (
+    --     clk                     => s_system_clk,
+    --     reset                   => s_system_reset,
+    --     vauxp3                  => XADC_3P,
+    --     vauxn3                  => XADC_3N,
+    --     average                 => SWITCHES(4 downto 3),
+    --     filter_length           => SWITCHES(7 downto 5),
+    --     value                   => s_pot_value
+    -- );
 
-    seven_segment : entity wave.seven_segment
-    port map (
-        clk                     => s_system_clk,
-        reset                   => s_system_reset,
-        display_data            => s_display_data,
-        segments                => DISPLAY_SEGMENTS,
-        anodes                  => DISPLAY_ANODES
-    );
+    s_pot_value <= (others => '0');
 
     arbiter : entity sdram.ddr_arbiter
     generic map (
         N_CLIENTS               => 1 + N_TABLES
     )
     port map (
-        clk                     => s_system_clk,
+        mig_ctrl_clk            => s_mig_ctrl_clk,
         mig_ref_clk             => s_mig_ref_clk,
-        reset                   => s_system_reset,
+        mig_ui_clk              => s_system_clk,
+        mig_reset               => s_mig_reset,
+        mig_ui_reset            => s_mig_ui_reset,
         pll_locked              => s_pll_locked,
         sdram_inputs            => s_sdram_inputs,
         sdram_outputs           => s_sdram_outputs,
