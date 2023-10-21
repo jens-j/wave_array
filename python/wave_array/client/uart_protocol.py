@@ -21,7 +21,9 @@ class UartProtocol:
     def read(self, address):
         
         request = struct.pack('>BI', UartType.READ_REQ, address)
+        # self.logger.info(f'read request: {request}')
         reply = self.command(request)         
+        # self.logger.info(f'read reply: {reply}')
         
         opcode, data = struct.unpack('>Bh', reply)
 
@@ -34,7 +36,9 @@ class UartProtocol:
 
     def write(self, address, data):
         request = struct.pack('>BIh', UartType.WRITE_REQ, address, np.int16(data))
+        # self.logger.info(f'write request: {request}')
         reply = self.command(request)
+        # self.logger.info(f'write reply: {reply}')
         opcode, = struct.unpack('>B', reply)
         if opcode == UartType.ERROR_REP:
             raise UartException(f'write recieved error reply with code {opcode}')

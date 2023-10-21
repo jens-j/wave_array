@@ -141,6 +141,7 @@ class WaveArrayGui(QtWidgets.QMainWindow):
         self.ui.slider_pitch_1.sliderMoved.connect(partial(self.pitch_changed, 1))
         self.ui.slider_unison_spread.sliderMoved.connect(self.unison_spread_changed)
         self.ui.slider_lfo_velocity.sliderMoved.connect(self.lfo_velocity_changed)
+        self.ui.slider_lfo_phase.sliderMoved.connect(self.lfo_phase_changed)
         self.ui.slider_filter_cutoff.sliderMoved.connect(self.filter_cutoff_changed)
         self.ui.slider_filter_resonance.sliderMoved.connect(self.filter_resonance_changed)
         self.ui.slider_envelope_attack.sliderMoved.connect(self.envelope_attack_changed)
@@ -176,7 +177,7 @@ class WaveArrayGui(QtWidgets.QMainWindow):
 
             length = struct.unpack('<h', packet[2:4])[0]
             data = np.array(struct.unpack(f'<{length}h', packet[4:]))
-            self.logger.info(f'wave packet [{len(data)} / {length}]')
+            # self.logger.info(f'wave packet [{len(data)} / {length}]')
             self.oscilloscope_samples = data
 
                     
@@ -215,10 +216,10 @@ class WaveArrayGui(QtWidgets.QMainWindow):
         for i in range(self.client.n_voices):
 
             self.curves_envelope[i].setData(self.curve_x, np.concatenate(
-                (self.curves_envelope[i].getData()[1][1:], [self.status.mod_sources[ModMap.MODS_ENVELOPE][i]])))
+                (self.curves_envelope[i].getData()[1][1:], [self.status.mod_sources[ModMap.MODS_ENVELOPE_0][i]])))
 
             self.curves_lfo[i].setData(self.curve_x, np.concatenate(
-                (self.curves_lfo[i].getData()[1][1:], [self.status.mod_sources[ModMap.MODS_LFO][i]])))
+                (self.curves_lfo[i].getData()[1][1:], [self.status.mod_sources[ModMap.MODS_LFO_0][i]])))
             
             self.curves_velocity[i].setData(self.curve_x, np.concatenate(
                 (self.curves_velocity[i].getData()[1][1:], [self.status.mod_sources[ModMap.MODS_VELOCITY][i]])))
@@ -317,7 +318,7 @@ class WaveArrayGui(QtWidgets.QMainWindow):
         enabled = self.client.read(WaveArray.REG_WAVE_ENABLE)
         self.ui.btn_enable_oscilloscope.setChecked(enabled)
 
-        enabled = self.client.read(WaveArray.REG_LFO_TRIGGER)
+        enabled = self.client.read(WaveArray.REG_LFO_0_TRIGGER)
         self.ui.btn_enable_lfo_trigger.setChecked(enabled)
 
         period = self.client.read(WaveArray.REG_WAVE_PERIOD)
@@ -327,7 +328,7 @@ class WaveArrayGui(QtWidgets.QMainWindow):
         index = self.client.read(WaveArray.REG_FILTER_SELECT)
         self.ui.box_filter_select.setCurrentIndex(index)
 
-        index = self.client.read(WaveArray.REG_LFO_WAVE)
+        index = self.client.read(WaveArray.REG_LFO_0_WAVE)
         self.ui.box_lfo_waveform.setCurrentIndex(index)
 
         enabled = self.client.read(WaveArray.REG_BINAURAL)
@@ -365,9 +366,13 @@ class WaveArrayGui(QtWidgets.QMainWindow):
         self.ui.slider_unison_spread.setValue(spread)
         self.unison_spread_changed(spread)
 
-        velocity = self.client.read(WaveArray.REG_LFO_VELOCITY)
+        velocity = self.client.read(WaveArray.REG_LFO_0_VELOCITY)
         self.ui.slider_lfo_velocity.setValue(velocity)
         self.lfo_velocity_changed(velocity)
+
+        phase = self.client.read(WaveArray.REG_LFO_0_PHASE)
+        self.ui.slider_lfo_phase.setValue(phase)
+        self.lfo_phase_changed(phase)
 
         cutoff = self.client.read(WaveArray.REG_FILTER_CUTOFF)
         self.ui.slider_filter_cutoff.setValue(cutoff)
@@ -377,19 +382,19 @@ class WaveArrayGui(QtWidgets.QMainWindow):
         self.ui.slider_filter_resonance.setValue(resonance)
         self.filter_resonance_changed(resonance)
 
-        attack = self.client.read(WaveArray.REG_ENVELOPE_ATTACK)
+        attack = self.client.read(WaveArray.REG_ENVELOPE_0_ATTACK)
         self.ui.slider_envelope_attack.setValue(attack)
         self.envelope_attack_changed(attack)
 
-        decay = self.client.read(WaveArray.REG_ENVELOPE_DECAY)
+        decay = self.client.read(WaveArray.REG_ENVELOPE_0_DECAY)
         self.ui.slider_envelope_decay.setValue(decay)
         self.envelope_decay_changed(decay)
 
-        sustain = self.client.read(WaveArray.REG_ENVELOPE_SUSTAIN)
+        sustain = self.client.read(WaveArray.REG_ENVELOPE_0_SUSTAIN)
         self.ui.slider_envelope_sustain.setValue(sustain)
         self.envelope_sustain_changed(sustain)
 
-        release = self.client.read(WaveArray.REG_ENVELOPE_RELEASE)
+        release = self.client.read(WaveArray.REG_ENVELOPE_0_RELEASE)
         self.ui.slider_envelope_release.setValue(release)  
         self.envelope_release_changed(release)
 
@@ -733,7 +738,7 @@ class WaveArrayGui(QtWidgets.QMainWindow):
         self.client.write(WaveArray.REG_HK_ENABLE, int(checked))
 
     def btn_lfo_reset_clicked(self):
-        self.client.write(WaveArray.REG_LFO_RESET, 1)
+        self.client.write(WaveArray.REG_LFO_0_RESET, 1)
 
     def box_hk_rate_changed(self, rate):
         period = 100E6 / (1024 * rate)
@@ -747,7 +752,7 @@ class WaveArrayGui(QtWidgets.QMainWindow):
         self.client.write(WaveArray.REG_WAVE_ENABLE, int(checked))
 
     def btn_enable_lfo_trigger_clicked(self, checked):
-        self.client.write(WaveArray.REG_LFO_TRIGGER, int(checked))   
+        self.client.write(WaveArray.REG_LFO_0_TRIGGER, int(checked))   
 
     def btn_reset_pitch_clicked(self, index):
         self.client.write(WaveArray.REG_FREQ_CTRL_BASE + index, 0)
@@ -773,12 +778,12 @@ class WaveArrayGui(QtWidgets.QMainWindow):
         self.client.write(WaveArray.REG_FILTER_SELECT, index)
 
     def lfo_waveform_changed(self, index):
-        self.client.write(WaveArray.REG_LFO_WAVE, index)
+        self.client.write(WaveArray.REG_LFO_0_WAVE, index)
 
     def set_mod_amount(self, control_value):
 
         # Reduce mod amount from frr\equency moduation to make it more usable. 
-        if self.mod_destination in [ModMap.MODD_OSC_0_FREQ, ModMap.MODD_OSC_1_FRAME]:
+        if self.mod_destination in [ModMap.MODD_OSC_0_FREQ, ModMap.MODD_OSC_1_FREQ]:
             control_value = control_value >> 6
 
         self.modmap.write_amount(self.mod_destination, self.mod_source, control_value)
@@ -789,8 +794,12 @@ class WaveArrayGui(QtWidgets.QMainWindow):
             self.ui.lbl_amount.setText(f'{int(100 * control_value / 2**15):3d}%')
 
     def lfo_velocity_changed(self, control_value):
-        self.client.write(WaveArray.REG_LFO_VELOCITY, control_value)
+        self.client.write(WaveArray.REG_LFO_0_VELOCITY, control_value)
         self.ui.lbl_velocity.setText(f'{int(100 * control_value / (2**15 - 1)):3d}%')
+
+    def lfo_phase_changed(self, control_value):
+        self.client.write(WaveArray.REG_LFO_0_PHASE, control_value)
+        self.ui.lbl_phase.setText(f'{int(100 * control_value / (2**15 - 1)):3d}%')
 
     def mix_amount_changed(self, index, control_value):
         self.client.write(WaveArray.REG_MIX_CTRL_BASE + index, control_value)
@@ -815,19 +824,19 @@ class WaveArrayGui(QtWidgets.QMainWindow):
         self.ui.lbl_resonance.setText(f'{int(100 * control_value / (2**15 - 1)):3d}%')
 
     def envelope_attack_changed(self, control_value):
-        self.client.write(WaveArray.REG_ENVELOPE_ATTACK, control_value)
+        self.client.write(WaveArray.REG_ENVELOPE_0_ATTACK, control_value)
         self.ui.lbl_attack.setText(f'{int(100 * control_value / (2**15 - 1)):3d}%')
         
     def envelope_decay_changed(self, control_value):
-        self.client.write(WaveArray.REG_ENVELOPE_DECAY, control_value)
+        self.client.write(WaveArray.REG_ENVELOPE_0_DECAY, control_value)
         self.ui.lbl_decay.setText(f'{int(100 * control_value / (2**15 - 1)):3d}%')
 
     def envelope_sustain_changed(self, control_value):
-        self.client.write(WaveArray.REG_ENVELOPE_SUSTAIN, control_value)
+        self.client.write(WaveArray.REG_ENVELOPE_0_SUSTAIN, control_value)
         self.ui.lbl_sustain.setText(f'{int(100 * control_value / (2**15 - 1)):3d}%')
 
     def envelope_release_changed(self, control_value):
-        self.client.write(WaveArray.REG_ENVELOPE_RELEASE, control_value)
+        self.client.write(WaveArray.REG_ENVELOPE_0_RELEASE, control_value)
         self.ui.lbl_release.setText(f'{int(100 * control_value / (2**15 - 1)):3d}%')
 
     def appearanceActionClicked(self):

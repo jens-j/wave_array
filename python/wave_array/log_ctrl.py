@@ -18,12 +18,12 @@ for i in range(0, 2**16):
     ctrl_exp[i] = (BASE**((i + 1) / 2**16) - 1) / (BASE - 1)
 
     # Calculate corresponding velocity values.
-    velocity[i] = 2**32 / (MAX_TIME * SAMPLE_RATE * ctrl_exp[i])
+    velocity[i] = 2**31 / (MAX_TIME * SAMPLE_RATE * ctrl_exp[i])
 
     # Check by calculating resulting envelope times for control range. 
-    length[i] = 2**32 / (velocity[i] * SAMPLE_RATE)
+    length[i] = 2**31 / (velocity[i] * SAMPLE_RATE)
 
-velocity = np.minimum(velocity, 2**32 - 1)
+velocity = np.minimum(velocity, 2**31 - 1)
 
 # print(ctrl_exp)
 # print([int(x) for x in velocity][:5])

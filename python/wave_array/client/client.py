@@ -29,19 +29,20 @@ class WaveArray:
 
     REG_FRAME_CTRL              = 0x00000300   
 
-    REG_LFO_VELOCITY            = 0x00000500
-    REG_LFO_WAVE                = 0x00000501
-    REG_LFO_TRIGGER             = 0x00000502
-    REG_LFO_RESET               = 0x00000503
-
+    REG_LFO_0_VELOCITY          = 0x00000500
+    REG_LFO_0_WAVE              = 0x00000501
+    REG_LFO_0_TRIGGER           = 0x00000502
+    REG_LFO_0_RESET             = 0x00000503
+    REG_LFO_0_PHASE             = 0x00000504
+    
     REG_FILTER_CUTOFF           = 0x00000600
     REG_FILTER_RESONANCE        = 0x00000601
     REG_FILTER_SELECT           = 0x00000602 # Filter output select. 0 = LP, 1 = HP, 2 = BP, 3 = BS, 4 = bypass.
 
-    REG_ENVELOPE_ATTACK         = 0x00000700
-    REG_ENVELOPE_DECAY          = 0x00000701
-    REG_ENVELOPE_SUSTAIN        = 0x00000702
-    REG_ENVELOPE_RELEASE        = 0x00000703
+    REG_ENVELOPE_0_ATTACK       = 0x00000700
+    REG_ENVELOPE_0_DECAY        = 0x00000701
+    REG_ENVELOPE_0_SUSTAIN      = 0x00000702
+    REG_ENVELOPE_0_RELEASE      = 0x00000703
     
     REG_MIXER_CTRL              = 0x00000800
 
