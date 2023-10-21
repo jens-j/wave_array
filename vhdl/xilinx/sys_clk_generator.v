@@ -56,8 +56,8 @@
 //  Output     Output      Phase    Duty Cycle   Pk-to-Pk     Phase
 //   Clock     Freq (MHz)  (degrees)    (%)     Jitter (ps)  Error (ps)
 //----------------------------------------------------------------------------
-// system_clk__100.00000______0.000______50.0______130.958_____98.575
-// sdram_clk__100.00000____288.000______50.0______130.958_____98.575
+// mig_ctrl_clk__100.00000______0.000______50.0______130.958_____98.575
+// mig_ref_clk__200.00000______0.000______50.0______114.829_____98.575
 //
 //----------------------------------------------------------------------------
 // Input Clock   Freq (MHz)    Input Jitter (UI)
@@ -71,9 +71,8 @@
 module sys_clk_generator 
  (
   // Clock out ports
-  output        system_clk,
-  input         sdram_clk_ce,
-  output        sdram_clk,
+  output        mig_ctrl_clk,
+  output        mig_ref_clk,
   // Status and control signals
   input         reset,
   output        locked,
@@ -84,9 +83,8 @@ module sys_clk_generator
   sys_clk_generator_clk_wiz inst
   (
   // Clock out ports  
-  .system_clk(system_clk),
-  .sdram_clk_ce(sdram_clk_ce),
-  .sdram_clk(sdram_clk),
+  .mig_ctrl_clk(mig_ctrl_clk),
+  .mig_ref_clk(mig_ref_clk),
   // Status and control signals               
   .reset(reset), 
   .locked(locked),

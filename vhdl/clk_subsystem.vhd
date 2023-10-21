@@ -14,27 +14,28 @@ entity clk_subsystem is
     port (
         reset                   : in  std_logic;
         ext_clk                 : in  std_logic; -- 100 MHz.
-        system_clk              : out std_logic; -- 100 MHz.
+        mig_ctrl_clk            : out std_logic; -- 100 MHz.
+        mig_ref_clk             : out std_logic; -- 200 MHz.
         i2s_clk                 : out std_logic; -- 1.5360175 MHz.
-        mig_ref_clk             : out std_logic; -- 400 MHz.
         pll_locked              : out std_logic  -- SDRAM clock PLL locked.
     );
 end entity;
 
 architecture arch of clk_subsystem is
 
-    signal s_system_clk           : std_logic;
+    signal s_mig_ctrl_clk         : std_logic;
+    signal s_mig_ref_clk          : std_logic;
     signal s_i2s_intermediate_clk : std_logic;
     signal s_counter              : unsigned(1 downto 0) := "00";
 
     -- Component is necessary because the ip is in verilog.
     component sys_clk_generator
     port (
-        system_clk             : out std_logic;
+        mig_ctrl_clk            : out std_logic;
         mig_ref_clk            : out std_logic;
         reset                  : in  std_logic;
         ext_clk                : in  std_logic;
-        locked              : out std_logic
+        locked                 : out std_logic
     );
     end component;
     
@@ -49,12 +50,13 @@ architecture arch of clk_subsystem is
 
 begin
 
-    system_clk <= s_system_clk;
+    mig_ctrl_clk <= s_mig_ctrl_clk;
+    mig_ref_clk <= s_mig_ref_clk;
 
     sys_clk_gen : sys_clk_generator
     port map (
-        system_clk             => s_system_clk,
-        mig_ref_clk            => mig_ref_clk,
+        mig_ctrl_clk           => s_mig_ctrl_clk,
+        mig_ref_clk            => s_mig_ref_clk,
         reset                  => reset,
         ext_clk                => ext_clk,
         locked                 => pll_locked
@@ -64,7 +66,7 @@ begin
     port map (
         i2s_intermediate_clk   => s_i2s_intermediate_clk,
         reset                  => reset,
-        sys_clk                => s_system_clk
+        sys_clk                => s_mig_ctrl_clk
     );
 
     -- Global clock buffer for the I2S clock.
