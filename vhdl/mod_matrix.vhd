@@ -24,12 +24,14 @@ end entity;
 architecture arch of mod_matrix is 
 
     constant PIPE_LEN_MUX_IN    : integer := 1;
+    constant PIPE_LEN_READ      : integer := 1;
     constant PIPE_LEN_MULT      : integer := 1;
     constant PIPE_LEN_ADD       : integer := 1;
     constant PIPE_LEN_CLIP      : integer := 1;
     constant PIPE_LEN_MUX_OUT   : integer := 1;
 
-    constant PIPE_SUM_MULT      : integer := PIPE_LEN_MUX_IN + PIPE_LEN_MULT;
+    constant PIPE_SUM_READ      : integer := PIPE_LEN_MUX_IN + PIPE_LEN_READ;   
+    constant PIPE_SUM_MULT      : integer := PIPE_SUM_READ + PIPE_LEN_MULT;    
     constant PIPE_SUM_ADD       : integer := PIPE_SUM_MULT + PIPE_LEN_ADD;
     constant PIPE_SUM_CLIP      : integer := PIPE_SUM_ADD + PIPE_LEN_CLIP;
     constant PIPE_SUM_MUX_OUT   : integer := PIPE_SUM_CLIP + PIPE_LEN_MUX_OUT;
@@ -55,6 +57,7 @@ architecture arch of mod_matrix is
         valid_shift             : std_logic_vector(PIPE_SUM_MUX_OUT - 1 downto 0); -- Pipeline valid shift register.
         amount                  : t_ctrl_value;
         binaural_enable         : std_logic;
+        source_index            : integer range 0 to MODS_LEN - 1;
     end record;
 
     constant REG_INIT : t_mod_matrix_reg := (
@@ -69,7 +72,8 @@ architecture arch of mod_matrix is
         accumulator_clipped     => (others => (others => '0')),
         valid_shift             => (others => '0'),
         amount                  => (others => '0'),
-        binaural_enable         => '0'
+        binaural_enable         => '0',
+        source_index            => 0
     );
 
     signal r, r_in : t_mod_matrix_reg := REG_INIT;
@@ -85,7 +89,6 @@ begin
     
 
     combinatorial : process (r, next_sample, config, status, mod_sources)
-        variable v_source_index : integer range 0 to MODS_LEN - 1;
         variable v_mult : signed(2 * CTRL_SIZE - 1 downto 0);
     begin
 
@@ -120,28 +123,15 @@ begin
 
             r_in.valid_shift(0) <= '1';     
 
-            if r.source_counter(0) = MAX_MOD_SOURCES then 
-                r_in.source_values <= (others => config.base_ctrl(r.dest_counter(0)));
-                r_in.amount <= x"7FFF";
-            else  
-                -- Mux mod source amount.
-                r_in.amount <= config.mod_mapping(r.dest_counter(0))(r.source_counter(0)).amount;
-
-                -- Look up mod source index in the mapping based on the pipeline counters.
-                v_source_index := config.mod_mapping(r.dest_counter(0))(r.source_counter(0)).source;  
-
-                if v_source_index /= MODS_NONE then 
-                    r_in.source_values <= mod_sources(v_source_index);
-                else 
-                    r_in.source_values <= (others => (others => '0'));
-                end if;
-            end if;
-
             -- Increment counters.
             if r.source_counter(0) < MAX_MOD_SOURCES then 
                 r_in.source_counter(0) <= r.source_counter(0) + 1;
+
+                -- Look up mod source index in the mapping based on the pipeline counters.
+                r_in.source_index <= config.mod_mapping(r.dest_counter(0))(r.source_counter(0)).source;  
             else 
                 r_in.source_counter(0) <= 0;
+                r_in.source_index <= 0; -- Not used in this case but must prevent a latch.
 
                 if r.dest_counter(0) < MODD_LEN - 1 then 
                     r_in.dest_counter(0) <= r.dest_counter(0) + 1;
@@ -151,7 +141,21 @@ begin
             end if;
         end if;
 
-        -- Pipeline stage 1: multiply mod source with mod amount.
+        -- Pipeline stage 1: read mod source values and mod amount.
+        if r.source_counter(1) = MAX_MOD_SOURCES then 
+            r_in.source_values <= (others => config.base_ctrl(r.dest_counter(1)));
+            r_in.amount <= x"7FFF";
+        else  
+            if r.source_index /= MODS_NONE then 
+                r_in.source_values <= mod_sources(r.source_index);
+            else 
+                r_in.source_values <= (others => (others => '0'));
+            end if;
+        
+            r_in.amount <= config.mod_mapping(r.dest_counter(1))(r.source_counter(1)).amount;
+        end if;
+
+        -- Pipeline stage 2: multiply mod source with mod amount.
         -- if r.valid_shift(PIPE_SUM_MULT - 1) = '1' then 
         for i in 0 to POLYPHONY_MAX - 1 loop
             v_mult := r.source_values(i) * r.amount;
@@ -159,7 +163,7 @@ begin
         end loop;
         -- end if;
 
-        -- Pipeline stage 2: add source control values to accumulators.
+        -- Pipeline stage 3: add source control values to accumulators.
         -- if r.valid_shift(PIPE_SUM_ADD - 1) = '1' then 
         for i in 0 to POLYPHONY_MAX - 1 loop 
             if r.source_counter(PIPE_SUM_ADD - 1) = 0 then 
@@ -170,7 +174,7 @@ begin
         end loop;
         -- end if;
 
-        -- Pipeline stage 3: clip accumulator and set control values for unused voices to zero.
+        -- Pipeline stage 4: clip accumulator and set control values for unused voices to zero.
         if r.valid_shift(PIPE_SUM_CLIP - 1) = '1' and r.source_counter(PIPE_SUM_CLIP - 1) = MAX_MOD_SOURCES then 
             for i in 0 to POLYPHONY_MAX - 1 loop 
 
@@ -186,7 +190,7 @@ begin
             end loop;           
         end if;
 
-        -- Pipeline stage 4: output mux.
+        -- Pipeline stage 5: output mux.
         -- In binaural mode, the destination control signals are doubled, one for each side.
         if r.valid_shift(PIPE_SUM_MUX_OUT - 1) = '1' and r.source_counter(PIPE_SUM_MUX_OUT - 1) = MAX_MOD_SOURCES then 
 
