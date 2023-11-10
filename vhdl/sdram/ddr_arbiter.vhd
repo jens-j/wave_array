@@ -55,15 +55,10 @@ architecture arch of ddr_arbiter is
         burst_count             : integer range 0 to 2**29 - 1;
         word_count              : integer range 0 to 7;
         prefetch_count          : unsigned(31 downto 0);
-        app_addr                : std_logic_vector(28 downto 0);
-        app_cmd                 : std_logic_vector(2 downto 0);
-        app_en                  : std_logic;
         app_wdf_data            : std_logic_vector(127 downto 0);
-        app_wdf_end             : std_logic;
-        app_wdf_wren            : std_logic;
         app_rd_data             : std_logic_vector(127 downto 0);
-        fifo_wr_en              : std_logic;
         address                 : unsigned(27 downto 0);
+        fifo_wr_en              : std_logic;
     end record;
 
     constant REG_INIT : t_arbiter_reg := (
@@ -73,22 +68,16 @@ architecture arch of ddr_arbiter is
         burst_count             => 0,
         word_count              => 0,
         prefetch_count          => (others => '0'),
-        app_addr                => (others => '0'),
-        app_cmd                 => (others => '0'),
-        app_en                  => '0',
         app_wdf_data            => (others => '0'),
-        app_wdf_end             => '0',
-        app_wdf_wren            => '0',
         app_rd_data             => (others => '0'),
-        fifo_wr_en              => '0',
-        address                 => (others => '0')
+        address                 => (others => '0'),
+        fifo_wr_en              => '0'
     );
 
     signal r, r_in              : t_arbiter_reg;
 
     signal s_fifo_din           : std_logic_vector(SDRAM_WIDTH - 1 downto 0);
     signal s_fifo_rd_en         : std_logic;
-    signal s_fifo_wr_en         : std_logic;
     signal s_fifo_dout          : std_logic_vector(SDRAM_WIDTH - 1 downto 0);
     signal s_fifo_full          : std_logic;
     signal s_fifo_empty         : std_logic;
@@ -100,10 +89,18 @@ architecture arch of ddr_arbiter is
     signal s_app_rdy            : std_logic;
     signal s_app_wdf_rdy        : std_logic;
 
+    signal s_app_addr           : std_logic_vector(28 downto 0);
+    signal s_app_cmd            : std_logic_vector(2 downto 0);
+    signal s_app_en             : std_logic;
+    signal s_app_wdf_end        : std_logic;
+    signal s_app_wdf_wren       : std_logic;
+
     signal s_mig_ui_clk         : std_logic;
     signal s_ui_sync_rst        : std_logic;
     signal s_init_calib_complete: std_logic;
     signal s_mig_ui_reset       : std_logic;
+
+
 
 
 begin
@@ -122,20 +119,20 @@ begin
         data_count              => s_fifo_data_count
     );
 
-    sdram_controller : entity xil_defaultlib.ddr3_interface_gen
+    sdram_controller : entity xil_defaultlib.mig_gen
     port map (
         sys_clk_i               => mig_ctrl_clk,
         clk_ref_i               => mig_ref_clk,
         device_temp             => open,
         sys_rst                 => mig_reset,
 
-        app_addr                => r.app_addr,
-        app_cmd                 => r.app_cmd,
-        app_en                  => r.app_en,
+        app_addr                => s_app_addr,
+        app_cmd                 => s_app_cmd,
+        app_en                  => s_app_en,
         app_wdf_data            => r.app_wdf_data,
-        app_wdf_end             => r.app_wdf_end,
+        app_wdf_end             => s_app_wdf_end,
         app_wdf_mask            => (others => '0'),
-        app_wdf_wren            => r.app_wdf_wren,
+        app_wdf_wren            => s_app_wdf_wren,
         app_rd_data             => s_app_rd_data,
         app_rd_data_end         => s_app_rd_data_end,
         app_rd_data_valid       => s_app_rd_data_valid,
@@ -178,17 +175,19 @@ begin
     begin
 
         r_in <= r;
-        r_in.fifo_wr_en <= '0';
-        r_in.app_en <= '0';
-        r_in.app_wdf_wren <= '0';
-        r_in.app_wdf_end <= '0';
         r_in.sdram_outputs <= (others => SDRAM_OUTPUT_INIT);
 
         -- Mux prefetch fifo input.
         s_fifo_din <= sdram_inputs(r.index).write_data;
 
         s_fifo_rd_en <= '0';
-        s_fifo_wr_en <= '0';
+        r_in.fifo_wr_en <= '0';
+
+        s_app_addr <= (others => '0');
+        s_app_cmd <= (others => '0');
+        s_app_en <= '0';
+        s_app_wdf_end <= '0';
+        s_app_wdf_wren <= '0';
 
         -- Output ui clock to be used as system clock.
         mig_ui_clk <= s_mig_ui_clk;
@@ -238,9 +237,9 @@ begin
         -- Issue read command to the MIG. 
         elsif r.state = read_0 then 
 
-            r_in.app_en <= '1';
-            r_in.app_cmd <= "001";
-            r_in.app_addr <= '0' & std_logic_vector(r.address); -- MIG expects one msb bit.
+            s_app_en <= '1';
+            s_app_cmd <= "001";
+            s_app_addr <= '0' & std_logic_vector(r.address); -- MIG expects one msb bit.
             
             if s_app_rdy = '1' then 
                 r_in.state <= read_1;
@@ -289,17 +288,17 @@ begin
         elsif r.state = write_1 then 
 
             if s_app_wdf_rdy = '1' then 
-                r_in.app_wdf_wren <= '1';
-                r_in.app_wdf_end <= '1';
+                s_app_wdf_wren <= '1';
+                s_app_wdf_end <= '1';
                 r_in.state <= write_2;
             end if;
 
         -- Initiate write command on the MIG.
         elsif r.state = write_2 then
 
-            r_in.app_en <= '1';
-            r_in.app_cmd <= "000";
-            r_in.app_addr <= '0' & std_logic_vector(r.address); -- MIG expects one msb bit.
+            s_app_en <= '1';
+            s_app_cmd <= "000";
+            s_app_addr <= '0' & std_logic_vector(r.address); -- MIG expects one msb bit.
 
             if s_app_rdy = '1' then 
                 if r.burst_count > 1 then 

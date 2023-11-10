@@ -142,6 +142,8 @@ begin
         variable v_serial_packet    : std_logic_vector(2119 downto 0);
         variable v_byte_packet      : t_byte_array(264 downto 0);
         variable v_serial_length    : integer range 1 to 265;
+        variable v_word_length      : std_logic_vector(31 downto 0);
+        variable v_reply_word_length: std_logic_vector(31 downto 0);
         variable v_burst_length     : std_logic_vector(31 downto 0);
         variable v_reply_opcode     : std_logic_vector(31 downto 0);
         variable v_wait_time        : integer;
@@ -217,7 +219,9 @@ begin
             -- Read from the SDRAM.
             elsif v_command = "readb " then
                 hread(v_line_in, v_address);
-                hread(v_line_in, v_burst_length);
+                hread(v_line_in, v_word_length);
+                v_burst_length := std_logic_vector(shift_right(unsigned(v_word_length), 3));
+
                 v_serial_length := 9;
                 v_serial_packet := (2119 downto 8 * v_serial_length => '0')
                     & UART_READ_BLOCK_REQ & v_address & v_burst_length;
@@ -225,14 +229,27 @@ begin
 
                 v_serial_length := 1;
                 read_word(clk, empty, read_enable, read_data, v_serial_length, v_reply_opcode);
+
                 if v_reply_opcode(7 downto 0) /= UART_READ_BLOCK_REP then
                     report "received "
                         & integer'image(to_integer(unsigned(v_reply_opcode(7 downto 0))));
                 else
+
+                    -- Read length field.
+                    v_serial_length := 4;
+                    read_word(clk, empty, read_enable, read_data, v_serial_length, v_reply_word_length);
+
+                    if v_word_length /= v_reply_word_length then 
+                        report "block read reply word length is incorrect "     
+                            & integer'image(to_integer(unsigned(v_reply_word_length)))
+                            & " instead of " & integer'image(to_integer(unsigned(v_word_length)));
+                    end if;
+
+                    -- Read data.
                     v_serial_length := 2;
 
                     report "read block = ";
-                    for i in 0 to to_integer(unsigned(v_burst_length)) - 1 loop
+                    for i in 0 to to_integer(unsigned(v_word_length)) - 1 loop
                         read_word(clk, empty, read_enable, read_data, v_serial_length, v_read_data);
                         report integer'image(to_integer(unsigned(v_read_data(15 downto 0))));
                     end loop;
@@ -241,13 +258,16 @@ begin
             -- write to the SDRAM.
             elsif v_command = "writeb" then
                 hread(v_line_in, v_address);
-                hread(v_line_in, v_burst_length);
+                hread(v_line_in, v_word_length);
+                v_burst_length := std_logic_vector(shift_right(unsigned(v_word_length), 3));
+
                 hread(v_line_in,
-                    v_write_data(16 * to_integer(unsigned(v_burst_length)) - 1 downto 0));
-                v_serial_length := 9 + 2 * to_integer(unsigned(v_burst_length));
+                    v_write_data(16 * to_integer(unsigned(v_word_length)) - 1 downto 0));
+                v_serial_length := 9 + 2 * to_integer(unsigned(v_word_length));
+
                 v_serial_packet := (2119 downto 8 * v_serial_length => '0')
                     & UART_WRITE_BLOCK_REQ & v_address & v_burst_length
-                    & v_write_data(16 * to_integer(unsigned(v_burst_length)) - 1 downto 0);
+                    & v_write_data(16 * to_integer(unsigned(v_word_length)) - 1 downto 0);
                 write_packet(clk, write_enable, write_data, v_serial_packet, v_serial_length);
 
                 v_serial_length := 1;
@@ -261,7 +281,8 @@ begin
             -- Must be a multiple of 128 words.
             elsif v_command = "writef" then
                 hread(v_line_in, v_address);
-                hread(v_line_in, v_burst_length);
+                hread(v_line_in, v_word_length);
+                v_burst_length := std_logic_vector(shift_right(unsigned(v_word_length), 3));
 
                 -- string_init(v_hexfile);
                 -- string_read(v_line_in, v_hexfile, v_string_length);
@@ -271,7 +292,8 @@ begin
                 -- Create and send request.
                 v_hexfile := SIM_FILE_PATH & "wavetables/saw_square.table";
                 v_serial_length := 9;
-                v_serial_packet := (2119 downto 8 * v_serial_length => '0') & UART_WRITE_BLOCK_REQ & v_address & v_burst_length;
+                v_serial_packet := 
+                    (2119 downto 8 * v_serial_length => '0') & UART_WRITE_BLOCK_REQ & v_address & v_burst_length;
                 
                 write_packet(clk, write_enable, write_data, v_serial_packet, v_serial_length);
                 write_file(clk, full, write_enable, write_data, v_hexfile);
@@ -286,7 +308,7 @@ begin
 
 
                 -- -- Split into 128 word bursts.
-                -- for i in 0 to to_integer(unsigned(v_burst_length)) / SDRAM_MAX_BURST - 1 loop
+                -- for i in 0 to to_integer(unsigned(v_word_length)) / SDRAM_MAX_BURST - 1 loop
 
                 --     -- Read 128 words from the input file.
                 --     for j in SDRAM_MAX_BURST - 1 downto 0 loop

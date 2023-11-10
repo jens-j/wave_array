@@ -91,6 +91,7 @@ architecture arch of uart_packet_engine is
         length_lsb              : std_logic_vector(7 downto 0);
         error_code              : std_logic_vector(7 downto 0);
         output_valid_sticky     : std_logic;
+        length_byte_counter     : integer range 0 to 3;
     end record;
 
     constant REG_INIT : t_packet_engine_reg := (
@@ -115,7 +116,8 @@ architecture arch of uart_packet_engine is
         wave_count              => 0,
         length_lsb              => (others => '0'),
         error_code              => x"00",
-        output_valid_sticky     => '0'
+        output_valid_sticky     => '0',
+        length_byte_counter     => 0
     );
 
     signal r, r_in              : t_packet_engine_reg;
@@ -155,8 +157,6 @@ architecture arch of uart_packet_engine is
     signal s_u2s_fifo_full      : std_logic;
     signal s_u2s_fifo_empty     : std_logic;
     signal s_u2s_fifo_rd_count  : std_logic_vector(9 downto 0);
-
-
 
 begin
 
@@ -240,8 +240,10 @@ begin
     s_u2s_fifo_rd_en <= sdram_output.write_req or sdram_output.done;
 
     comb_process : process (r, rx_empty, rx_data, tx_data_count, register_output, sdram_output, s_s2u_fifo_dout,
-        s_s2u_fifo_empty, s_u2s_fifo_rd_count, s_s2u_fifo_rd_count, 
-        s_hk2u_fifo_rd_count, s_hk2u_fifo_dout, s_wave2u_fifo_rd_count, s_wave2u_fifo_dout, s_wave2u_fifo_empty)
+            s_s2u_fifo_empty, s_u2s_fifo_rd_count, s_s2u_fifo_rd_count, 
+            s_hk2u_fifo_rd_count, s_hk2u_fifo_dout, s_wave2u_fifo_rd_count, s_wave2u_fifo_dout, s_wave2u_fifo_empty)
+
+        variable v_burst_n : std_logic_vector(31 downto 0);
 
     begin
 
@@ -482,15 +484,30 @@ begin
             if sdram_output.ack = '1' then
                 r_in.tx_write_enable <= '1';
                 r_in.tx_data <= UART_READ_BLOCK_REP;
-                r_in.byte_counter <= 2 * to_integer(unsigned(r.word_buffer)) - 1;
+                r_in.byte_counter <= 16 * to_integer(unsigned(r.word_buffer)) - 1; -- Each burst is 8 x 2 byte words.
+                r_in.length_byte_counter <= 0;
                 r_in.state <= read_block_2;
             else
                 r_in.sdram_read_enable <= '1';
             end if;
 
+        -- Write burst_n field to the UART fifo. 
+        elsif r.state = read_block_2 then
+
+            v_burst_n := std_logic_vector(to_unsigned(r.sdram_burst_n, 32)); 
+
+            r_in.tx_write_enable <= '1';
+            r_in.tx_data <= v_burst_n((r.length_byte_counter + 1) * 8 - 1 downto r.length_byte_counter * 8);
+
+            if r.length_byte_counter < 3 then 
+                r_in.length_byte_counter <= r.length_byte_counter + 1;
+            else 
+                r_in.state <= read_block_3;
+            end if;
+
         -- Write SDRAM read data into the s2u fifo.
         -- Write bytes from the s2u fifo to the UART tx fifo.
-        elsif r.state = read_block_2 then
+        elsif r.state = read_block_3 then
 
             -- Write SDRAM words in the async fifo.
             if sdram_output.read_valid = '1' then

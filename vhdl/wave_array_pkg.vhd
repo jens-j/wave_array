@@ -17,7 +17,7 @@ package wave_array_pkg is
     constant SYS_FREQ               : integer := 100_000_000;
     constant SDRAM_FREQ             : integer := 100_000_000;
  
-    constant UART_BAUD              : integer := 1_000_000 -- 115_200;
+    constant UART_BAUD              : integer := 1_000_000
     --pragma synthesis_off
                                       * 50
     --pragma synthesis_on
