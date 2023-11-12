@@ -3,12 +3,10 @@ Issues:
 - Envelope does not re-trigger on note stealing
 - clicking when a note is re-triggered during the release
 - GUI: reading back negative parameters fails
+- Testbench UART reader does not handle error replies well
 
 Features:
 - envelope looping
-- extra envelope
-- extra LFO
-- LFO: binaural phase difference
 - legato/slew limiter
 - better filter
 - LFO: delayed start
@@ -20,6 +18,8 @@ Features:
 - high frequency LFO mode
 - Step like frame interpolation
 - filter: allow filter to open further
+- GUI: selectable mod source & destination plots
+- Oscillators as mod source
 
 Optimizations:
 - LFO: use smaller phase accumulator to allow natural overflow
@@ -27,4 +27,4 @@ Optimizations:
 - Table address generator can be unified
 
 Open Problems:
-- integrating midi velocity in the voice mixer
+- integrating midi velocity in the voice mixer (mapping to sustain works)
