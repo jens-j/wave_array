@@ -40,14 +40,13 @@ class ModMap:
     MODD_UNISON             = 9
 
     MODS_NONE               = 0
-    MODS_POT                = 1
-    MODS_ENVELOPE_0         = 2
-    MODS_ENVELOPE_1         = 3
-    MODS_LFO_0              = 4
-    MODS_LFO_1              = 5
-    MODS_VELOCITY           = 6
+    MODS_ENVELOPE_0         = 1
+    MODS_ENVELOPE_1         = 2
+    MODS_LFO_0              = 3
+    MODS_LFO_1              = 4
+    MODS_VELOCITY           = 5
 
-    MODS_LEN                = 7
+    MODS_LEN                = 6
     MODD_LEN                = 10
     MODS_LEN_LOG2           = int(np.ceil(np.log2(MODS_LEN)))
     MODD_LEN_LOG2           = int(np.ceil(np.log2(MODD_LEN)))
@@ -68,8 +67,7 @@ class ModMap:
 
     # Modulation source strings.
     MODS = {
-        MODS_NONE           : 'none',                   
-        MODS_POT            : 'pot',                    
+        MODS_NONE           : 'none',                
         MODS_ENVELOPE_0     : 'envelope_0',                
         MODS_ENVELOPE_1     : 'envelope_1',    
         MODS_LFO_0          : 'lfo_0',

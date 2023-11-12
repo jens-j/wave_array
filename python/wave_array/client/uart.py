@@ -48,9 +48,16 @@ class Uart:
         self.thread = Thread(target=self._run)
         self.thread.start()
 
+
+    def __del__(self):
+        self.stop()
+
     
     def stop(self):
         self.stop_thread = True
+    #     print('thread stop')
+    #     self.thread.join()
+    #     print('thread join')
 
 
     def write_req(self, packet):
@@ -84,7 +91,7 @@ class Uart:
 
             time.sleep(0.001)
 
-        raise UartException(f'Read timeout ({b})')
+        raise UartException(f'Read timeout [{len(b)}]: {b}')
 
 
     def _run(self):
@@ -109,7 +116,8 @@ class Uart:
 
                 elif opcode == UartType.READ_BLOCK_REP:
                     length = self._read_bytes(4)
-                    data = self._read_bytes(2 * struct.unpack('<h', length)[0])
+                    # self.logger.info(f'length = {length} ({struct.unpack(">I", length)[0]})')
+                    data = self._read_bytes(16 * struct.unpack('<I', length)[0]) # length is in 8 word burst of 2 byte words.
                     self.rep_queue.put(header + length + data)
 
                 elif opcode == UartType.WRITE_BLOCK_REP:
@@ -123,6 +131,7 @@ class Uart:
 
                     channel = self._read_bytes(1)
                     length = self._read_bytes(2)
+                    
                     data = self._read_bytes(2 * struct.unpack('<h', length)[0])
                     
                     packet = header + channel + length + data
@@ -166,10 +175,11 @@ class Uart:
                     self.logger.warning(f'unknown opcode received from device: {header}')
 
             except serial.SerialTimeoutException:
-                pass 
+                print('pass', self.stop_thread) 
             except TypeError:
+                self.logger.error('TypeError')
                 os._exit(1)
 
-                
+        print('end')     
 
                 

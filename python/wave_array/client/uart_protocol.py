@@ -49,19 +49,21 @@ class UartProtocol:
 
 
     def read_block(self, address, length):
-        request = struct.pack('>BII', UartType.READ_BLOCK_REQ, address, length)
+        assert length % 8 == 0, 'block reads must be a multiple of 8 words'
+        request = struct.pack('>BII', UartType.READ_BLOCK_REQ, address, length // 8)
         reply = self.command(request)
-        reply = list(struct.unpack(f'>B{length}h', reply))
+        reply = list(struct.unpack(f'>BI{length}h', reply))
         if reply[0] != UartType.READ_BLOCK_REP:
             raise UartException(f'received {reply[0]} instead of {UartType.READ_BLOCK_REP}')
 
-        return list(reply)[1:]
+        return list(reply)[2:]
 
 
     # Write a list of data to the SDRAM. Max length is 128 and addresses must be aligned to 128
     # word boundaries.
     def write_block(self, address, data):
-        request = struct.pack(f'>BII{len(data)}h', UartType.WRITE_BLOCK_REQ, address, len(data), *data)
+        assert len(data) % 8 == 0, 'block writes must be a multiple of 8 words'
+        request = struct.pack(f'>BII{len(data)}h', UartType.WRITE_BLOCK_REQ, address, len(data) // 8, *data)
         reply = self.command(request)
         opcode, = struct.unpack('>B', reply)
         if opcode != UartType.WRITE_BLOCK_REP:

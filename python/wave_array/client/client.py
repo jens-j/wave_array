@@ -14,7 +14,9 @@ class WaveArray:
     REG_LED                     = 0x00000002
     REG_VOICES                  = 0x00000003
     REG_UNISON_MAX              = 0x00000004
-
+    REG_ENVELOPE_N              = 0x00000005
+    REG_LFO_N                   = 0x00000006
+    
     REG_DBG_WAVE_STATE_OFFLOAD  = 0x00000100
     REG_DBG_WAVE_STATE_SAMPLE   = 0x00000101
     REG_DBG_WAVE_FIFO           = 0x00000102
@@ -25,24 +27,10 @@ class WaveArray:
     REG_BINAURAL                = 0x00000200
     REG_UNISON_N                = 0x00000201
     REG_UNISON_SPREAD           = 0x00000202
-    REG_POLYPHONY               = 0x00000203
-
-    REG_FRAME_CTRL              = 0x00000300   
-
-    REG_LFO_0_VELOCITY          = 0x00000500
-    REG_LFO_0_WAVE              = 0x00000501
-    REG_LFO_0_TRIGGER           = 0x00000502
-    REG_LFO_0_RESET             = 0x00000503
-    REG_LFO_0_PHASE             = 0x00000504
     
     REG_FILTER_CUTOFF           = 0x00000600
     REG_FILTER_RESONANCE        = 0x00000601
     REG_FILTER_SELECT           = 0x00000602 # Filter output select. 0 = LP, 1 = HP, 2 = BP, 3 = BS, 4 = bypass.
-
-    REG_ENVELOPE_0_ATTACK       = 0x00000700
-    REG_ENVELOPE_0_DECAY        = 0x00000701
-    REG_ENVELOPE_0_SUSTAIN      = 0x00000702
-    REG_ENVELOPE_0_RELEASE      = 0x00000703
     
     REG_MIXER_CTRL              = 0x00000800
 
@@ -57,8 +45,10 @@ class WaveArray:
     REG_FRAME_CTRL_BASE         = 0x00004000
     REG_MIX_CTRL_BASE           = 0x00005000
     REG_FREQ_CTRL_BASE          = 0x00006000 
+    REG_ENVELOPE_CTRL_BASE      = 0x00007000
+    REG_LFO_CTRL_BASE           = 0x00008000
 
-    def __init__(self, hk_signal, wave_signal, port='COM4'):
+    def __init__(self, hk_signal=None, wave_signal=None, port='COM3'):
         self.protocol = UartProtocol(port, 1000_000, hk_signal, wave_signal)
 
         # Stop HK to clear the input buffer.
@@ -125,44 +115,50 @@ class WaveArray:
 
 
     def read_sdram(self, address, length):
-        data = np.zeros(length).astype('int16')
-        burst_address = address
-
-        for i in range(len(data) // 128):
-            data[i * 128:(i + 1) * 128] = self.protocol.read_block(burst_address, 128)
-            burst_address += 128
-
+        # Stop HK during write.
+        hk_enable = self.protocol.read(self.REG_HK_ENABLE)
+        self.protocol.write(self.REG_HK_ENABLE, 0)
+        data = self.protocol.read_block(address, length)
+        self.protocol.write(self.REG_HK_ENABLE, hk_enable)
         return data
     
 
 def main():
 
-    logging.basicConfig(level=logging.DEBUG)
+    logging.basicConfig(level=logging.INFO)
     log = logging.getLogger(__name__)
 
     wave_array = WaveArray()
 
-    # wave_array.set_led(True)
-    # wave_array.get_led()
+    # module_path = os.path.dirname(os.path.abspath(__file__))
+    # table_path = os.path.join(module_path, '../../../data/wavetables/saw.table')
 
-    wave_array.read(WaveArray.REG_HK_ENABLE)
+    # with open(table_path, 'r') as f:
+    #     raw_data = f.read().split('\n')
 
-    module_path = os.path.dirname(os.path.abspath(__file__))
-    table_path = os.path.join(module_path, '../../../data/wavetables/saw.table')
+    # raw_data = list(filter(lambda x: x != '', raw_data))
+    # write_data = np.array([int(x, 16) for x in raw_data]).astype('int16')
 
-    with open(table_path, 'r') as f:
-        raw_data = f.read().split('\n')
+    write_data = np.int16(list(range(1032)))
 
-    raw_data = list(filter(lambda x: x != '', raw_data))
-    data = np.array([int(x, 16) for x in raw_data]).astype('int16')
-    log.info(f'data length = {len(data)}')
-    
-    print(data)
-
-    wave_array.write_sdram(0, data)
-
+    log.info(f'data length = {len(write_data)}')
+    wave_array.write_sdram(0, write_data)
     log.info('sdram write complete')
+    log.info(len(write_data))
 
+    read_data = wave_array.read_sdram(0, len(write_data))
+    log.info('sdram read complete')
+
+    for i, (wdata, rdata) in enumerate(zip(write_data, read_data)):
+        if wdata != rdata:
+            log.info(f'{i:4d} {wdata} != {rdata}') 
+
+    # read_data = wave_array.read_sdram(0, len(write_data))
+    # log.info('sdram read complete')
+
+    # for i, (wdata, rdata) in enumerate(zip(write_data, read_data)):
+    #     if wdata != rdata:
+    #         log.info(f'{i:4d} {wdata} != {rdata}') 
 
     # try:
     #     wave_array.read(WaveArray.REG_FAULT)
@@ -172,6 +168,8 @@ def main():
 
     # wave_array.write(WaveArray.REG_LED, 0)
     # wave_array.read(WaveArray.REG_LED)
+
+    # wave_array.protocol.uart.stop()
     
 
 if __name__ == '__main__':
