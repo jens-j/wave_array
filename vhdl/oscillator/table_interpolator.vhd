@@ -378,7 +378,7 @@ begin
             if r.coeff_counter(0) < POLY_N - 1 then
                 r_in.coeff_counter(0) <= r.coeff_counter(0) + 1;
 
-                 -- Pre-increment the osc_counter and sample_counter because they are needed for indexing in the next cycle.
+                -- Pre-increment the osc_counter and sample_counter because they are needed for indexing in the next cycle.
                 if r.coeff_counter(0) = POLY_N - 2 then
 
                     if r.osc_counter(0) < N_VOICES - 1 then
@@ -397,18 +397,14 @@ begin
                 end if;
             else
                 r_in.coeff_counter(0) <= 0;
+                r_in.osc_counter(0) <= r.osc_counter_next;
 
                 -- Check for end of sample cycle.
-                if r.osc_counter(0) = N_VOICES - 1 then
-                    r_in.sample_counter(0) <= r.sample_counter_next;
-                end if;
-
                 if r.osc_counter_next = 0 then 
                     r_in.unison_counter <= 0;
                     r_in.voice_counter <= 0;
+                    r_in.sample_counter(0) <= r.sample_counter_next;
                 else 
-                    r_in.osc_counter(0) <= r.osc_counter_next;
-
                     -- Count unison duplicates within polyphonic voices. Since all oscillators within the same group share frame control.
                     if r.unison_counter < config.unison_n - 1 then 
                         r_in.unison_counter <= r.unison_counter + 1;
@@ -431,8 +427,6 @@ begin
                             (t_osc_phase_frac'length - 1 downto OSC_COEFF_FRAC + 1);
                 end if;
             end if;
-
-            
 
             -- Pipeline stage 0: Split control value into frame index and position.
             if r.frames_log2 < 2 then

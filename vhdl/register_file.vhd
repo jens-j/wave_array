@@ -98,8 +98,6 @@ begin
             r_in.polyphony <= r.polyphony_buffer;
             r_in.active_voices <= r.active_voices_buffer;
             r_in.active_oscillators <= r.active_oscillators_buffer;
-            r_in.config_buffer.lfo_input(0).reset <= '0'; -- Reset lfo_reset flag.
-            -- r_in.config_buffer.lfo_input(1).reset <= '0';
 
             -- Reset new_table flags.
             for i in 0 to N_TABLES - 1 loop 
@@ -132,6 +130,12 @@ begin
             
             elsif register_input.address = REG_UNISON_MAX then
                 r_in.register_output.read_data <= std_logic_vector(to_unsigned(UNISON_MAX, REGISTER_WIDTH));
+
+            elsif register_input.address = REG_ENVELOPE_N then
+                r_in.register_output.read_data <= std_logic_vector(to_unsigned(ENV_N, REGISTER_WIDTH));
+
+            elsif register_input.address = REG_LFO_N then
+                r_in.register_output.read_data <= std_logic_vector(to_unsigned(LFO_N, REGISTER_WIDTH));
 
             elsif register_input.address = REG_DBG_WAVE_TIMER then
                 r_in.register_output.read_data <= status.debug_wave_timer; 
@@ -170,32 +174,6 @@ begin
             elsif register_input.address = REG_VOICES then
                 r_in.register_output.read_data <= std_logic_vector(to_unsigned(POLYPHONY_MAX, REGISTER_WIDTH));
 
-            elsif register_input.address = REG_LFO_0_VELOCITY then
-                r_in.register_output.read_data <= std_logic_vector(r.config.lfo_input(0).velocity);
-
-            elsif register_input.address = REG_LFO_0_WAVE then
-                r_in.register_output.read_data <= 
-                    std_logic_vector(to_unsigned(r.config.lfo_input(0).wave_select, REGISTER_WIDTH));
-
-            elsif register_input.address = REG_LFO_0_TRIGGER then
-                r_in.register_output.read_data(0) <= r.config.lfo_input(0).trigger;
-
-            elsif register_input.address = REG_LFO_0_PHASE then
-                r_in.register_output.read_data <= std_logic_vector(r.config.lfo_input(0).phase_shift);
-
-            elsif register_input.address = REG_LFO_1_VELOCITY then
-                r_in.register_output.read_data <= std_logic_vector(r.config.lfo_input(1).velocity);
-
-            elsif register_input.address = REG_LFO_1_WAVE then
-                r_in.register_output.read_data <= 
-                    std_logic_vector(to_unsigned(r.config.lfo_input(1).wave_select, REGISTER_WIDTH));
-
-            elsif register_input.address = REG_LFO_1_TRIGGER then
-                r_in.register_output.read_data(0) <= r.config.lfo_input(1).trigger;
-            
-            elsif register_input.address = REG_LFO_1_PHASE then
-                r_in.register_output.read_data <= std_logic_vector(r.config.lfo_input(1).phase_shift);
-
             elsif register_input.address = REG_FILTER_CUTOFF then
                 r_in.register_output.read_data <= std_logic_vector(r.config.base_ctrl(MODD_FILTER_CUTOFF));
 
@@ -205,30 +183,6 @@ begin
             elsif register_input.address = REG_FILTER_SELECT then
                 r_in.register_output.read_data(2 downto 0) <= std_logic_vector(to_unsigned(r.config.filter_select, 3));
 
-            elsif register_input.address = REG_ENVELOPE_0_ATTACK then
-                r_in.register_output.read_data <= std_logic_vector(r.config.envelope_input(0).attack);
-
-            elsif register_input.address = REG_ENVELOPE_0_DECAY then
-                r_in.register_output.read_data <= std_logic_vector(r.config.envelope_input(0).decay);
-
-            elsif register_input.address = REG_ENVELOPE_0_SUSTAIN then
-                r_in.register_output.read_data <= std_logic_vector(r.config.envelope_input(0).sustain);
-
-            elsif register_input.address = REG_ENVELOPE_0_RELEASE then
-                r_in.register_output.read_data <= std_logic_vector(r.config.envelope_input(0).release_value);
-
-            elsif register_input.address = REG_ENVELOPE_1_ATTACK then
-                r_in.register_output.read_data <= std_logic_vector(r.config.envelope_input(1).attack);
-
-            elsif register_input.address = REG_ENVELOPE_1_DECAY then
-                r_in.register_output.read_data <= std_logic_vector(r.config.envelope_input(1).decay);
-
-            elsif register_input.address = REG_ENVELOPE_1_SUSTAIN then
-                r_in.register_output.read_data <= std_logic_vector(r.config.envelope_input(1).sustain);
-
-            elsif register_input.address = REG_ENVELOPE_1_RELEASE then
-                r_in.register_output.read_data <= std_logic_vector(r.config.envelope_input(1).release_value);
-
             elsif register_input.address = REG_MIXER_CTRL then
                 r_in.register_output.read_data <= std_logic_vector(r.config.base_ctrl(MODD_MIXER));
 
@@ -236,7 +190,7 @@ begin
             elsif register_input.address >= REG_FREQ_CTRL_BASE 
                     and register_input.address < REG_FREQ_CTRL_BASE + N_TABLES then
 
-                v_rel_address := register_input.address - REG_FREQ_CTRL_BASE;
+                v_rel_address := register_input.address and x"0000_0FFF";
 
                 v_voice_index := to_integer(unsigned(v_rel_address(POLYPHONY_MAX_LOG2 - 1 downto 0)));
                 r_in.register_output.read_data <= std_logic_vector(
@@ -246,7 +200,7 @@ begin
             elsif register_input.address >= REG_MIX_CTRL_BASE 
                     and register_input.address < REG_MIX_CTRL_BASE + N_TABLES then
 
-                v_rel_address := register_input.address - REG_MIX_CTRL_BASE;
+                v_rel_address := register_input.address and x"0000_0FFF";
 
                 v_table_index := to_integer(unsigned(v_rel_address(N_TABLES_LOG2 - 1 downto 0)));
                 r_in.register_output.read_data <= std_logic_vector(
@@ -256,7 +210,7 @@ begin
             elsif register_input.address >= REG_FRAME_CTRL_BASE 
                     and register_input.address < REG_FRAME_CTRL_BASE + N_TABLES then
 
-                v_rel_address := register_input.address - REG_FRAME_CTRL_BASE;
+                v_rel_address := register_input.address and x"0000_0FFF";
 
                 v_table_index := to_integer(unsigned(v_rel_address(N_TABLES_LOG2 - 1 downto 0)));
                 r_in.register_output.read_data <= std_logic_vector(
@@ -265,35 +219,92 @@ begin
             -- Wavetable registers.
             -- Each wavetable has 4 registers.
             elsif register_input.address >= REG_TABLE_BASE 
-                and register_input.address < REG_TABLE_BASE + N_TABLES * 4 then
+                    and register_input.address < REG_TABLE_BASE + N_TABLES * x"10" + 4 then
 
-                v_rel_address := register_input.address - REG_TABLE_BASE;
-                v_table_index := to_integer(unsigned(v_rel_address(N_TABLES + 1 downto 2)));
+                v_rel_address := register_input.address  and x"0000_0FFF";
+                v_table_index := to_integer(unsigned(v_rel_address(N_TABLES_LOG2 + 4 downto 4))); -- Index slice is 1 bit wider than necessary to accomodate N_TABLES_LOG2 = 0.
 
-                case v_rel_address(1 downto 0) is 
-                when "00" =>
+                case v_rel_address(3 downto 0) is 
+                when x"0" =>
                     r_in.register_output.read_data <= std_logic_vector(
                         r.config.dma_input(v_table_index).base_address(REGISTER_WIDTH - 1 downto 0));
                 
-                when "01" => 
+                when x"1" => 
                     r_in.register_output.read_data <= std_logic_vector(resize(
                         r.config.dma_input(v_table_index).base_address(SDRAM_DEPTH_LOG2 - 1 downto REGISTER_WIDTH),
                         REGISTER_WIDTH));
 
-                when "10" => 
+                when x"2" => 
                     r_in.register_output.read_data <= std_logic_vector(
                             to_unsigned(r.config.dma_input(v_table_index).frames_log2, REGISTER_WIDTH));
                 
-                -- New table register is not readable.
                 when others => 
                     r_in.register_output.valid <= '0';
                 end case;
 
-                -- Read mod mapping registers.
-                elsif register_input.address >= REG_MOD_MAP_BASE 
-                        and register_input.address < REG_MOD_MAP_BASE + MODD_LEN * MAX_MOD_SOURCES * 2 then
+            -- Envelope registers.
+            -- Each wavetable has 4 registers.
+            elsif register_input.address >= REG_ENVELOPE_CTRL_BASE 
+                    and register_input.address < REG_ENVELOPE_CTRL_BASE + ENV_N * x"10" + 5 then
 
-                v_rel_address := register_input.address - REG_MOD_MAP_BASE;
+                v_rel_address := register_input.address  and x"0000_0FFF";
+                v_table_index := to_integer(unsigned(v_rel_address(ENV_N_LOG2 + 4 downto 4))); -- Index slice is 1 bit wider than necessary to accomodate ENV_N_LOG2 = 0.
+
+                case v_rel_address(3 downto 0) is 
+                when x"0" =>
+                    r_in.register_output.read_data <= std_logic_vector(r.config.envelope_input(v_table_index).attack);
+                
+                when x"1" => 
+                    r_in.register_output.read_data <= std_logic_vector(r.config.envelope_input(v_table_index).decay);
+
+                when x"2" => 
+                    r_in.register_output.read_data <= std_logic_vector(r.config.envelope_input(v_table_index).sustain);
+
+                when x"3" => 
+                    r_in.register_output.read_data <= std_logic_vector(r.config.envelope_input(v_table_index).release_value);
+
+                when x"4" => 
+                    r_in.register_output.read_data(0) <= r.config.envelope_input(v_table_index).loop_envelope;
+
+                when others => 
+                    r_in.register_output.valid <= '0';
+                end case;
+
+            -- LFO registers.
+            -- Each wavetable has 4 registers.
+            elsif register_input.address >= REG_LFO_CTRL_BASE 
+                    and register_input.address < REG_LFO_CTRL_BASE + LFO_N * x"10" + 5 then
+
+                v_rel_address := register_input.address and x"0000_0FFF";
+                v_table_index := to_integer(unsigned(v_rel_address(LFO_N_LOG2 + 4 downto 4))); -- Index slice is 1 bit wider than necessary to accomodate LFO_N_LOG2 = 0.
+
+                case v_rel_address(3 downto 0) is 
+                when x"0" => 
+                    r_in.register_output.read_data <= std_logic_vector(r.config.lfo_input(v_table_index).velocity);
+
+                when x"1" =>
+                    r_in.register_output.read_data <= 
+                        std_logic_vector(to_unsigned(r.config.lfo_input(v_table_index).wave_select, REGISTER_WIDTH));
+
+                when x"2" => 
+                    r_in.register_output.read_data(0) <= r.config.lfo_input(v_table_index).trigger;
+
+                when x"3" => 
+                    r_in.register_output.read_data <= std_logic_vector(r.config.lfo_input(v_table_index).phase_shift);    
+
+                when x"4" => 
+                    r_in.register_output.read_data(0) <= r.config.lfo_input(v_table_index).oneshot;
+                
+                -- LFO reset register is not readable.
+                when others => 
+                    r_in.register_output.valid <= '0';
+                end case;
+
+            -- Read mod mapping registers.
+            elsif register_input.address >= REG_MOD_MAP_BASE 
+                    and register_input.address < REG_MOD_MAP_BASE + MODD_LEN * MAX_MOD_SOURCES * 2 then
+
+                v_rel_address := register_input.address and x"0000_0FFF";
 
                 -- Slice source and destination indices from the address.
                 v_mod_dest := to_integer(shift_right(v_rel_address, MAX_MOD_SOURCES_LOG2 + 1));
@@ -368,38 +379,6 @@ begin
             elsif register_input.address = REG_WAVE_PERIOD then
                 r_in.config_buffer.binaural_enable <= register_input.write_data(0);
 
-            elsif register_input.address = REG_LFO_0_VELOCITY then
-                r_in.config_buffer.lfo_input(0).velocity <= signed(register_input.write_data);
-
-            elsif register_input.address = REG_LFO_0_WAVE then
-                r_in.config_buffer.lfo_input(0).wave_select <= minimum(LFO_N_WAVEFORMS - 1, 
-                    to_integer(unsigned(register_input.write_data)));
-
-            elsif register_input.address = REG_LFO_0_TRIGGER then
-                r_in.config_buffer.lfo_input(0).trigger <= register_input.write_data(0);
-
-            elsif register_input.address = REG_LFO_0_RESET then
-                r_in.config_buffer.lfo_input(0).reset <= '1';
-
-            elsif register_input.address = REG_LFO_0_PHASE then
-                r_in.config_buffer.lfo_input(0).phase_shift <= signed(register_input.write_data);
-
-            elsif register_input.address = REG_LFO_1_VELOCITY then
-                r_in.config_buffer.lfo_input(1).velocity <= signed(register_input.write_data);
-
-            elsif register_input.address = REG_LFO_1_WAVE then
-                r_in.config_buffer.lfo_input(1).wave_select <= minimum(LFO_N_WAVEFORMS - 1, 
-                    to_integer(unsigned(register_input.write_data)));
-
-            elsif register_input.address = REG_LFO_1_TRIGGER then
-                r_in.config_buffer.lfo_input(1).trigger <= register_input.write_data(0);
-
-            elsif register_input.address = REG_LFO_1_RESET then
-                r_in.config_buffer.lfo_input(1).reset <= '1';
-
-            elsif register_input.address = REG_LFO_1_PHASE then
-                r_in.config_buffer.lfo_input(1).phase_shift <= signed(register_input.write_data);
-
             elsif register_input.address = REG_FILTER_CUTOFF then
                 r_in.config_buffer.base_ctrl(MODD_FILTER_CUTOFF) <= signed(register_input.write_data);
 
@@ -412,30 +391,6 @@ begin
                 else 
                     r_in.config_buffer.filter_select <= 4;
                 end if;
-            
-            elsif register_input.address = REG_ENVELOPE_0_ATTACK then
-                r_in.config_buffer.envelope_input(0).attack <= signed(register_input.write_data); 
-
-            elsif register_input.address = REG_ENVELOPE_0_DECAY then
-                r_in.config_buffer.envelope_input(0).decay <= signed(register_input.write_data); 
-
-            elsif register_input.address = REG_ENVELOPE_0_SUSTAIN then
-                r_in.config_buffer.envelope_input(0).sustain <= signed(register_input.write_data); 
-
-            elsif register_input.address = REG_ENVELOPE_0_RELEASE then
-                r_in.config_buffer.envelope_input(0).release_value <= signed(register_input.write_data); 
-
-            elsif register_input.address = REG_ENVELOPE_1_ATTACK then
-                r_in.config_buffer.envelope_input(1).attack <= signed(register_input.write_data); 
-
-            elsif register_input.address = REG_ENVELOPE_1_DECAY then
-                r_in.config_buffer.envelope_input(1).decay <= signed(register_input.write_data); 
-
-            elsif register_input.address = REG_ENVELOPE_1_SUSTAIN then
-                r_in.config_buffer.envelope_input(1).sustain <= signed(register_input.write_data); 
-
-            elsif register_input.address = REG_ENVELOPE_1_RELEASE then
-                r_in.config_buffer.envelope_input(1).release_value <= signed(register_input.write_data);
 
             elsif register_input.address = REG_MIXER_CTRL then
                 r_in.config_buffer.base_ctrl(MODD_MIXER) <= signed(register_input.write_data); 
@@ -446,7 +401,7 @@ begin
             elsif register_input.address >= REG_FREQ_CTRL_BASE and 
                     register_input.address < REG_FREQ_CTRL_BASE + POLYPHONY_MAX then
 
-                v_rel_address := register_input.address - REG_FREQ_CTRL_BASE;
+                v_rel_address := register_input.address and x"0000_0FFF";
                 v_voice_index := to_integer(unsigned(v_rel_address(POLYPHONY_MAX_LOG2 - 1 downto 0)));
                 
                 r_in.config_buffer.base_ctrl(MODD_OSC_0_FREQ + v_voice_index) <= signed(register_input.write_data);
@@ -456,7 +411,7 @@ begin
             elsif register_input.address >= REG_MIX_CTRL_BASE and 
                     register_input.address < REG_MIX_CTRL_BASE + N_TABLES then
 
-                v_rel_address := register_input.address - REG_MIX_CTRL_BASE;
+                v_rel_address := register_input.address and x"0000_0FFF";
                 v_table_index := to_integer(unsigned(v_rel_address(N_TABLES_LOG2 - 1 downto 0)));
                 
                 r_in.config_buffer.base_ctrl(MODD_OSC_0_MIX + v_table_index) <= signed(register_input.write_data);
@@ -466,7 +421,7 @@ begin
             elsif register_input.address >= REG_FRAME_CTRL_BASE and 
                     register_input.address < REG_FRAME_CTRL_BASE + N_TABLES then
 
-                v_rel_address := register_input.address - REG_FRAME_CTRL_BASE;
+                v_rel_address := register_input.address and x"0000_0FFF";
                 v_table_index := to_integer(unsigned(v_rel_address(N_TABLES_LOG2 - 1 downto 0)));
                 
                 r_in.config_buffer.base_ctrl(MODD_OSC_0_FRAME + v_table_index) <= signed(register_input.write_data);
@@ -474,35 +429,101 @@ begin
             -- Wavetable registers.
             -- Each wavetable has 4 registers.
             elsif register_input.address >= REG_TABLE_BASE 
-                    and register_input.address < REG_TABLE_BASE + N_TABLES * 4 then
+                    and register_input.address < REG_TABLE_BASE + N_TABLES * x"10" + 4 then
 
-                v_rel_address := register_input.address - REG_TABLE_BASE;
-                v_table_index := to_integer(unsigned(v_rel_address(N_TABLES_LOG2 + 1 downto 2)));
+                v_rel_address := register_input.address and x"0000_0FFF";
+                v_table_index := to_integer(unsigned(v_rel_address(N_TABLES_LOG2 + 4 downto 4)));
 
-                case v_rel_address(1 downto 0) is 
-                when "00" =>
+                case v_rel_address(3 downto 0) is 
+                when x"0" =>
                     r_in.config_buffer.dma_input(v_table_index).base_address(REGISTER_WIDTH - 1 downto 0) <= 
                         unsigned(register_input.write_data);
                 
-                when "01" => 
+                when x"1" => 
                     r_in.config_buffer.dma_input(v_table_index).base_address(SDRAM_DEPTH_LOG2 - 1 downto REGISTER_WIDTH) <= 
                         unsigned(register_input.write_data(SDRAM_DEPTH_LOG2 - REGISTER_WIDTH - 1 downto 0));
 
-                when "10" => 
+                when x"2" => 
                     r_in.config_buffer.dma_input(v_table_index).frames_log2 <= 
                         minimum(FRAMES_MAX_LOG2, to_integer(unsigned(register_input.write_data)));
                 
-                when others => 
+                when x"3" => 
                     r_in.config_buffer.dma_input(v_table_index).new_table <= '1';
 
+                when others => 
+                    r_in.register_output.valid <= '0';
+
                 end case;
+
+            -- Envelope registers.
+            -- Each wavetable has 4 registers.
+            elsif register_input.address >= REG_ENVELOPE_CTRL_BASE 
+                    and register_input.address < REG_ENVELOPE_CTRL_BASE + ENV_N * x"10" + 5 then
+
+                v_rel_address := register_input.address and x"0000_0FFF";
+                v_table_index := to_integer(unsigned(v_rel_address(ENV_N_LOG2 + 4 downto 4)));
+
+                case v_rel_address(3 downto 0) is 
+                when x"0" =>
+                    r_in.config_buffer.envelope_input(v_table_index).attack <= signed(register_input.write_data);
+                
+                when x"1" => 
+                    r_in.config_buffer.envelope_input(v_table_index).decay <= signed(register_input.write_data);
+
+                when x"2" => 
+                    r_in.config_buffer.envelope_input(v_table_index).sustain <= signed(register_input.write_data);
+
+                when x"3" => 
+                    r_in.config_buffer.envelope_input(v_table_index).release_value <= signed(register_input.write_data);
+
+                when x"4" => 
+                    r_in.config_buffer.envelope_input(v_table_index).loop_envelope <= register_input.write_data(0);
+                
+                when others => 
+                    r_in.register_output.valid <= '0';
+
+                end case;
+
+            -- LFO registers.
+            -- Each wavetable has 5 registers.
+            elsif register_input.address >= REG_LFO_CTRL_BASE 
+                    and register_input.address < REG_LFO_CTRL_BASE + LFO_N * x"10" + 6 then
+
+                v_rel_address := register_input.address and x"0000_0FFF";
+                v_table_index := to_integer(unsigned(v_rel_address(LFO_N_LOG2 + 4 downto 4)));
+
+                case v_rel_address(3 downto 0) is 
+                when x"0" => 
+                    r_in.config_buffer.lfo_input(v_table_index).velocity <= signed(register_input.write_data);
+
+                when x"1" =>
+                    r_in.config_buffer.lfo_input(v_table_index).wave_select <= 
+                        minimum(LFO_N_WAVEFORMS - 1, to_integer(unsigned(register_input.write_data)));                
+
+                when x"2" => 
+                    r_in.config_buffer.lfo_input(v_table_index).trigger <= register_input.write_data(0);
+
+                when x"3" => 
+                    r_in.config_buffer.lfo_input(v_table_index).phase_shift <= signed(register_input.write_data);
+
+                when x"4" => 
+                    r_in.config_buffer.lfo_input(v_table_index).oneshot <= register_input.write_data(0);
+
+                when x"5" => 
+                    r_in.config_buffer.lfo_input(v_table_index).reset <= register_input.write_data(0);
+                
+                when others => 
+                    r_in.register_output.valid <= '0';
+
+                end case;
+
 
             -- Mod matrix registers. 
             -- Each mod destination holds a list length MAX_MOD_SOURCES containing a (source_index, amount) pair.
             elsif register_input.address >= REG_MOD_MAP_BASE 
                     and register_input.address < REG_MOD_MAP_BASE + MODD_LEN * MAX_MOD_SOURCES * 2 then
 
-                v_rel_address := register_input.address - REG_MOD_MAP_BASE;
+                v_rel_address := register_input.address and x"0000_0FFF";
 
                 -- Slice source and destination indices from the address.
                 v_mod_dest := to_integer(shift_right(v_rel_address, MAX_MOD_SOURCES_LOG2 + 1));

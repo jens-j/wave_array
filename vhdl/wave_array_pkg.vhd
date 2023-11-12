@@ -94,6 +94,7 @@ package wave_array_pkg is
 
     -- LFO contants.
     constant LFO_N                  : integer := 2;  -- Number of LFOs.
+    constant LFO_N_LOG2             : integer := integer(ceil(log2(real(LFO_N))));
     constant LFO_PHASE_SIZE         : integer := 48; -- Phase accumulator bit width.
     constant LFO_PHASE_INT          : integer := 3;  -- Integer bit width of phase.
     constant LFO_PHASE_FRAC         : integer := LFO_PHASE_SIZE - LFO_PHASE_INT; -- Fractional bit width of phase.
@@ -117,6 +118,7 @@ package wave_array_pkg is
                                      , 25);
 
     constant ENV_N                  : integer := 2; -- Number of envelopes.
+    constant ENV_N_LOG2             : integer := integer(ceil(log2(real(ENV_N))));
     constant ENV_MIN_ATTACK_T       : real := 1.0 / real(2**10); -- In seconds.
     constant ENV_MAX_ATTACK_T       : real := real(2**3);   
     constant ENV_MIN_DECAY_T        : real := 1.0 / real(2**10); 
@@ -166,14 +168,13 @@ package wave_array_pkg is
     constant MODD_UNISON            : natural := 9;
 
     constant MODS_NONE              : natural := 0;
-    constant MODS_POT               : natural := 1;
-    constant MODS_ENVELOPE_0        : natural := 2;
-    constant MODS_ENVELOPE_1        : natural := 3;
-    constant MODS_LFO_0             : natural := 4;
-    constant MODS_LFO_1             : natural := 5;
-    constant MODS_VELOCITY          : natural := 6;
+    constant MODS_ENVELOPE_0        : natural := 1;
+    constant MODS_ENVELOPE_1        : natural := 2;
+    constant MODS_LFO_0             : natural := 3;
+    constant MODS_LFO_1             : natural := 4;
+    constant MODS_VELOCITY          : natural := 5;
 
-    constant MODS_LEN               : natural := 7;
+    constant MODS_LEN               : natural := 6;
     constant MODD_LEN               : natural := 10;
     constant MODS_LEN_LOG2          : natural := integer(ceil(log2(real(MODS_LEN))));
     constant MODD_LEN_LOG2          : natural := integer(ceil(log2(real(MODD_LEN))));
@@ -198,6 +199,8 @@ package wave_array_pkg is
     constant REG_LED                : unsigned := x"0000002"; -- rw 1 bit           | On-board led register.
     constant REG_VOICES             : unsigned := x"0000003"; -- ro 16 bit unsigned | Number of voices.
     constant REG_UNISON_MAX         : unsigned := x"0000004"; -- ro 16 bit unsigned | Maximum unison amount.
+    constant REG_ENVELOPE_N         : unsigned := x"0000005"; -- ro 16 bit unsigned | Number of envelopes.
+    constant REG_LFO_N              : unsigned := x"0000006"; -- ro 16 bit unsigned | Number of LFOs.
 
     constant REG_DBG_WAVE_TIMER     : unsigned := x"0000103"; -- ro 16 bit unsigned | Wave offload timer value.
     constant REG_DBG_WAVE_FLAGS     : unsigned := x"0000104"; -- ro  6 bit          | Wave offload fifo_overflow & fifo_underflow & wave_req & wave_ready & fifo_empty & fifo_full.    
@@ -207,32 +210,10 @@ package wave_array_pkg is
     constant REG_BINAURAL           : unsigned := x"0000200"; -- rw 1 bit           | Enable binaural mode.
     constant REG_UNISON_N           : unsigned := x"0000201"; -- rw 4 bit           | Number of oscillators in unison per voices - 1 (so [1 - 16]). 
     constant REG_UNISON_SPREAD      : unsigned := x"0000202"; -- rw 16 bit          | Unison spread base control value. Maps onto 0 - 1 semitone. 
-    constant REG_POLYPHONY          : unsigned := x"0000203"; -- ro 16 bit          | Available polyphony based on current unison setting.
-    constant REG_ACTIVE_OSCILLATORS : unsigned := x"0000204"; -- ro 16 bit          | Total active oscillators based on current unison setting.
-
-    constant REG_LFO_0_VELOCITY     : unsigned := x"0000500"; -- rw 15 bit unsigned | LFO velocity control value. 
-    constant REG_LFO_0_WAVE         : unsigned := x"0000501"; -- rw 16 bit unsigned | Select LFO waveform. Clipped to LFO_N_WAVEFORMS - 1.
-    constant REG_LFO_0_TRIGGER      : unsigned := x"0000502"; -- rw  1 bit          | Write '1' to enable LFO sync to voices. 
-    constant REG_LFO_0_RESET        : unsigned := x"0000503"; -- wo  1 bit          | Write '1' reset all LFO phases.
-    constant REG_LFO_0_PHASE        : unsigned := x"0000504"; -- rw 15 bit unsigned | Binaural LFO phase difference, [-180 - 180] degrees.
-    constant REG_LFO_1_VELOCITY     : unsigned := x"0000510"; -- rw 15 bit unsigned | LFO velocity control value. 
-    constant REG_LFO_1_WAVE         : unsigned := x"0000511"; -- rw 16 bit unsigned | Select LFO waveform. Clipped to LFO_N_WAVEFORMS - 1.
-    constant REG_LFO_1_TRIGGER      : unsigned := x"0000512"; -- rw  1 bit          | Write '1' to enable LFO sync to voices. 
-    constant REG_LFO_1_RESET        : unsigned := x"0000513"; -- wo  1 bit          | Write '1' reset all LFO phases.
-    constant REG_LFO_1_PHASE        : unsigned := x"0000514"; -- rw 15 bit unsigned | Binaural LFO phase difference, [-180 - 180] degrees.
 
     constant REG_FILTER_CUTOFF      : unsigned := x"0000600"; -- rw 15 bit unsigned | Filter cutoff control value. 
     constant REG_FILTER_RESONANCE   : unsigned := x"0000601"; -- rw 15 bit unsigned | Filter resonance control value. 
     constant REG_FILTER_SELECT      : unsigned := x"0000602"; -- rw 3  bit          | Filter output select. 1 = LP, 2 = HP, 3 = BP, 4 = BS, 5 = bypass.
-
-    constant REG_ENVELOPE_0_ATTACK  : unsigned := x"0000700"; -- rw 15 bit unsigned | Envelope attack time control value.
-    constant REG_ENVELOPE_0_DECAY   : unsigned := x"0000701"; -- rw 15 bit unsigned | Envelope decay time control value.
-    constant REG_ENVELOPE_0_SUSTAIN : unsigned := x"0000702"; -- rw 15 bit unsigned | Envelope sustain level control value.
-    constant REG_ENVELOPE_0_RELEASE : unsigned := x"0000703"; -- rw 15 bit unsigned | Envelope release time control value.
-    constant REG_ENVELOPE_1_ATTACK  : unsigned := x"0000710"; -- rw 15 bit unsigned | Envelope attack time control value.
-    constant REG_ENVELOPE_1_DECAY   : unsigned := x"0000711"; -- rw 15 bit unsigned | Envelope decay time control value.
-    constant REG_ENVELOPE_1_SUSTAIN : unsigned := x"0000712"; -- rw 15 bit unsigned | Envelope sustain level control value.
-    constant REG_ENVELOPE_1_RELEASE : unsigned := x"0000713"; -- rw 15 bit unsigned | Envelope release time control value.
 
     constant REG_MIXER_CTRL         : unsigned := x"0000800"; -- rw 15 bit unsigned | Mixer base value value.
 
@@ -247,14 +228,30 @@ package wave_array_pkg is
     constant REG_MOD_DEST_BASE      : unsigned := x"0002000"; -- ro 16 bit signed   | Modulation destinations start here. Ordered major to minor, [destination, voice].
     constant REG_FRAME_CTRL_BASE    : unsigned := x"0004000"; -- rw 15 bit unsigned | Frame control base value for each wavetable.    
     constant REG_MIX_CTRL_BASE      : unsigned := x"0005000"; -- rw 15 bit unsigned | Table mixer control base value for each wavetable. 
-    constant REG_FREQ_CTRL_BASE     : unsigned := x"0006000"; -- rw 16 bit signed   | Oscillator frequency mod control base value for each voice.    
+    constant REG_FREQ_CTRL_BASE     : unsigned := x"0006000"; -- rw 16 bit signed   | Oscillator frequency mod control base value for each voice.
 
-    -- Wavetable registers base address. Contiguous blocks of 4 registers for each wavetable.
+    -- Wavetable registers base address. Contiguous blocks of 4 registers for each wavetable. Stride = 0x10.
     constant REG_TABLE_BASE         : unsigned := x"0003000"; -- rw 16 bit unsigned | Bit 15 downto 0 of the wavetable base SDRAM address.
                                                -- x"0003XX1"; -- rw 16 bit unsigned | Bit 22 downto 16 of the wavetable base SDRAM address.
                                                -- x"0003XX2"; -- rw  4 bit unsigned | Log2 of the number of frames in the wavetable.
                                                -- x"0003XX3"; -- wo  1 bit          | Writing to this register triggers initialization of the wavetable BRAMS.
-    -- fault register (sticky-)bit indices.
+    
+    -- Envelope registers base address. Contiguous blocks of 4 registers for each wavetable. Stride = 0x10.
+    constant REG_ENVELOPE_CTRL_BASE : unsigned := x"0007000"; -- rw 15 bit unsigned | Envelope attack time control value.
+                                               -- x"0007XX1"; -- rw 15 bit unsigned | Envelope decay time control value.
+                                               -- x"0007XX2"; -- rw 15 bit unsigned | Envelope sustain level control value.
+                                               -- x"0007XX3"; -- rw 15 bit unsigned | Envelope release time control value.
+                                               -- x"0007XX4"; -- rw  1 bit          | Loop envelope to turn it into an LFO.
+
+    -- LFO registers base address. Contiguous blocks of 5 registers for each wavetable. Stride = 0x10.
+    constant REG_LFO_CTRL_BASE      : unsigned := x"0008000"; -- rw 15 bit unsigned | LFO velocity control value. 
+                                               -- x"0008XX1"; -- rw 16 bit unsigned | Select LFO waveform. Clipped to LFO_N_WAVEFORMS - 1.
+                                               -- x"0008XX2"; -- rw  1 bit          | Write '1' to enable LFO sync to voices (trigger). 
+                                               -- x"0008XX3"; -- rw 15 bit unsigned | Binaural LFO phase difference, [-180 - 180] degrees.
+                                               -- x"0008XX4"; -- rw  1 bit          | One-shot mode to turn the LFO into an envelope.
+                                               -- x"0008XX5"; -- wo  1 bit          | Reset LFO phase.
+
+     -- fault register (sticky-)bit indices.
     constant FAULT_UART_TIMEOUT     : integer := 0; -- UART packet engine timout.
     constant FAULT_REG_ADDRESS      : integer := 1; -- Register address undefined.
     constant FAULT_BURST_ALIGN      : integer := 2; -- Burst address is not page aligned (128 words).
@@ -359,6 +356,7 @@ package wave_array_pkg is
         velocity                : t_ctrl_value;
         trigger                 : std_logic;
         phase_shift             : t_ctrl_value;
+        oneshot                 : std_logic;
     end record;
 
     type t_lfo_input_array is array (natural range <>) of t_lfo_input;
@@ -368,6 +366,7 @@ package wave_array_pkg is
         decay                   : t_ctrl_value;
         sustain                 : t_ctrl_value;
         release_value           : t_ctrl_value; -- Release is a reserved keyword in vivado.
+        loop_envelope           : std_logic;
     end record;
 
     type t_envelope_input_array is array (natural range <>) of t_envelope_input;
@@ -624,14 +623,14 @@ package body wave_array_pkg is
 
             mod_mapping             => mapping, 
             hk_enable               => '0',
-            hk_period               => x"078F", -- 1935 ~= 20 ms => 50 Hz.
+            hk_period               => x"0CB7", -- 30 Hz.
             wave_enable             => '0',
-            wave_period             => x"0F1E", -- 2870 ~= 40 ms => 25 Hz.
+            wave_period             => x"0CB7", -- 30 Hz.
             binaural_enable         => '0',
             unison_n                => 1,
             filter_select           => 0, -- Lowpass
-            lfo_input               => (others => (0, '0', (others => '0'), '0', x"0000")),
-            envelope_input          => (others => (x"0000", x"0000", x"7FFF", x"0000")),
+            lfo_input               => (others => (0, '0', (others => '0'), '0', x"0000", '0')),
+            envelope_input          => (others => (x"0000", x"0000", x"7FFF", x"0000", '0')),
             dma_input               => (others => DMA_INPUT_INIT)
         );
 
@@ -644,16 +643,7 @@ package body wave_array_pkg is
         variable v_offset : integer;
         variable v_index : integer;
     begin 
-
-        -- -- Sign extend to 16 bits if POLYPHONY_MAX < 16.
-        -- if POLYPHONY_MAX < 16 then 
-        --     v_ser(15 downto 0)  := (15 downto POLYPHONY_MAX => '0') & status.voice_enabled;
-        --     v_ser(31 downto 16) := (15 downto POLYPHONY_MAX => '0') & status.voice_active;
-        -- else 
-        --     v_ser(15 downto 0)  := status.voice_enabled;
-        --     v_ser(31 downto 16) := status.voice_active; 
-        -- end if;
-
+    
         v_ser(15 downto 0)  := std_logic_vector(resize(unsigned(status.voice_enabled), 16));
         v_ser(31 downto 16) := std_logic_vector(resize(unsigned(status.voice_active), 16));
         v_ser(47 downto 32) := std_logic_vector(to_unsigned(status.polyphony, 16));

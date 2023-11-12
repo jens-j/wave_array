@@ -18,7 +18,6 @@ entity synth_subsystem is
         config                  : in  t_config;
         status                  : in  t_status;
         next_sample             : in  std_logic;
-        pot_value               : in  std_logic_vector(ADC_SAMPLE_SIZE - 1 downto 0);
         voices                  : in  t_voice_array(0 to POLYPHONY_MAX - 1);
         sample                  : out t_stereo_sample;
         sdram_output            : in  t_sdram_output;
@@ -49,7 +48,6 @@ architecture arch of synth_subsystem is
     signal s_envelope_ctrl      : t_ctrl_value_array(0 to POLYPHONY_MAX - 1);
     signal s_mod_sources        : t_mods_array;
     signal s_mod_destinations   : t_modd_array;
-    signal s_pot_ctrl           : t_ctrl_value;
     signal s_pitch_ctrl         : t_osc_ctrl_array;
     signal s_pitched_osc_inputs : t_pitched_osc_inputs;
     signal s_lfo_out            : t_lfo_out(0 to LFO_N - 1);
@@ -70,13 +68,9 @@ begin
     s_pitch_ctrl(0) <= s_mod_destinations(MODD_OSC_0_FREQ);
     s_pitch_ctrl(1) <= s_mod_destinations(MODD_OSC_1_FREQ);
     
-    -- Convert potentiometer value to a (unsigned) control_value.
-    s_pot_ctrl <= '0' & signed(pot_value) & (CTRL_SIZE - ADC_SAMPLE_SIZE - 2 downto 0 => '0');
-
     -- Connect mod source array.
     mods_assign : for i in 0 to POLYPHONY_MAX - 1 generate
         s_mod_sources(MODS_NONE)(i)       <= (others => '0');
-        s_mod_sources(MODS_POT)(i)        <= s_pot_ctrl;
         s_mod_sources(MODS_ENVELOPE_0)(i) <= s_envelope_out(0)(i);
         s_mod_sources(MODS_ENVELOPE_1)(i) <= s_envelope_out(1)(i);
         s_mod_sources(MODS_LFO_0)(i)      <= s_lfo_out(0)(i);

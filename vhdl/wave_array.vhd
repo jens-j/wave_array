@@ -73,7 +73,6 @@ architecture arch of wave_array is
     signal s_voices             : t_voice_array(0 to POLYPHONY_MAX - 1);
     signal s_midi_status_byte   : t_byte;
     signal s_lowest_voice       : integer range 0 to POLYPHONY_MAX - 1;
-    signal s_pot_value          : std_logic_vector(ADC_SAMPLE_SIZE - 1 downto 0);
     signal s_sample             : t_stereo_sample;
     signal s_display_data       : std_logic_vector(31 downto 0);
 
@@ -288,7 +287,6 @@ begin
         config                  => s_config,
         status                  => s_status,
         next_sample             => s_next_sample,
-        pot_value               => s_pot_value,
         voices                  => s_voices,
         sample                  => s_sample,
         sdram_input             => s_sdram_inputs(1),
@@ -327,8 +325,6 @@ begin
     --     filter_length           => SWITCHES(7 downto 5),
     --     value                   => s_pot_value
     -- );
-
-    s_pot_value <= (others => '0');
 
     arbiter : entity sdram.ddr_arbiter
     generic map (
