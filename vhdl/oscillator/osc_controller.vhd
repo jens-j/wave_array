@@ -30,6 +30,7 @@ architecture arch of osc_controller is
         voice_counter           : integer range 0 to POLYPHONY_MAX - 1; 
         osc_inputs              : t_osc_input_array(0 to POLYPHONY_MAX - 1);
         osc_inputs_buffer       : t_osc_input_array(0 to POLYPHONY_MAX - 1);
+        change                  : std_logic_vector(POLYPHONY_MAX - 1 downto 0);
     end record;
 
     constant REG_INIT : t_oscillator_reg := (
@@ -37,7 +38,8 @@ architecture arch of osc_controller is
         voices                  => (others => MIDI_VOICE_INIT),
         voice_counter           => 0,
         osc_inputs              => (others => ('0', (others => '0'))),
-        osc_inputs_buffer       => (others => ('0', (others => '0')))
+        osc_inputs_buffer       => (others => ('0', (others => '0'))),
+        change                  => (others => '0')
     );
 
     signal r, r_in : t_oscillator_reg := REG_INIT;
@@ -69,12 +71,15 @@ begin
             v_velocity := (others => '0');
 
             -- Convert midi note to table velocity.
-            -- Use the potentiometer as frame position input.
-            v_enable := r.voices(r.voice_counter).enable;
+            -- Disable note for one cycle on change to make sure downstream entities notice the update.
+            v_enable := r.voices(r.voice_counter).enable and not r.change(r.voice_counter); 
             v_velocity := shift_right(BASE_OCT_VELOCITIES(r.voices(r.voice_counter).note.key),
                                       9 - r.voices(r.voice_counter).note.octave);
 
             r_in.osc_inputs_buffer(r.voice_counter) <= (v_enable, v_velocity);
+
+            -- Reset change sticky bit.
+            r_in.change(r.voice_counter) <= '0';
 
             -- Iterate over voices. 
             if r.voice_counter < status.active_voices - 1 then
@@ -83,6 +88,13 @@ begin
                 r_in.state <= idle;
             end if;
         end if;
+
+        -- Register voice change strobes as sticky bits.
+        for i in 0 to POLYPHONY_MAX - 1 loop
+            if voices(i).change = '1' then 
+                r_in.change(i) <= '1';
+            end if;
+        end loop;
     end process;
 
     reg_process : process(clk)

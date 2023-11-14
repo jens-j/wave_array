@@ -17,6 +17,9 @@ library uart;
 
 
 entity wave_array is
+    generic (
+        NO_MIG                  : boolean := false
+    );
     port (
         EXT_CLK                 : in  std_logic;
         BTN_RESET               : in  std_logic;
@@ -328,6 +331,7 @@ begin
 
     arbiter : entity sdram.ddr_arbiter
     generic map (
+        NO_MIG                  => NO_MIG,
         N_CLIENTS               => 1 + N_TABLES
     )
     port map (

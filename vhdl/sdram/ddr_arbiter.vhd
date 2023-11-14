@@ -12,7 +12,8 @@ library sdram;
 -- Clients can assert their read- or write-enable lines and wait for the valid line.
 entity ddr_arbiter is
     generic (
-        N_CLIENTS               : integer
+        N_CLIENTS               : integer;
+        NO_MIG                  : boolean := false
     );
     port (
         mig_ctrl_clk            : in    std_logic;
@@ -100,9 +101,6 @@ architecture arch of ddr_arbiter is
     signal s_init_calib_complete: std_logic;
     signal s_mig_ui_reset       : std_logic;
 
-
-
-
 begin
 
     -- 18 word deep FWFT fifo.
@@ -119,51 +117,58 @@ begin
         data_count              => s_fifo_data_count
     );
 
-    sdram_controller : entity xil_defaultlib.mig_gen
-    port map (
-        sys_clk_i               => mig_ctrl_clk,
-        clk_ref_i               => mig_ref_clk,
-        device_temp             => open,
-        sys_rst                 => mig_reset,
+    no_mig_gen : if NO_MIG generate 
+        s_mig_ui_clk <= mig_ctrl_clk;
+        s_mig_ui_reset <= mig_reset;
+    end generate;
 
-        app_addr                => s_app_addr,
-        app_cmd                 => s_app_cmd,
-        app_en                  => s_app_en,
-        app_wdf_data            => r.app_wdf_data,
-        app_wdf_end             => s_app_wdf_end,
-        app_wdf_mask            => (others => '0'),
-        app_wdf_wren            => s_app_wdf_wren,
-        app_rd_data             => s_app_rd_data,
-        app_rd_data_end         => s_app_rd_data_end,
-        app_rd_data_valid       => s_app_rd_data_valid,
-        app_rdy                 => s_app_rdy,
-        app_wdf_rdy             => s_app_wdf_rdy,
-        app_sr_req              => '0',
-        app_ref_req             => '0',
-        app_zq_req              => '0',
-        app_sr_active           => open,
-        app_ref_ack             => open,
-        app_zq_ack              => open,
+    mig_gen : if not NO_MIG generate
+        sdram_controller : entity xil_defaultlib.mig_gen
+        port map (
+            sys_clk_i               => mig_ctrl_clk,
+            clk_ref_i               => mig_ref_clk,
+            device_temp             => open,
+            sys_rst                 => mig_reset,
 
-        ui_clk                  => s_mig_ui_clk,
-        ui_clk_sync_rst         => s_mig_ui_reset,
-        init_calib_complete     => s_init_calib_complete,
+            app_addr                => s_app_addr,
+            app_cmd                 => s_app_cmd,
+            app_en                  => s_app_en,
+            app_wdf_data            => r.app_wdf_data,
+            app_wdf_end             => s_app_wdf_end,
+            app_wdf_mask            => (others => '0'),
+            app_wdf_wren            => s_app_wdf_wren,
+            app_rd_data             => s_app_rd_data,
+            app_rd_data_end         => s_app_rd_data_end,
+            app_rd_data_valid       => s_app_rd_data_valid,
+            app_rdy                 => s_app_rdy,
+            app_wdf_rdy             => s_app_wdf_rdy,
+            app_sr_req              => '0',
+            app_ref_req             => '0',
+            app_zq_req              => '0',
+            app_sr_active           => open,
+            app_ref_ack             => open,
+            app_zq_ack              => open,
 
-        ddr3_dq                 => DDR3_DQ,
-        ddr3_dqs_p              => DDR3_DQS_P,
-        ddr3_dqs_n              => DDR3_DQS_N,
-        ddr3_addr               => DDR3_ADDR,
-        ddr3_ba                 => DDR3_BA,
-        ddr3_ras_n              => DDR3_RAS_N,
-        ddr3_cas_n              => DDR3_CAS_N,
-        ddr3_we_n               => DDR3_WE_N,
-        ddr3_reset_n            => DDR3_RESET_N,
-        ddr3_ck_p(0)            => DDR3_CK_P,
-        ddr3_ck_n(0)            => DDR3_CK_N,
-        ddr3_cke(0)             => DDR3_CKE,
-        ddr3_dm                 => DDR3_DM,
-        ddr3_odt(0)             => DDR3_ODT
-    );
+            ui_clk                  => s_mig_ui_clk,
+            ui_clk_sync_rst         => s_mig_ui_reset,
+            init_calib_complete     => s_init_calib_complete,
+
+            ddr3_dq                 => DDR3_DQ,
+            ddr3_dqs_p              => DDR3_DQS_P,
+            ddr3_dqs_n              => DDR3_DQS_N,
+            ddr3_addr               => DDR3_ADDR,
+            ddr3_ba                 => DDR3_BA,
+            ddr3_ras_n              => DDR3_RAS_N,
+            ddr3_cas_n              => DDR3_CAS_N,
+            ddr3_we_n               => DDR3_WE_N,
+            ddr3_reset_n            => DDR3_RESET_N,
+            ddr3_ck_p(0)            => DDR3_CK_P,
+            ddr3_ck_n(0)            => DDR3_CK_N,
+            ddr3_cke(0)             => DDR3_CKE,
+            ddr3_dm                 => DDR3_DM,
+            ddr3_odt(0)             => DDR3_ODT
+        );
+    end generate;
 
     -- Connect output registers.
     sdram_outputs <= r.sdram_outputs;

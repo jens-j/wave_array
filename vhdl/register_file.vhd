@@ -79,8 +79,6 @@ begin
         r_in <= r;
         r_in.software_reset <= '0';
         r_in.register_output <= ('0', '0', (others => '0'));
-        r_in.config.lfo_input(0).reset <= '0'; -- Clear lfo_reset output after one cycle.
-        -- r_in.config.lfo_input(1).reset <= '0';
 
         polyphony <= r.polyphony;
         active_voices <= r.active_voices;
@@ -102,6 +100,11 @@ begin
             -- Reset new_table flags.
             for i in 0 to N_TABLES - 1 loop 
                 r_in.config_buffer.dma_input(i).new_table <= '0'; 
+            end loop;
+
+            -- Reset LFO reset flags.
+            for i in 0 to LFO_N - 1 loop
+                r_in.config_buffer.lfo_input(i).reset <= '0';
             end loop;
         end if;
 
@@ -510,7 +513,7 @@ begin
                     r_in.config_buffer.lfo_input(v_table_index).oneshot <= register_input.write_data(0);
 
                 when x"5" => 
-                    r_in.config_buffer.lfo_input(v_table_index).reset <= register_input.write_data(0);
+                    r_in.config_buffer.lfo_input(v_table_index).reset <= '1';
                 
                 when others => 
                     r_in.register_output.valid <= '0';

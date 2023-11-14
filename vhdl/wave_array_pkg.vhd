@@ -17,9 +17,9 @@ package wave_array_pkg is
     constant SYS_FREQ               : integer := 100_000_000;
     constant SDRAM_FREQ             : integer := 100_000_000;
  
-    constant UART_BAUD              : integer := 1_000_000
+    constant UART_BAUD              : integer := 2_000_000
     --pragma synthesis_off
-                                      * 50
+                                      * 25
     --pragma synthesis_on
     ;
 
@@ -404,6 +404,7 @@ package wave_array_pkg is
         debug_uart_flags        : std_logic_vector(3 downto 0); -- Fifo full flags: sdram2uart & uart2sdram & hk & wave.
     end record;
 
+    -- Also used by the envelope.
     type t_osc_input is record
         enable                  : std_logic; -- Voice enable (outputs zero when not enabled).
         velocity                : t_osc_phase; -- Table velocity.
@@ -623,9 +624,9 @@ package body wave_array_pkg is
 
             mod_mapping             => mapping, 
             hk_enable               => '0',
-            hk_period               => x"0CB7", -- 30 Hz.
+            hk_period               => x"07A1", -- 50 Hz (lsb is 1024 cycles).
             wave_enable             => '0',
-            wave_period             => x"0CB7", -- 30 Hz.
+            wave_period             => x"0F42", -- 25 Hz (lsb is 1024 cycles).
             binaural_enable         => '0',
             unison_n                => 1,
             filter_select           => 0, -- Lowpass
@@ -643,7 +644,7 @@ package body wave_array_pkg is
         variable v_offset : integer;
         variable v_index : integer;
     begin 
-    
+
         v_ser(15 downto 0)  := std_logic_vector(resize(unsigned(status.voice_enabled), 16));
         v_ser(31 downto 16) := std_logic_vector(resize(unsigned(status.voice_active), 16));
         v_ser(47 downto 32) := std_logic_vector(to_unsigned(status.polyphony, 16));

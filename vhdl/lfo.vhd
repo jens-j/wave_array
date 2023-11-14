@@ -282,27 +282,23 @@ begin
         -- This pipeline does not use the pipeline shift registers because the cordic delay is quite long.
         if s_dout_tvalid = '1' then
 
-            -- Select which waveform to output.
-            for i in 0 to N_INSTANCES - 1 loop
+            -- Take sine and cosine sample from the cordic output.
+            if lfo_input(r.instance_read).wave_select = 0 then 
 
-                -- Take sine and cosine sample from the cordic output.
-                if lfo_input(i).wave_select = 0 then 
+                r_in.lfo_buffer(r.instance_read)(r.index_read) <= clip_sine(s_dout_tdata(40 downto 24));
 
-                    r_in.lfo_buffer(r.instance_read)(r.index_read) <= clip_sine(s_dout_tdata(40 downto 24));
+            -- Trunctate the phase to get the saw output.
+            elsif lfo_input(r.instance_read).wave_select = 1 then 
 
-                -- Trunctate the phase to get the saw output.
-                elsif lfo_input(i).wave_select = 1 then 
+                r_in.lfo_buffer(r.instance_read)(r.index_read) <=
+                    r.phase(r.instance_read)(r.index_read)(LFO_PHASE_FRAC downto LFO_PHASE_FRAC - CTRL_SIZE + 1);
 
-                    r_in.lfo_buffer(r.instance_read)(r.index_read) <=
-                        r.phase(r.instance_read)(r.index_read)(LFO_PHASE_FRAC downto LFO_PHASE_FRAC - CTRL_SIZE + 1);
-
-                -- Generate square output.
-                else  
-                    r_in.lfo_buffer(r.instance_read)(r.index_read) <= 
-                        (CTRL_SIZE - 1 => '0', CTRL_SIZE - 2 downto 0 => '1') when r.phase(r.instance_read)(r.index_read) >= 0 
-                        else (CTRL_SIZE - 1 => '1', CTRL_SIZE - 2 downto 0 => '0');
-                end if;
-            end loop;
+            -- Generate square output.
+            else  
+                r_in.lfo_buffer(r.instance_read)(r.index_read) <= 
+                    (CTRL_SIZE - 1 => '0', CTRL_SIZE - 2 downto 0 => '1') when r.phase(r.instance_read)(r.index_read) >= 0 
+                    else (CTRL_SIZE - 1 => '1', CTRL_SIZE - 2 downto 0 => '0');
+            end if;
 
             if r.index_read < N_OUTPUTS - 1 then
                 r_in.index_read <= r.index_read + 1;

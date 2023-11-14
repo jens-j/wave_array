@@ -127,26 +127,6 @@ architecture arch of envelope is
     signal s_data_out_valid     : std_logic;
     signal s_data_out           : unsigned(31 downto 0);
 
-    -- -- Increment phase with a velocity based on the adsr state.
-    -- procedure increment_phase(signal r          : in  t_envelope_reg;
-    --                           signal r_in       : out t_envelope_reg;
-    --                           signal velocity   : in  unsigned(31 downto 0);
-    --                           constant next_state : in  t_adsr_state) is
-        
-    --     variable v_phase : unsigned(31 downto 0);
-    -- begin
-    --     -- Increment phase.
-    --     v_phase := r.phase(r.instance_counter)(r.index_array(0)) + velocity;
-
-    --     -- Check for overflow.
-    --     if v_phase(31) = '0' and r.phase(r.instance_counter)(r.index_array(0))(31) = '1' then 
-    --         r_in.phase(r.instance_counter)(r.index_array(0)) <= (others => '0');
-    --         r_in.adsr_state(r.instance_counter)(r.index_array(0)) <= next_state;
-    --     else 
-    --         r_in.phase(r.instance_counter)(r.index_array(0)) <= v_phase;
-    --     end if;
-    -- end procedure;
-
     -- Increment phase with a velocity based on the adsr state.
     procedure increment_phase(signal phase_in   : in  unsigned(31 downto 0);
                               signal phase_out  : out unsigned(31 downto 0);
@@ -353,10 +333,14 @@ begin
 
                         -- Note is re-triggered during release.
                         if osc_inputs(r.index_array(0)).enable = '1' then 
-                            r_in.phase(r.instance_counter)(r.index_array(0)) <= (others => '0');
+
+                            -- Set phase so that the attack continues from the current mod level.
+                            r_in.phase(r.instance_counter)(r.index_array(0)) <= 
+                                unsigned(r.envelope_buffer(r.instance_counter)(r.index_array(0))(14 downto 0))
+                                & (16 downto 0 => '0');
+
                             r_in.adsr_state(r.instance_counter)(r.index_array(0)) <= attack;
                         end if;
-
                 end case;
             end if;
 
