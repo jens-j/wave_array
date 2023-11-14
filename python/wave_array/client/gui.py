@@ -391,11 +391,11 @@ class WaveArrayGui(QtWidgets.QMainWindow):
         self.ui.slider_frame_1_position.setValue(position)
         self.frame_position_changed(1, position)
 
-        frequency = self.client.read(WaveArray.REG_FREQ_CTRL_BASE)
+        frequency = self.client.read(WaveArray.REG_FREQ_CTRL_BASE, signed=True)
         self.ui.slider_pitch_0.setValue(frequency)
         self.frame_position_changed(0, frequency)
 
-        frequency = self.client.read(WaveArray.REG_FREQ_CTRL_BASE + 1)
+        frequency = self.client.read(WaveArray.REG_FREQ_CTRL_BASE + 1, signed=True)
         self.ui.slider_pitch_1.setValue(frequency)
         self.frame_position_changed(1, frequency)
 
@@ -438,15 +438,18 @@ class WaveArrayGui(QtWidgets.QMainWindow):
         # Initialize pitch control.
         for index in range(2):
 
-            pitch_control = self.client.read(WaveArray.REG_FREQ_CTRL_BASE + index)
+            pitch_control = self.client.read(WaveArray.REG_FREQ_CTRL_BASE + index, signed=True)
 
             oct = int(np.round(pitch_control / ModMap.MOD_FREQ_STEP_OCTAVE))
             semi = int(np.fmod(pitch_control, ModMap.MOD_FREQ_STEP_OCTAVE) / ModMap.MOD_FREQ_STEP_SEMITONE)
             cent = int(np.fmod(pitch_control, ModMap.MOD_FREQ_STEP_SEMITONE) / ModMap.MOD_FREQ_STEP_CENT)
+
+            print(oct, semi, cent)
             
             getattr(self.ui, f'box_octaves_{index}').setValue(oct)
             getattr(self.ui, f'box_semitones_{index}').setValue(semi)
             getattr(self.ui, f'slider_pitch_{index}').setValue(cent)
+            getattr(self.ui, f'lbl_pitch_{index}').setText(f'{cent} ct')
 
         # Initialize mod matrix.
         for destination in range(ModMap.MODD_LEN):
@@ -1055,7 +1058,7 @@ class WaveArrayGui(QtWidgets.QMainWindow):
         
 def main():
 
-    logging.basicConfig(level=logging.WARNING)
+    logging.basicConfig(level=logging.INFO)
     logger = logging.getLogger()
     
     gui = None

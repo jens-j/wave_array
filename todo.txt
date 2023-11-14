@@ -1,9 +1,11 @@
 Issues: 
 - GUI: wave view overflow
-- Envelope does not re-trigger on note stealing
-- clicking when a note is re-triggered during the release
 - GUI: reading back negative parameters fails
 - Testbench UART reader does not handle error replies well
+- LFO: negative phase has issues
+- LFO: sine overflow on max value sometimes
+* voices can remain on if switching from binaural mode
+- software reset does not work well
 
 Features:
 - envelope looping
@@ -18,8 +20,8 @@ Features:
 - high frequency LFO mode
 - Step like frame interpolation
 - filter: allow filter to open further
-- GUI: selectable mod source & destination plots
-- Oscillators as mod source
+- oscillators as mod source -> need to swap unison- and table-mixers.
+- noise source
 
 Optimizations:
 - LFO: use smaller phase accumulator to allow natural overflow

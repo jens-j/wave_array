@@ -6,6 +6,16 @@ from wave_array.client.uart_protocol import UartProtocol
 
 import numpy as np
 
+
+# # Convert 16 bit 2s complement value to integer.
+# def twoscomp16(raw):
+
+#     if raw & 0x8000:
+#         return raw - 0x10000
+#     else:
+#         return raw
+    
+
 class WaveArray:
 
     # Register address map.
@@ -79,11 +89,9 @@ class WaveArray:
         # print(f'[{address:08X}] <= {value:04X}')
         self.protocol.write(address, value) 
 
-    def read(self, address, log=True):
-        value = np.uint16(self.protocol.read(address))
-        # if log: 
-        #     print(f'read [{address:08X}] = {value:04X}')
-        return value
+    def read(self, address, signed=False):
+        value = np.int16(self.protocol.read(address))
+        return value if signed else value
 
     def read_mod_source(self, destination, index):
         address = self.REG_MOD_MAP_BASE + destination * 8 + index * 2
@@ -96,8 +104,8 @@ class WaveArray:
 
     def read_mod_amount(self, destination, index):
         address = self.REG_MOD_MAP_BASE + destination * 8 + index * 2 + 1
-        return self.read(address)
-    
+        return self.read(address, signed=True)
+        
     def write_mod_amount(self, destination, index, amount):
         address = self.REG_MOD_MAP_BASE + destination * 8 + index * 2 + 1
         self.write(address, amount)
