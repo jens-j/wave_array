@@ -45,7 +45,7 @@ class UartProtocol:
         elif opcode != UartType.WRITE_REP:
             raise UartException(f'received {opcode} instead of {UartType.WRITE_REP}')
         
-        self.logger.info(f'write [{address:04X}] <= {data:04X}')
+        self.logger.info(f'write [{address:04X}] <= {np.int16(data) & 0xFFFF:04X}')
 
 
     def read_block(self, address, length):

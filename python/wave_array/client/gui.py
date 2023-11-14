@@ -292,6 +292,7 @@ class WaveArrayGui(QtWidgets.QMainWindow):
             self.show_hide_plot(self.ui.btn_enable_plot_mix_1, self.plot_mix_1)
             self.show_hide_plot(self.ui.btn_enable_plot_frequency_1, self.plot_frequency_1)
             self.show_hide_plot(self.ui.btn_enable_plot_spread, self.plot_spread)
+            self.show_hide_plot(self.ui.btn_enable_plot_volume, self.plot_volume)
                             
             # Update both wavetable plots.
             for j in range(2):
@@ -550,7 +551,7 @@ class WaveArrayGui(QtWidgets.QMainWindow):
         self.plot_cutoff.setYRange(-1, 2**15, padding=0)
         self.plot_cutoff.hideAxis('left')
         self.plot_cutoff.hideAxis('bottom')
-        self.ui.group_modd.layout().addWidget(self.plot_cutoff)
+        self.ui.group_modd.layout().addWidget(self.plot_cutoff, stretch=1)
 
         self.plot_resonance = DropPlotWidget(parent=self.ui.group_modd)
         self.plot_resonance.setBackground(bg_color)
@@ -558,7 +559,7 @@ class WaveArrayGui(QtWidgets.QMainWindow):
         self.plot_resonance.setYRange(-1, 2**15, padding=0)
         self.plot_resonance.hideAxis('left')
         self.plot_resonance.hideAxis('bottom')
-        self.ui.group_modd.layout().addWidget(self.plot_resonance)
+        self.ui.group_modd.layout().addWidget(self.plot_resonance, stretch=1)
 
         self.plot_frame_0 = DropPlotWidget(parent=self.ui.group_modd)
         self.plot_frame_0.setBackground(bg_color)
@@ -566,7 +567,7 @@ class WaveArrayGui(QtWidgets.QMainWindow):
         self.plot_frame_0.setYRange(-1, 2**15, padding=0)
         self.plot_frame_0.hideAxis('left')
         self.plot_frame_0.hideAxis('bottom')
-        self.ui.group_modd.layout().addWidget(self.plot_frame_0)
+        self.ui.group_modd.layout().addWidget(self.plot_frame_0, stretch=1)
 
         self.plot_frame_1 = DropPlotWidget(parent=self.ui.group_modd)
         self.plot_frame_1.setBackground(bg_color)
@@ -574,7 +575,7 @@ class WaveArrayGui(QtWidgets.QMainWindow):
         self.plot_frame_1.setYRange(-1, 2**15, padding=0)
         self.plot_frame_1.hideAxis('left')
         self.plot_frame_1.hideAxis('bottom')
-        self.ui.group_modd.layout().addWidget(self.plot_frame_1)
+        self.ui.group_modd.layout().addWidget(self.plot_frame_1, stretch=1)
 
         self.plot_mix_0 = DropPlotWidget(parent=self.ui.group_modd)
         self.plot_mix_0.setBackground(bg_color)
@@ -582,7 +583,7 @@ class WaveArrayGui(QtWidgets.QMainWindow):
         self.plot_mix_0.setYRange(-1, 2**15, padding=0)
         self.plot_mix_0.hideAxis('left')
         self.plot_mix_0.hideAxis('bottom')
-        self.ui.group_modd.layout().addWidget(self.plot_mix_0)
+        self.ui.group_modd.layout().addWidget(self.plot_mix_0, stretch=1)
 
         self.plot_mix_1 = DropPlotWidget(parent=self.ui.group_modd)
         self.plot_mix_1.setBackground(bg_color)
@@ -590,7 +591,7 @@ class WaveArrayGui(QtWidgets.QMainWindow):
         self.plot_mix_1.setYRange(-1, 2**15, padding=0)
         self.plot_mix_1.hideAxis('left')
         self.plot_mix_1.hideAxis('bottom')
-        self.ui.group_modd.layout().addWidget(self.plot_mix_1)
+        self.ui.group_modd.layout().addWidget(self.plot_mix_1, stretch=1)
     
         self.plot_frequency_0 = DropPlotWidget(parent=self.ui.group_modd)
         self.plot_frequency_0.setBackground(bg_color)
@@ -598,7 +599,7 @@ class WaveArrayGui(QtWidgets.QMainWindow):
         self.plot_frequency_0.setYRange(-1, 2**15, padding=0)
         self.plot_frequency_0.hideAxis('left')
         self.plot_frequency_0.hideAxis('bottom')
-        self.ui.group_modd.layout().addWidget(self.plot_frequency_0)
+        self.ui.group_modd.layout().addWidget(self.plot_frequency_0, stretch=1)
 
         self.plot_frequency_1 = DropPlotWidget(parent=self.ui.group_modd)
         self.plot_frequency_1.setBackground(bg_color)
@@ -606,7 +607,7 @@ class WaveArrayGui(QtWidgets.QMainWindow):
         self.plot_frequency_1.setYRange(-1, 2**15, padding=0)
         self.plot_frequency_1.hideAxis('left')
         self.plot_frequency_1.hideAxis('bottom')
-        self.ui.group_modd.layout().addWidget(self.plot_frequency_1)
+        self.ui.group_modd.layout().addWidget(self.plot_frequency_1, stretch=1)
 
         self.plot_volume = DropPlotWidget(parent=self.ui.group_modd)
         self.plot_volume.setBackground(bg_color)
@@ -614,7 +615,7 @@ class WaveArrayGui(QtWidgets.QMainWindow):
         self.plot_volume.setYRange(-1, 2**15, padding=0)
         self.plot_volume.hideAxis('left')
         self.plot_volume.hideAxis('bottom')
-        self.ui.group_modd.layout().addWidget(self.plot_volume)
+        self.ui.group_modd.layout().addWidget(self.plot_volume, stretch=1)
         
         self.plot_spread = DropPlotWidget(parent=self.ui.group_modd)
         self.plot_spread.setBackground(bg_color)
@@ -622,7 +623,7 @@ class WaveArrayGui(QtWidgets.QMainWindow):
         self.plot_spread.setYRange(-1, 2**15, padding=0)
         self.plot_spread.hideAxis('left')
         self.plot_spread.hideAxis('bottom')
-        self.ui.group_modd.layout().addWidget(self.plot_spread)
+        self.ui.group_modd.layout().addWidget(self.plot_spread, stretch=1)
 
         self.ui.plot_envelope_0.setBackground(bg_color)
         self.ui.plot_envelope_0.setTitle('envelope 0')
@@ -678,12 +679,15 @@ class WaveArrayGui(QtWidgets.QMainWindow):
                              self.ui.plot_envelope_0, self.ui.plot_envelope_1, self.ui.plot_lfo_0, self.ui.plot_lfo_1,
                              self.ui.plot_waveform_0, self.ui.plot_waveform_1, self.ui.plot_oscilloscope]
 
-        hue = random()
+        color_map = pg.colormap.get('CET-C6')
+        lut = color_map.getLookupTable(nPts=self.client.n_voices)
+        # hue = random()
 
         # Plot curves and store PlotDataItem.     
         for i in range(self.client.n_voices):
 
-            pen = pg.mkPen(color=pg.hsvColor((hue + i / self.client.n_voices) % 1.0))
+            pen = pg.mkPen(color=lut[i])
+            # pen = pg.mkPen(color=pg.hsvColor((hue + i / self.client.n_voices) % 1.0))
 
             if i == self.client.n_voices - 1:
                 self.curve_oscilloscope = self.ui.plot_oscilloscope.plot(np.zeros(100), pen=pen)
