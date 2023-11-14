@@ -1,3 +1,4 @@
+import os 
 import logging 
 
 import numpy as np
@@ -9,9 +10,11 @@ from wave_array.client.client import WaveArray
 logging.basicConfig(level=logging.DEBUG)
 log = logging.getLogger(__name__)
 
-wave_array = WaveArray()
+wave_array = WaveArray(None, None)
 
-with open('basic_table.data') as f:
+filepath = os.path.join(os.path.dirname(__file__), '../../data/wavetables/basic.table')
+
+with open(filepath) as f:
 
     string_table = f.read().split('\n')
     string_table = list(filter(lambda x: x != '', string_table))
@@ -19,6 +22,7 @@ with open('basic_table.data') as f:
 
     print(table_in)
 
+    log.info('write table')
     wave_array.write_sdram(0, table_in)
 
 # table_in = np.zeros(0x5000).astype('uint16')

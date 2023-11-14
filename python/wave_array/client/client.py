@@ -49,7 +49,7 @@ class WaveArray:
     REG_LFO_CTRL_BASE           = 0x00008000
 
     def __init__(self, hk_signal=None, wave_signal=None, port='COM3'):
-        self.protocol = UartProtocol(port, 1000_000, hk_signal, wave_signal)
+        self.protocol = UartProtocol(port, 2000_000, hk_signal, wave_signal)
 
         # Stop HK to clear the input buffer.
         hk_enable = self.protocol.read(self.REG_HK_ENABLE)

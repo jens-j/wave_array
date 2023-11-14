@@ -31,7 +31,7 @@ class DragListWidget(QListWidget):
 # Pyqtgraph PlotWidget sublass that can handle drops.
 class DropPlotWidget(pg.PlotWidget):
 
-    def __init__(self, gui, parent=None):
+    def __init__(self, parent=None):
         super().__init__(parent)
         self.callback = None
         self.setAcceptDrops(True)
