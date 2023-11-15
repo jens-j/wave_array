@@ -98,9 +98,9 @@ architecture arch of lfo is
     function clip_sine (raw : std_logic_vector(16 downto 0))
         return signed is
     begin
-        if raw = 17x"08000" then
+        if signed(raw) >= 17x"08000" then
             return x"7FFF";
-        elsif raw = 17x"18000" then
+        elsif signed(raw) <= 17x"18000" then
             return x"8001";
         else
             return signed(raw(15 downto 0));
@@ -266,6 +266,11 @@ begin
 
                 r_in.phase(r.instance_shift(PIPE_SUM_CLIP - 1))(r.index_shift(PIPE_SUM_CLIP - 1)) <= 
                     r.phase_offset - shift_left(to_signed(1, LFO_PHASE_SIZE), LFO_PHASE_FRAC + 1);
+
+            elsif r.phase_offset < shift_left(to_signed(-1, LFO_PHASE_SIZE), LFO_PHASE_FRAC) then
+
+                r_in.phase(r.instance_shift(PIPE_SUM_CLIP - 1))(r.index_shift(PIPE_SUM_CLIP - 1)) <= 
+                    r.phase_offset + shift_left(to_signed(1, LFO_PHASE_SIZE), LFO_PHASE_FRAC + 1);
             else
                 r_in.phase(r.instance_shift(PIPE_SUM_CLIP - 1))(r.index_shift(PIPE_SUM_CLIP - 1)) <= r.phase_offset;
             end if;
@@ -274,8 +279,8 @@ begin
         -- Pipeline stage 5: input phase into cordic.
         if r.valid_shift(PIPE_SUM_CORDIC - 1) = '1' then 
             s_phase_tvalid <= '1';
-            s_phase_tdata <= std_logic_vector(
-                r.phase(r.instance_shift(PIPE_SUM_CORDIC - 1))(r.index_shift(PIPE_SUM_CORDIC - 1)));
+            s_phase_tdata <= std_logic_vector(r.phase(r.instance_shift(PIPE_SUM_CORDIC - 1))
+                (r.index_shift(PIPE_SUM_CORDIC - 1))(LFO_PHASE_SIZE - 1 downto 0));
         end if;
 
         -- Pipeline state 22: read cordic ouput and process.
