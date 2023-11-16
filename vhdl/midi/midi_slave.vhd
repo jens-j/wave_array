@@ -46,6 +46,7 @@ architecture arch of midi_slave is
         lowest_voice            : integer range 0 to POLYPHONY_MAX - 1;
         highest_note            : t_midi_number;
         highest_voice           : integer range 0 to POLYPHONY_MAX - 1;
+        binaural_mode_prev      : std_logic;
     end record;
 
     constant REG_INIT : t_midi_slave_reg := (
@@ -62,7 +63,8 @@ architecture arch of midi_slave is
         lowest_note             => 127,
         lowest_voice            => 0,
         highest_note            => 0,
-        highest_voice           => 0
+        highest_voice           => 0,
+        binaural_mode_prev      => '0'
     );
 
     -- Register.
@@ -129,6 +131,14 @@ begin
                         end if;
                     end loop;
 
+                    -- clear all odd voices when binaural mode is deasserted.
+                    if r.binaural_mode_prev = '1' and config.binaural_enable = '0' then 
+                        for i in 0 to POLYPHONY_MAX / 2 - 1 loop 
+                            r_in.voices(2 * i + 1) <= ('0', '0', (0, 0, 0), (others => '0'));
+                        end loop; 
+                    end if;
+
+                    r_in.binaural_mode_prev <= config.binaural_enable;
                     r_in.octave <= -1;
                     r_in.voice_select <= 0;
                     r_in.midi_command <= midi_message_s.status_byte(7 downto 4);
