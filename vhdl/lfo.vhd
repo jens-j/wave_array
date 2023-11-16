@@ -31,13 +31,15 @@ architecture arch of lfo is
     constant PIPE_LEN_ACC       : integer := 1;
     constant PIPE_LEN_PHASE     : integer := 1;
     constant PIPE_LEN_CLIP      : integer := 1;
+    constant PIPE_LEN_MUX       : integer := 1;
     constant PIPE_LEN_CORDIC    : integer := 1;
 
     constant PIPE_SUM_ADD       : integer := PIPE_LEN_MULT + PIPE_LEN_ADD;
     constant PIPE_SUM_ACC       : integer := PIPE_SUM_ADD + PIPE_LEN_ACC;
     constant PIPE_SUM_PHASE     : integer := PIPE_SUM_ACC + PIPE_LEN_PHASE;
     constant PIPE_SUM_CLIP      : integer := PIPE_SUM_PHASE + PIPE_LEN_CLIP;
-    constant PIPE_SUM_CORDIC    : integer := PIPE_SUM_CLIP + PIPE_LEN_CORDIC;
+    constant PIPE_SUM_MUX       : integer := PIPE_SUM_CLIP + PIPE_LEN_MUX;
+    constant PIPE_SUM_CORDIC    : integer := PIPE_SUM_MUX + PIPE_LEN_CORDIC;
 
     type t_state is (idle, square_velocity, running);
     type t_lfo_phase_array is array (0 to N_OUTPUTS - 1) of signed(LFO_PHASE_SIZE - 1 downto 0);
@@ -68,6 +70,7 @@ architecture arch of lfo is
         pipeline_done           : std_logic;
         prev_phase_raw          : signed(LFO_PHASE_SIZE - 1 downto 0);
         phase_shift_array       : t_phase_shift_array;
+        phase_clipped           : signed(LFO_PHASE_SIZE - 1 downto 0);
     end record;
 
     constant REG_INIT : t_mixer_reg := (
@@ -90,7 +93,8 @@ architecture arch of lfo is
         index_read              => N_OUTPUTS - 1,
         pipeline_done           => '0',
         prev_phase_raw          => (others => '0'),
-        phase_shift_array       => (others => (others => '0'))
+        phase_shift_array       => (others => (others => '0')),
+        phase_clipped           => (others => '0')
     );
 
     -- Clip the cordic output.
@@ -256,34 +260,32 @@ begin
 
                 -- Reset to zero of the phase offset if in binaural mode and voice is odd.
                 if config.binaural_enable = '1' and v_index_unsigned(0) = '1' then 
-                    r_in.phase(r.instance_shift(PIPE_SUM_CLIP - 1))(r.index_shift(PIPE_SUM_CLIP - 1)) <= 
-                        r.phase_shift_array(r.instance_shift(PIPE_SUM_CLIP - 1));
+                    r_in.phase_clipped <= r.phase_shift_array(r.instance_shift(PIPE_SUM_CLIP - 1));
                 else 
-                    r_in.phase(r.instance_shift(PIPE_SUM_CLIP - 1))(r.index_shift(PIPE_SUM_CLIP - 1)) <= (others => '0');
+                    r_in.phase_clipped <= (others => '0');
                 end if;
 
             elsif r.phase_offset >= shift_left(to_signed(1, LFO_PHASE_SIZE), LFO_PHASE_FRAC) then
-
-                r_in.phase(r.instance_shift(PIPE_SUM_CLIP - 1))(r.index_shift(PIPE_SUM_CLIP - 1)) <= 
-                    r.phase_offset - shift_left(to_signed(1, LFO_PHASE_SIZE), LFO_PHASE_FRAC + 1);
+                r_in.phase_clipped <= r.phase_offset - shift_left(to_signed(1, LFO_PHASE_SIZE), LFO_PHASE_FRAC + 1);
 
             elsif r.phase_offset < shift_left(to_signed(-1, LFO_PHASE_SIZE), LFO_PHASE_FRAC) then
-
-                r_in.phase(r.instance_shift(PIPE_SUM_CLIP - 1))(r.index_shift(PIPE_SUM_CLIP - 1)) <= 
-                    r.phase_offset + shift_left(to_signed(1, LFO_PHASE_SIZE), LFO_PHASE_FRAC + 1);
+                r_in.phase_clipped <= r.phase_offset + shift_left(to_signed(1, LFO_PHASE_SIZE), LFO_PHASE_FRAC + 1);
             else
-                r_in.phase(r.instance_shift(PIPE_SUM_CLIP - 1))(r.index_shift(PIPE_SUM_CLIP - 1)) <= r.phase_offset;
+                r_in.phase_clipped <= r.phase_offset;
             end if;
         end if;
+
+        -- Pipeline stage 5: mux clipped phase to voice/instance buffer.
+        r_in.phase(r.instance_shift(PIPE_SUM_MUX - 1))(r.index_shift(PIPE_SUM_MUX - 1)) <= r.phase_clipped;
         
-        -- Pipeline stage 5: input phase into cordic.
+        -- Pipeline stage 6: input phase into cordic.
         if r.valid_shift(PIPE_SUM_CORDIC - 1) = '1' then 
             s_phase_tvalid <= '1';
             s_phase_tdata <= std_logic_vector(r.phase(r.instance_shift(PIPE_SUM_CORDIC - 1))
                 (r.index_shift(PIPE_SUM_CORDIC - 1))(LFO_PHASE_SIZE - 1 downto 0));
         end if;
 
-        -- Pipeline state 22: read cordic ouput and process.
+        -- Pipeline state 23: read cordic ouput and process.
         -- This pipeline does not use the pipeline shift registers because the cordic delay is quite long.
         if s_dout_tvalid = '1' then
 
