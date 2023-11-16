@@ -1,11 +1,10 @@
 Issues: 
 - GUI: wave view overflow
-- GUI: reading back negative parameters fails
 - Testbench UART reader does not handle error replies well
 - LFO: negative phase has issues
 - LFO: sine overflow on max value sometimes
-* voices can remain on if switching from binaural mode
 - software reset does not work well
+- No oscilloscope during envelope
 
 Features:
 - envelope looping
@@ -14,7 +13,6 @@ Features:
 - LFO: delayed start
 - ring modulator 
 - LFO: single cycle mode (only in trigger mode)
-- Better mod matrix GUI
 - more waveforms 
 - n_frames in waveform name
 - high frequency LFO mode
@@ -22,11 +20,15 @@ Features:
 - filter: allow filter to open further
 - oscillators as mod source -> need to swap unison- and table-mixers.
 - noise source
+- envelope parameters as mod destinations
 
 Optimizations:
 - LFO: use smaller phase accumulator to allow natural overflow
 - Replace output buffers by using accumulators e.g. directly.
-- Table address generator can be unified
+- Table address generator can be unified (really?)
 
 Open Problems:
 - integrating midi velocity in the voice mixer (mapping to sustain works)
+
+>e2n-=7v-j
+>e2n.=7v.j

@@ -57,6 +57,7 @@ class WaveArrayGui(QtWidgets.QMainWindow):
         
         self.mod_source = None 
         self.mod_destination = None
+        self.mod_button = None
         self.modmap = ModMap(self.client)
         self.wavetables = [WaveTable(), WaveTable()]
         self.status = Status(self.client)
@@ -122,6 +123,7 @@ class WaveArrayGui(QtWidgets.QMainWindow):
         self.ui.btn_enable_oscilloscope.clicked.connect(self.btn_enable_oscilloscope_clicked)
         self.ui.btn_enable_lfo_trigger.clicked.connect(self.btn_enable_lfo_trigger_clicked)
         self.ui.btn_enable_binaural.clicked.connect(self.btn_enable_binaural_clicked)
+        self.ui.btn_mod_disable.clicked.connect(self.btn_mod_disable_clicked)
 
         for btn in self.lfo_select_buttons:
             btn.clicked.connect(self.btn_lfo_index_changed)
@@ -170,7 +172,7 @@ class WaveArrayGui(QtWidgets.QMainWindow):
         for destination in range(ModMap.MODD_LEN):
             for source in range(ModMap.MODS_LEN - 1): 
                 button = self.mod_layout.itemAtPosition(destination, source).widget()
-                button.stateChanged.connect(partial(self.mod_button_clicked, destination, source + 1)) # Skip MODS_NONE.
+                button.clicked.connect(partial(self.mod_button_clicked, button, destination, source + 1)) # Skip MODS_NONE.
 
         # Status refresh timer.
         self.timer = QTimer(self)
@@ -267,6 +269,12 @@ class WaveArrayGui(QtWidgets.QMainWindow):
 
             self.curves_mix_1[i].setData(self.curve_x, np.concatenate(
                 (self.curves_mix_1[i].getData()[1][1:], [self.status.mod_destinations[ModMap.MODD_OSC_1_MIX][i]])))
+
+            self.curves_frequency_0[i].setData(self.curve_x, np.concatenate(
+                (self.curves_frequency_0[i].getData()[1][1:], [self.status.mod_destinations[ModMap.MODD_OSC_0_FREQ][i]])))
+
+            self.curves_frequency_1[i].setData(self.curve_x, np.concatenate(
+                (self.curves_frequency_1[i].getData()[1][1:], [self.status.mod_destinations[ModMap.MODD_OSC_1_FREQ][i]])))    
 
             self.curves_volume[i].setData(self.curve_x, np.concatenate(
                 (self.curves_volume[i].getData()[1][1:], [self.status.mod_destinations[ModMap.MODD_VOLUME][i]])))
@@ -496,6 +504,9 @@ class WaveArrayGui(QtWidgets.QMainWindow):
         for destination in range(ModMap.MODD_LEN):
             for source in range(ModMap.MODS_LEN - 1):
                 box = QCheckBox('')
+                # box.setTristate()
+                box.setMinimumSize(35, 15)
+                box.setMaximumSize(35, 15)
                 self.mod_layout.addWidget(box, destination, source)
 
 
@@ -822,10 +833,12 @@ class WaveArrayGui(QtWidgets.QMainWindow):
         plot.setTitle(f'{name}: {table_name} [{frames}]')
 
 
-    def mod_button_clicked(self, destination, source, state):
+    def mod_button_clicked(self, button, destination, source, state):
 
+        self.logger.info(f'mod_button_clicked {state}')
         self.mod_source = source  
         self.mod_destination = destination
+        self.mod_button = button
 
         # Update amount slider and text.
         try:
@@ -841,9 +854,18 @@ class WaveArrayGui(QtWidgets.QMainWindow):
         if state:
             self.modmap.add_mapping(destination, source, 0)
 
-        # remove mod mapping.
+        # dont allow de-checking the box. User must use button.
         else:
-            self.modmap.remove_mapping(destination, source)
+            button.setChecked(True)
+            
+    
+    def btn_mod_disable_clicked(self):
+
+        self.logger.info(f'btn_mod_disable_clicked {self.mod_button}')
+        self.modmap.remove_mapping(self.mod_destination, self.mod_source)
+        self.ui.slider_mod_amount.setValue(0)  
+        self.mod_button.setChecked(False)
+
 
     def pitch_changed(self, index):
 
