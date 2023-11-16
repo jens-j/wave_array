@@ -32,10 +32,11 @@ architecture arch of oscillator_subsystem is
     
     signal s_osc_samples : t_osc_sample_array;
     signal s_mixer_ctrl  : t_osc_ctrl_array;
-    signal s_table_mixer_samples : t_mono_sample_array(0 to N_VOICES - 1);
     signal s_spread_osc_inputs : t_spread_osc_inputs;
     signal s_frame_ctrl_index : t_frame_ctrl_index;
     signal s_addrgen_outputs : t_addrgen_output_array;
+    signal s_unison_mixer_samples : t_unison_mixer_samples;
+    
 
 begin 
 
@@ -78,6 +79,17 @@ begin
         );
     end generate;
 
+    unison_mixer : entity osc.unison_mixer 
+    port map (
+        clk                     => clk,
+        reset                   => reset,
+        config                  => config,
+        status                  => status,
+        next_sample             => next_sample,
+        sample_in               => s_osc_samples,
+        sample_out              => s_unison_mixer_samples
+    );
+
     table_mixer : entity osc.table_mixer
     port map (
         clk                     => clk,
@@ -86,19 +98,8 @@ begin
         status                  => status,
         next_sample             => next_sample,
         control                 => s_mixer_ctrl,
-        samples_in              => s_osc_samples,
-        samples_out             => s_table_mixer_samples
-    );
-
-    unison_mixer : entity osc.unison_mixer 
-    port map (
-        clk                     => clk,
-        reset                   => reset,
-        config                  => config,
-        status                  => status,
-        next_sample             => next_sample,
-        sample_in               => s_table_mixer_samples,
-        sample_out              => output_samples
+        samples_in              => s_unison_mixer_samples,
+        samples_out             => output_samples
     );
 
 end architecture;

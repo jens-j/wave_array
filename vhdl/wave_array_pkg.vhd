@@ -263,6 +263,7 @@ package wave_array_pkg is
     type t_stereo_sample_array is array (natural range <>) of t_stereo_sample;
 
     type t_osc_sample_array is array (0 to N_TABLES - 1) of t_mono_sample_array(0 to N_VOICES - 1);
+    type t_unison_mixer_samples is array (0 to N_TABLES - 1) of t_mono_sample_array(0 to POLYPHONY_MAX - 1);
 
     subtype t_ctrl_value is signed(CTRL_SIZE - 1 downto 0);
     type t_ctrl_value_array is array (natural range <>) of t_ctrl_value;

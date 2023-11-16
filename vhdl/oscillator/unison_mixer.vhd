@@ -6,7 +6,7 @@ library wave;
 use wave.wave_array_pkg.all;
 
 -- Mix together multiple unison oscillators that form a single voice.
--- Gain is normalized at the end based on the number of inputs.
+-- This is done for each table separately
 entity unison_mixer is
     port (
         clk                     : in  std_logic;
@@ -14,8 +14,9 @@ entity unison_mixer is
         config                  : in  t_config;
         status                  : in  t_status;
         next_sample             : in  std_logic;
-        sample_in               : in  t_mono_sample_array(0 to N_VOICES - 1);
-        sample_out              : out t_mono_sample_array(0 to POLYPHONY_MAX - 1)
+        -- sample_in               : in  t_mono_sample_array(0 to N_VOICES - 1);
+        sample_in               : in  t_osc_sample_array;
+        sample_out              : out t_unison_mixer_samples
     );
 end entity;
 
@@ -29,31 +30,35 @@ architecture arch of unison_mixer is
 
     type t_mixer_reg is record
         state                   : t_state;
-        sample_out              : t_mono_sample_array(0 to POLYPHONY_MAX - 1);
-        sample_out_buffer       : t_mono_sample_array(0 to POLYPHONY_MAX - 1);
+        sample_out              : t_unison_mixer_samples;
+        sample_out_buffer       : t_unison_mixer_samples;
         osc_count               : integer range 0 to N_VOICES - 1;
         unison_count            : integer range 0 to 2 * UNISON_MAX - 1;
         poly_count              : integer range 0 to POLYPHONY_MAX;
+        table_count             : integer range 0 to N_TABLES - 1;
         mix_buffer              : t_mix_buffer;
         unison_minus_one        : integer range 0 to UNISON_MAX - 1;
         active_oscillators_minus_one : integer range 0 to N_VOICES - 1;
         group_done              : std_logic;
         poly_index              : integer range 0 to POLYPHONY_MAX - 1; 
+        table_index             : integer range 0 to N_TABLES - 1;
         gain_coeff              : t_ctrl_value;
     end record;
 
     constant REG_INIT : t_mixer_reg := (
         state                   => idle,
-        sample_out              => (others => (others => '0')),
-        sample_out_buffer       => (others => (others => '0')),
+        sample_out              => (others => (others => (others => '0'))),
+        sample_out_buffer       => (others => (others => (others => '0'))),
         osc_count               => 0,
         unison_count            => 0,
         poly_count              => 0,
+        table_count             => 0,
         mix_buffer              => (others => '0'),
         unison_minus_one        => 0,
         active_oscillators_minus_one => 0,
         group_done              => '0',
         poly_index              => 0,
+        table_index             => 0,
         gain_coeff              => (others => '0')
     );
 
@@ -76,13 +81,14 @@ begin
         if r.state = idle then 
             if next_sample = '1' then 
                 r_in.sample_out <= r.sample_out_buffer;
-                r_in.sample_out_buffer <= (others => (others => '0'));
+                r_in.sample_out_buffer <= (others => (others => (others => '0')));
                 r_in.active_oscillators_minus_one <= status.active_oscillators - 1;
                 r_in.unison_minus_one <= config.unison_n - 1;
                 r_in.gain_coeff <= GAIN_COEFFS(config.unison_n);
                 r_in.osc_count <= 0;
                 r_in.unison_count <= 0;
                 r_in.poly_count <= 0;
+                r_in.table_count <= 0;
                 r_in.mix_buffer <= (others => '0');
                 r_in.state <= running;
             end if;
@@ -91,9 +97,9 @@ begin
         elsif r.state = running then 
 
             if r.unison_count = 0 then
-                r_in.mix_buffer <= resize(sample_in(r.osc_count), BUFFER_SIZE);
+                r_in.mix_buffer <= resize(sample_in(r.table_count)(r.osc_count), BUFFER_SIZE);
             else 
-                r_in.mix_buffer <= r.mix_buffer + resize(sample_in(r.osc_count), BUFFER_SIZE);
+                r_in.mix_buffer <= r.mix_buffer + resize(sample_in(r.table_count)(r.osc_count), BUFFER_SIZE);
             end if;
 
             if r.osc_count < r.active_oscillators_minus_one then 
@@ -104,13 +110,24 @@ begin
                 else 
                     r_in.group_done <= '1';
                     r_in.poly_index <= r.poly_count;
+                    r_in.table_index <= r.table_count;
                     r_in.unison_count <= 0;
                     r_in.poly_count <= minimum(POLYPHONY_MAX - 1, r.poly_count + 1);
                 end if;
             else 
                 r_in.group_done <= '1';
                 r_in.poly_index <= r.poly_count;
-                r_in.state <= idle;
+                r_in.table_index <= r.table_count;
+
+                r_in.unison_count <= 0;
+                r_in.osc_count <= 0;
+                r_in.poly_count <= 0;
+
+                if r.table_count < N_TABLES - 1 then 
+                    r_in.table_count <= r.table_count + 1;
+                else
+                    r_in.state <= idle;
+                end if;
             end if;
         end if;
 
@@ -119,7 +136,7 @@ begin
 
             -- After normalization the signal is attenuated by POLYPHONY_MAX. Slice mult_result accordingly.
             v_mult_result := r.mix_buffer * r.gain_coeff;
-            r_in.sample_out_buffer(r.poly_index) <= v_mult_result(SAMPLE_SIZE + CTRL_SIZE - 2 downto CTRL_SIZE - 1);
+            r_in.sample_out_buffer(r.table_index)(r.poly_index) <= v_mult_result(SAMPLE_SIZE + CTRL_SIZE - 2 downto CTRL_SIZE - 1);
         end if;
             
     end process;
