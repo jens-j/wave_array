@@ -153,7 +153,7 @@ begin
         for i in 0 to N_INSTANCES - 1 loop 
             r_in.phase_shift_array(i) <= 
                 (resize(config.lfo_input(i).phase_shift, CTRL_SIZE + LFO_PHASE_INT - 1)
-                 & (LFO_PHASE_FRAC - CTRL_SIZE downto 0 => '0'));
+                 & (0 to LFO_PHASE_FRAC - CTRL_SIZE => '0'));
         end loop;
 
         -- Clip ctrl value to positive only.
