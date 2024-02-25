@@ -35,9 +35,10 @@ class ModMap:
     MODD_OSC_1_FRAME        = 4
     MODD_OSC_0_MIX          = 5
     MODD_OSC_1_MIX          = 6
-    MODD_OSC_0_FREQ         = 7
-    MODD_OSC_1_FREQ         = 8
-    MODD_UNISON             = 9
+    MODD_NOISE_MIX          = 7
+    MODD_OSC_0_FREQ         = 8
+    MODD_OSC_1_FREQ         = 9
+    MODD_UNISON             = 10
 
     MODS_NONE               = 0
     MODS_ENVELOPE_0         = 1
@@ -45,9 +46,11 @@ class ModMap:
     MODS_LFO_0              = 3
     MODS_LFO_1              = 4
     MODS_VELOCITY           = 5
+    MODS_TABLE_0            = 6
+    MODS_TABLE_1            = 7
 
-    MODS_LEN                = 6
-    MODD_LEN                = 10
+    MODS_LEN                = 8
+    MODD_LEN                = 11
     MODS_LEN_LOG2           = int(np.ceil(np.log2(MODS_LEN)))
     MODD_LEN_LOG2           = int(np.ceil(np.log2(MODD_LEN)))
 
@@ -55,11 +58,12 @@ class ModMap:
     MODD = {
         MODD_CUTOFF         : 'filter_cutoff',          
         MODD_RESONANCE      : 'filter_resonance',                
-        MODD_VOLUME         : 'mixer_volume',
+        MODD_VOLUME         : 'voice_mixer_volume',
         MODD_OSC_0_FRAME    : 'osc_0_frame',     
         MODD_OSC_1_FRAME    : 'osc_1_frame',     
         MODD_OSC_0_MIX      : 'osc_0_mix',     
         MODD_OSC_1_MIX      : 'osc_1_mix',
+        MODD_NOISE_MIX      : 'noise_mix',
         MODD_OSC_0_FREQ     : 'osc_0_freq',     
         MODD_OSC_1_FREQ     : 'osc_1_freq',
         MODD_UNISON         : 'unison'
@@ -72,7 +76,9 @@ class ModMap:
         MODS_ENVELOPE_1     : 'envelope_1',    
         MODS_LFO_0          : 'lfo_0',
         MODS_LFO_1          : 'lfo_1',
-        MODS_VELOCITY       : 'velocity'              
+        MODS_VELOCITY       : 'velocity',
+        MODS_TABLE_0        : 'table_0',
+        MODS_TABLE_1        : 'table_1'
     }
 
     logger = logging.getLogger()

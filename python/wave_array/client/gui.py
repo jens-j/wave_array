@@ -84,6 +84,7 @@ class WaveArrayGui(QtWidgets.QMainWindow):
         self.curves_frame_1 = [None] * self.client.n_voices
         self.curves_mix_0 = [None] * self.client.n_voices
         self.curves_mix_1 = [None] * self.client.n_voices
+        self.curves_mix_noise = [None] * self.client.n_voices
         self.curves_frequency_0 = [None] * self.client.n_voices
         self.curves_frequency_1 = [None] * self.client.n_voices
         self.curves_volume = [None] * self.client.n_voices
@@ -139,9 +140,11 @@ class WaveArrayGui(QtWidgets.QMainWindow):
 
         self.ui.box_unison.valueChanged.connect(self.box_unison_n_changed)
         self.ui.box_hk_rate.valueChanged.connect(self.box_hk_rate_changed)
+        self.ui.box_midi_channel.valueChanged.connect(self.box_midi_channel_changed)
         self.ui.box_oscilloscope_rate.valueChanged.connect(self.box_oscilloscope_rate_changed)
         self.ui.box_filter_select.currentIndexChanged.connect(self.filter_select_changed)
         self.ui.box_lfo_waveform.currentIndexChanged.connect(self.lfo_waveform_changed)
+        self.ui.box_noise_select.currentIndexChanged.connect(self.noise_select_changed)
 
         self.ui.box_octaves_0.valueChanged.connect(partial(self.pitch_changed, 0))
         self.ui.box_octaves_1.valueChanged.connect(partial(self.pitch_changed, 1))
@@ -153,6 +156,7 @@ class WaveArrayGui(QtWidgets.QMainWindow):
 
         self.ui.slider_mix_0_position.sliderMoved.connect(partial(self.mix_amount_changed, 0))
         self.ui.slider_mix_1_position.sliderMoved.connect(partial(self.mix_amount_changed, 1))
+        self.ui.slider_mix_noise_position.sliderMoved.connect(partial(self.mix_amount_changed, 2))
         self.ui.slider_frame_0_position.sliderMoved.connect(partial(self.frame_position_changed, 0))
         self.ui.slider_frame_1_position.sliderMoved.connect(partial(self.frame_position_changed, 1))
         self.ui.slider_pitch_0.sliderMoved.connect(partial(self.pitch_changed, 0))
@@ -270,6 +274,9 @@ class WaveArrayGui(QtWidgets.QMainWindow):
             self.curves_mix_1[i].setData(self.curve_x, np.concatenate(
                 (self.curves_mix_1[i].getData()[1][1:], [self.status.mod_destinations[ModMap.MODD_OSC_1_MIX][i]])))
 
+            self.curves_mix_noise[i].setData(self.curve_x, np.concatenate(
+                (self.curves_mix_noise[i].getData()[1][1:], [self.status.mod_destinations[ModMap.MODD_NOISE_MIX][i]])))
+
             self.curves_frequency_0[i].setData(self.curve_x, np.concatenate(
                 (self.curves_frequency_0[i].getData()[1][1:], [self.status.mod_destinations[ModMap.MODD_OSC_0_FREQ][i]])))
 
@@ -298,6 +305,7 @@ class WaveArrayGui(QtWidgets.QMainWindow):
             self.show_hide_plot(self.ui.btn_enable_plot_frequency_0, self.plot_frequency_0)
             self.show_hide_plot(self.ui.btn_enable_plot_frame_1, self.plot_frame_1)
             self.show_hide_plot(self.ui.btn_enable_plot_mix_1, self.plot_mix_1)
+            self.show_hide_plot(self.ui.btn_enable_plot_mix_noise, self.plot_mix_noise)
             self.show_hide_plot(self.ui.btn_enable_plot_frequency_1, self.plot_frequency_1)
             self.show_hide_plot(self.ui.btn_enable_plot_spread, self.plot_spread)
             self.show_hide_plot(self.ui.btn_enable_plot_volume, self.plot_volume)
@@ -361,6 +369,9 @@ class WaveArrayGui(QtWidgets.QMainWindow):
         rate = 100E6 / (period * 1024)
         self.ui.box_hk_rate.setValue(int(rate))
 
+        channel = self.client.read(WaveArray.REG_MIDI_CHANNEL)
+        self.ui.box_midi_channel.setValue(channel + 1)
+
         enabled = self.client.read(WaveArray.REG_WAVE_ENABLE)
         self.ui.btn_enable_oscilloscope.setChecked(enabled)
 
@@ -377,6 +388,9 @@ class WaveArrayGui(QtWidgets.QMainWindow):
         index = self.client.read(WaveArray.REG_LFO_CTRL_BASE + 1)
         self.ui.box_lfo_waveform.setCurrentIndex(index)
 
+        index = self.client.read(WaveArray.REG_NOISE_SELECT)
+        self.ui.box_noise_select.setCurrentIndex(index) 
+
         enabled = self.client.read(WaveArray.REG_BINAURAL)
         self.ui.btn_enable_binaural.setChecked(enabled)
 
@@ -391,6 +405,10 @@ class WaveArrayGui(QtWidgets.QMainWindow):
         amount = self.client.read(WaveArray.REG_MIX_CTRL_BASE + 1)
         self.ui.slider_mix_1_position.setValue(amount)
         self.mix_amount_changed(1, amount)
+
+        amount = self.client.read(WaveArray.REG_MIX_CTRL_BASE + 2) # Noise mix slider
+        self.ui.slider_mix_noise_position.setValue(amount)
+        self.mix_amount_changed(2, amount)
 
         position = self.client.read(WaveArray.REG_FRAME_CTRL_BASE)
         self.ui.slider_frame_0_position.setValue(position)
@@ -603,11 +621,19 @@ class WaveArrayGui(QtWidgets.QMainWindow):
         self.plot_mix_1.hideAxis('left')
         self.plot_mix_1.hideAxis('bottom')
         self.ui.group_modd.layout().addWidget(self.plot_mix_1, stretch=1)
+
+        self.plot_mix_noise = DropPlotWidget(parent=self.ui.group_modd)
+        self.plot_mix_noise.setBackground(bg_color)
+        self.plot_mix_noise.setTitle('noise mix')
+        self.plot_mix_noise.setYRange(-1, 2**15, padding=0)
+        self.plot_mix_noise.hideAxis('left')
+        self.plot_mix_noise.hideAxis('bottom')
+        self.ui.group_modd.layout().addWidget(self.plot_mix_noise, stretch=1)
     
         self.plot_frequency_0 = DropPlotWidget(parent=self.ui.group_modd)
         self.plot_frequency_0.setBackground(bg_color)
         self.plot_frequency_0.setTitle('wavetable A frequency')
-        self.plot_frequency_0.setYRange(-1, 2**15, padding=0)
+        self.plot_frequency_0.setYRange(-2**15, 2**15, padding=0)
         self.plot_frequency_0.hideAxis('left')
         self.plot_frequency_0.hideAxis('bottom')
         self.ui.group_modd.layout().addWidget(self.plot_frequency_0, stretch=1)
@@ -615,7 +641,7 @@ class WaveArrayGui(QtWidgets.QMainWindow):
         self.plot_frequency_1 = DropPlotWidget(parent=self.ui.group_modd)
         self.plot_frequency_1.setBackground(bg_color)
         self.plot_frequency_1.setTitle('wavetable B frequency')
-        self.plot_frequency_1.setYRange(-1, 2**15, padding=0)
+        self.plot_frequency_1.setYRange(-2**15, 2**15, padding=0)
         self.plot_frequency_1.hideAxis('left')
         self.plot_frequency_1.hideAxis('bottom')
         self.ui.group_modd.layout().addWidget(self.plot_frequency_1, stretch=1)
@@ -685,7 +711,7 @@ class WaveArrayGui(QtWidgets.QMainWindow):
         # self.ui.plot_oscilloscope.setYRange(-2**15, 2**15, padding=0)
 
         self.plot_widgets = [self.plot_cutoff, self.plot_resonance, self.plot_frame_0, 
-                             self.plot_frame_1, self.plot_mix_0, self.plot_mix_1, self.plot_volume, 
+                             self.plot_frame_1, self.plot_mix_0, self.plot_mix_1, self.plot_mix_noise, self.plot_volume, 
                              self.plot_frequency_0, self.plot_frequency_1,
                              self.ui.plot_envelope_0, self.ui.plot_envelope_1, self.ui.plot_lfo_0, self.ui.plot_lfo_1,
                              self.ui.plot_waveform_0, self.ui.plot_waveform_1, self.ui.plot_oscilloscope]
@@ -735,6 +761,9 @@ class WaveArrayGui(QtWidgets.QMainWindow):
 
             self.curves_mix_1[i] = self.plot_mix_1.plot(
                 self.curve_x, np.zeros(self.PLOT_SAMPLES), name=f'voice {i}', pen=pen)
+            
+            self.curves_mix_noise[i] = self.plot_mix_noise.plot(
+                self.curve_x, np.zeros(self.PLOT_SAMPLES), name=f'voice {i}', pen=pen)
 
             self.curves_frequency_0[i] = self.plot_frequency_0.plot(
                 self.curve_x, np.zeros(self.PLOT_SAMPLES), name=f'voice {i}', pen=pen)
@@ -754,7 +783,7 @@ class WaveArrayGui(QtWidgets.QMainWindow):
         self.modd_curves = [self.curves_envelope_0, self.curves_envelope_1, self.curves_lfo_0, self.curves_lfo_1, 
                             self.curves_velocity, self.curves_cutoff, self.curves_frequency_0, self.curves_frequency_1, 
                             self.curves_resonance, self.curves_frame_0, self.curves_frame_1, self.curves_mix_0, 
-                            self.curves_mix_1, self.curves_volume, self.curves_spread]
+                            self.curves_mix_1, self.curves_mix_noise, self.curves_volume, self.curves_spread]
     
 
     def show(self):
@@ -935,7 +964,10 @@ class WaveArrayGui(QtWidgets.QMainWindow):
 
         # Call slots to update labels as well.
         self.lfo_velocity_changed(velocity)   
-        self.lfo_phase_changed(phase)                                           
+        self.lfo_phase_changed(phase)            
+
+    def noise_select_changed(self, index):
+        self.client.write(WaveArray.REG_NOISE_SELECT, np.uint16(index));                               
 
     def btn_lfo_reset_clicked(self):
         self.client.write(WaveArray.REG_LFO_CTRL_BASE + self.lfo_index * 0x10 + 5, 1)
@@ -943,6 +975,9 @@ class WaveArrayGui(QtWidgets.QMainWindow):
     def box_hk_rate_changed(self, rate):
         period = 100E6 / (1024 * rate)
         self.client.write(WaveArray.REG_HK_PERIOD, np.uint16(period))
+
+    def box_midi_channel_changed(self, channel):
+        self.client.write(WaveArray.REG_MIDI_CHANNEL, np.uint16(channel - 1))
 
     def box_unison_n_changed(self, n):
         assert n in range(1, 17)
@@ -982,8 +1017,11 @@ class WaveArrayGui(QtWidgets.QMainWindow):
 
     def set_mod_amount(self, control_value):
 
-        # Reduce mod amount from frr\equency moduation to make it more usable. 
-        if self.mod_destination in [ModMap.MODD_OSC_0_FREQ, ModMap.MODD_OSC_1_FREQ]:
+        # Reduce mod amount to frequency modulation to make it more usable. 
+        # Except when the source is an oscillator.
+        if (self.mod_destination in [ModMap.MODD_OSC_0_FREQ, ModMap.MODD_OSC_1_FREQ]
+                and self.mod_source not in [ModMap.MODS_TABLE_0, ModMap.MODS_TABLE_1]):
+
             control_value = control_value >> 6
 
         self.modmap.write_amount(self.mod_destination, self.mod_source, control_value)

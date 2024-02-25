@@ -26,6 +26,7 @@ class WaveArray:
     REG_UNISON_MAX              = 0x00000004
     REG_ENVELOPE_N              = 0x00000005
     REG_LFO_N                   = 0x00000006
+    REG_MIDI_CHANNEL            = 0x00000007
     
     REG_DBG_WAVE_STATE_OFFLOAD  = 0x00000100
     REG_DBG_WAVE_STATE_SAMPLE   = 0x00000101
@@ -37,12 +38,14 @@ class WaveArray:
     REG_BINAURAL                = 0x00000200
     REG_UNISON_N                = 0x00000201
     REG_UNISON_SPREAD           = 0x00000202
+
+    REG_NOISE_SELECT            = 0x00000300
     
     REG_FILTER_CUTOFF           = 0x00000600
     REG_FILTER_RESONANCE        = 0x00000601
     REG_FILTER_SELECT           = 0x00000602 # Filter output select. 0 = LP, 1 = HP, 2 = BP, 3 = BS, 4 = bypass.
     
-    REG_MIXER_CTRL              = 0x00000800
+    REG_VOLUME_CTRL             = 0x00000800
 
     REG_HK_ENABLE               = 0x00000900
     REG_HK_PERIOD               = 0x00000901
@@ -61,11 +64,15 @@ class WaveArray:
     def __init__(self, hk_signal=None, wave_signal=None, port='COM3'):
         self.protocol = UartProtocol(port, 2000_000, hk_signal, wave_signal)
 
+        # Disable HK and oscilloscope
+        self.write(WaveArray.REG_HK_ENABLE, 0)
+        self.write(WaveArray.REG_WAVE_ENABLE, 0)
+
         # Stop HK to clear the input buffer.
-        hk_enable = self.protocol.read(self.REG_HK_ENABLE)
-        self.protocol.write(self.REG_HK_ENABLE, 0)
+        # hk_enable = self.protocol.read(self.REG_HK_ENABLE)
+        # self.protocol.write(self.REG_HK_ENABLE, 0)
         self.protocol.uart.uart.reset_input_buffer()
-        self.protocol.write(self.REG_HK_ENABLE, hk_enable)
+        # self.protocol.write(self.REG_HK_ENABLE, hk_enable)
 
         self.n_voices = self.protocol.read(self.REG_VOICES)
         self.n_voices_log2 = int(np.ceil(np.log2(self.n_voices)))
