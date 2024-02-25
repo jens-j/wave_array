@@ -9,13 +9,14 @@ library midi;
 use midi.midi_pkg.all;
 
 library uart;
+library flash;
 
 
 -- entity tb_wave_array is
 -- end entity;
 
 
-architecture arch_no_memory of tb_wave_array is
+architecture arch_no_sdram of tb_wave_array is
 
     signal s_clk                    : std_logic := '0';
     signal s_resetn                 : std_logic := '0';
@@ -28,6 +29,10 @@ architecture arch_no_memory of tb_wave_array is
     signal s_midi_uart              : std_logic := '0';
     signal s_leds                   : std_logic_vector(7 downto 0) := (others => '0');
     signal s_switches               : std_logic_vector(7 downto 0) := (others => '0');
+
+    signal s_qspi_sclk              : std_logic;
+    signal s_qspi_cs                : std_logic;
+    signal s_qspi_dq                : std_logic_vector(3 downto 0);
 
     signal s_sdram_rst_n            : std_logic;
     signal s_sdram_ck               : std_logic;
@@ -44,6 +49,17 @@ architecture arch_no_memory of tb_wave_array is
     signal s_sdram_dqs_n            : std_logic_vector(1 downto 0);
     signal s_sdram_tdqs_n           : std_logic_vector(1 downto 0);
     signal s_sdram_odt              : std_logic; 
+
+    -- component N25Qxxx_wrapper is
+    --     port (
+    --         S                           : in    std_logic;
+    --         C                           : in    std_logic;
+    --         DQ0                         : inout std_logic;
+    --         DQ1                         : inout std_logic;
+    --         W_DQ2                       : inout std_logic;
+    --         HOLD_DQ3                    : inout std_logic
+    --     );
+    -- end component N25Qxxx_wrapper;
 
 begin
 
@@ -83,6 +99,9 @@ begin
         I2S_SCLK                => s_sclk,
         I2S_WSEL                => s_wsel,
         I2S_SDATA               => s_sdata,
+        QSPI_SCLK               => s_qspi_sclk,
+        QSPI_CS                 => s_qspi_cs,
+        QSPI_DQ                 => s_qspi_dq,
         DDR3_DQ                 => s_sdram_dq,
         DDR3_DQS_P              => s_sdram_dqs,
         DDR3_DQS_N              => s_sdram_dqs_n,
@@ -97,6 +116,16 @@ begin
         DDR3_CKE                => s_sdram_cke,
         DDR3_DM                 => s_sdram_dm_tdqs,
         DDR3_ODT                => s_sdram_odt
+    );
+
+    flash_verilog : entity flash.N25Qxxx_wrapper
+    port map (
+        S                       => s_qspi_sclk,
+        C                       => s_qspi_cs,
+        DQ0                     => s_qspi_dq(0),
+        DQ1                     => s_qspi_dq(1),
+        W_DQ2                   => s_qspi_dq(2),
+        HOLD_DQ3                => s_qspi_dq(3)
     );
 
     s_clk <= not s_clk after 5 ns;

@@ -96,7 +96,7 @@ begin
                 -- Calculate address for B
                 r_in.address_b <= v_address when v_address = 10x"3FF" else v_address + 1;
 
-                -- Store msb part for interpolation.
+                -- Store lower part for interpolation.
                 r_in.value_d <= signed('0' & data_in(4 downto 0));
 
                 r_in.state <= store_a;

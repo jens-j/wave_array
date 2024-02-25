@@ -244,12 +244,12 @@ begin
             when 0 => -- A * B + C
                 s_macc_a <= std_logic_vector(resize(r.bandpass_r2(r.sample_count_in), 17));
                 s_macc_b <= std_logic_vector(r.cutoff_coeff(r.sample_count_in));
-                s_macc_c <= std_logic_vector(resize(r.lowpass_r2(r.sample_count_in) & (15 downto 0 => '0'), 32));
+                s_macc_c <= std_logic_vector(resize(r.lowpass_r2(r.sample_count_in) & (0 to 15 => '0'), 32));
 
             when 1 => -- C - A * B
                 s_macc_a <= std_logic_vector(resize(r.bandpass_r2(r.sample_count_in), 17));
                 s_macc_b <= std_logic_vector(r.resonance_coeff(r.sample_count_in));
-                s_macc_c <= std_logic_vector(resize(sample_in(r.sample_count_in) & (14 downto 0 => '0'), 32)); -- Halve input sample to create some headroom.
+                s_macc_c <= std_logic_vector(resize(sample_in(r.sample_count_in) & (0 to 14 => '0'), 32)); -- Halve input sample to create some headroom.
 
             when 2 => -- D - A
                 s_macc_a <= std_logic_vector(resize(r.lowpass_r(r.sample_count_in), 17));
@@ -258,7 +258,7 @@ begin
             when 3 => -- A * B + C
                 s_macc_a <= std_logic_vector(resize(r.highpass_r(r.sample_count_in), 17));
                 s_macc_b <= std_logic_vector(r.cutoff_coeff(r.sample_count_in)); -- 2.16 fixed point in [0 - 2).
-                s_macc_c <= std_logic_vector(resize(r.bandpass_r2(r.sample_count_in) & (15 downto 0 => '0'), 32));
+                s_macc_c <= std_logic_vector(resize(r.bandpass_r2(r.sample_count_in) & (0 to 15 => '0'), 32));
 
             when 4 => -- D + A
                 s_macc_a <= std_logic_vector(resize(r.lowpass_r(r.sample_count_in), 17)); 

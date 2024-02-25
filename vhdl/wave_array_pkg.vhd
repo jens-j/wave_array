@@ -11,7 +11,7 @@ package wave_array_pkg is
     --pragma synthesis_on
     ;
 
-    constant SIM_FILE_PATH          : string := "../../../../../../data/";
+    constant SIM_FILE_PATH          : string := "../data/"; -- "../../../../../../data/";
     constant SYNTH_FILE_PATH        : string := "../../../../data/";
 
     constant SYS_FREQ               : integer := 100_000_000;
@@ -145,6 +145,10 @@ package wave_array_pkg is
     constant ADDR_DEPTH_LOG2        : integer := 32;
     -- constant ADDR_DEPTH             : integer := 2**ADDR_DEPTH_LOG2;
 
+    -- Flash constants.
+    constant FLASH_DEPTH_LOG2       : integer := 25; -- Bytes.
+    constant FLASH_DEPTH            : integer := 2**FLASH_DEPTH_LOG2; -- Bytes.
+
     -- SDRAM constants.
     constant SDRAM_WIDTH            : integer := 16;
     constant SDRAM_DEPTH_LOG2       : integer := 28;
@@ -158,14 +162,15 @@ package wave_array_pkg is
     -- Modulation source and destination constants.
     constant MODD_FILTER_CUTOFF     : natural := 0; 
     constant MODD_FILTER_RESONANCE  : natural := 1; 
-    constant MODD_MIXER             : natural := 2;
+    constant MODD_VOLUME            : natural := 2;
     constant MODD_OSC_0_FRAME       : natural := 3;
     constant MODD_OSC_1_FRAME       : natural := 4;
     constant MODD_OSC_0_MIX         : natural := 5;
     constant MODD_OSC_1_MIX         : natural := 6;
-    constant MODD_OSC_0_FREQ        : natural := 7;
-    constant MODD_OSC_1_FREQ        : natural := 8;
-    constant MODD_UNISON            : natural := 9;
+    constant MODD_NOISE_MIX         : natural := 7;
+    constant MODD_OSC_0_FREQ        : natural := 8;
+    constant MODD_OSC_1_FREQ        : natural := 9;
+    constant MODD_UNISON            : natural := 10;
 
     constant MODS_NONE              : natural := 0;
     constant MODS_ENVELOPE_0        : natural := 1;
@@ -173,9 +178,11 @@ package wave_array_pkg is
     constant MODS_LFO_0             : natural := 3;
     constant MODS_LFO_1             : natural := 4;
     constant MODS_VELOCITY          : natural := 5;
+    constant MODS_TABLE_0           : natural := 6;
+    constant MODS_TABLE_1           : natural := 7;
 
-    constant MODS_LEN               : natural := 6;
-    constant MODD_LEN               : natural := 10;
+    constant MODS_LEN               : natural := 8;
+    constant MODD_LEN               : natural := 11;
     constant MODS_LEN_LOG2          : natural := integer(ceil(log2(real(MODS_LEN))));
     constant MODD_LEN_LOG2          : natural := integer(ceil(log2(real(MODD_LEN))));
 
@@ -201,6 +208,7 @@ package wave_array_pkg is
     constant REG_UNISON_MAX         : unsigned := x"0000004"; -- ro 16 bit unsigned | Maximum unison amount.
     constant REG_ENVELOPE_N         : unsigned := x"0000005"; -- ro 16 bit unsigned | Number of envelopes.
     constant REG_LFO_N              : unsigned := x"0000006"; -- ro 16 bit unsigned | Number of LFOs.
+    constant REG_MIDI_CHANNEL       : unsigned := x"0000007"; -- rw  4 bit unsigned | MIDI channel index.
 
     constant REG_DBG_WAVE_TIMER     : unsigned := x"0000103"; -- ro 16 bit unsigned | Wave offload timer value.
     constant REG_DBG_WAVE_FLAGS     : unsigned := x"0000104"; -- ro  6 bit          | Wave offload fifo_overflow & fifo_underflow & wave_req & wave_ready & fifo_empty & fifo_full.    
@@ -211,11 +219,13 @@ package wave_array_pkg is
     constant REG_UNISON_N           : unsigned := x"0000201"; -- rw 4 bit           | Number of oscillators in unison per voices - 1 (so [1 - 16]). 
     constant REG_UNISON_SPREAD      : unsigned := x"0000202"; -- rw 16 bit          | Unison spread base control value. Maps onto 0 - 1 semitone. 
 
+    constant REG_NOISE_SELECT       : unsigned := x"0000300"; -- rw 1 bit           | Noise select. 0 = brown noise, 1 = white noise.
+
     constant REG_FILTER_CUTOFF      : unsigned := x"0000600"; -- rw 15 bit unsigned | Filter cutoff control value. 
     constant REG_FILTER_RESONANCE   : unsigned := x"0000601"; -- rw 15 bit unsigned | Filter resonance control value. 
-    constant REG_FILTER_SELECT      : unsigned := x"0000602"; -- rw 3  bit          | Filter output select. 1 = LP, 2 = HP, 3 = BP, 4 = BS, 5 = bypass.
+    constant REG_FILTER_SELECT      : unsigned := x"0000602"; -- rw 3  bit          | Filter output select. 0 = LP, 1 = HP, 2 = BP, 3 = BS, 4 = bypass.
 
-    constant REG_MIXER_CTRL         : unsigned := x"0000800"; -- rw 15 bit unsigned | Mixer base value value.
+    constant REG_VOLUME_CTRL        : unsigned := x"0000800"; -- rw 15 bit unsigned | Volume base value value.
 
     constant REG_HK_ENABLE          : unsigned := x"0000900"; -- rw  1 bit          | Write '1' to enable HK.
     constant REG_HK_PERIOD          : unsigned := x"0000901"; -- rw 16 bit unsigned | HK update period in steps of 1024 cycles (~10 us).
@@ -227,7 +237,7 @@ package wave_array_pkg is
     constant REG_MOD_MAP_BASE       : unsigned := x"0001000"; -- Mod mapping starts here. Ordered major to minor, [destination, source (address, value)]
     constant REG_MOD_DEST_BASE      : unsigned := x"0002000"; -- ro 16 bit signed   | Modulation destinations start here. Ordered major to minor, [destination, voice].
     constant REG_FRAME_CTRL_BASE    : unsigned := x"0004000"; -- rw 15 bit unsigned | Frame control base value for each wavetable.    
-    constant REG_MIX_CTRL_BASE      : unsigned := x"0005000"; -- rw 15 bit unsigned | Table mixer control base value for each wavetable. 
+    constant REG_MIX_CTRL_BASE      : unsigned := x"0005000"; -- rw 15 bit unsigned | Table mixer control base value for each wavetable and the noise source. 
     constant REG_FREQ_CTRL_BASE     : unsigned := x"0006000"; -- rw 16 bit signed   | Oscillator frequency mod control base value for each voice.
 
     -- Wavetable registers base address. Contiguous blocks of 4 registers for each wavetable. Stride = 0x10.
@@ -263,7 +273,8 @@ package wave_array_pkg is
     type t_stereo_sample_array is array (natural range <>) of t_stereo_sample;
 
     type t_osc_sample_array is array (0 to N_TABLES - 1) of t_mono_sample_array(0 to N_VOICES - 1);
-    type t_unison_mixer_samples is array (0 to N_TABLES - 1) of t_mono_sample_array(0 to POLYPHONY_MAX - 1);
+    type t_unison_mixer_output is array (0 to N_TABLES - 1) of t_mono_sample_array(0 to POLYPHONY_MAX - 1);
+    type t_table_mixer_input is array (0 to N_TABLES) of t_mono_sample_array(0 to POLYPHONY_MAX - 1); -- unison mixer output + noise.
 
     subtype t_ctrl_value is signed(CTRL_SIZE - 1 downto 0);
     type t_ctrl_value_array is array (natural range <>) of t_ctrl_value;
@@ -274,6 +285,7 @@ package wave_array_pkg is
 
     -- 2D control array for oscillator parameters like frame position and table mixing coefficient.
     type t_osc_ctrl_array is array (0 to N_TABLES - 1) of t_ctrl_value_array(0 to POLYPHONY_MAX - 1);
+    type t_table_mix_ctrl_array is array (0 to N_TABLES) of t_ctrl_value_array(0 to POLYPHONY_MAX - 1); -- Also includes noise.
 
     type t_lfo_out is array (natural range <>) of t_ctrl_value_array(0 to POLYPHONY_MAX - 1);
     type t_envelope_out is array (natural range <>) of t_ctrl_value_array(0 to POLYPHONY_MAX - 1);
@@ -316,7 +328,7 @@ package wave_array_pkg is
     --     MODD_FILTER_CUTOFF,     -- 0
     --     MODD_FILTER_RESONANCE,  -- 1
     --     MODD_OSC_FRAME,         -- 2
-    --     MODD_MIXER              -- 3
+    --     MODD_VOLUME              -- 3
     --     -- MODD_OSC_FREQUENCY,     -- 3 (has no base control value but is controlled by midi)
     -- );
 
@@ -387,6 +399,8 @@ package wave_array_pkg is
         lfo_input               : t_lfo_input_array(0 to LFO_N - 1);
         envelope_input          : t_envelope_input_array(0 to ENV_N - 1);
         dma_input               : t_dma_input_array;
+        noise_select            : std_logic;
+        midi_channel            : integer range 0 to 15;
     end record;
 
     -- Register file inputs.
@@ -607,21 +621,22 @@ package body wave_array_pkg is
         variable config : t_config;
     begin
 
-        -- Map envelope to mixer with max amount. 
-        mapping(MODD_MIXER)(0) := (MODS_ENVELOPE_0, x"7FFF"); 
+        -- Map envelope to voice mixer with max amount. 
+        mapping(MODD_VOLUME)(0) := (MODS_ENVELOPE_0, x"7FFF"); 
 
         config := (
             led                     => '0',
-            base_ctrl               => (0 => x"4000",
-                                        1 => x"0400",
+            base_ctrl               => (0 => x"7FFF",
+                                        1 => x"0000",
                                         2 => x"0000",
                                         3 => x"0000",
                                         4 => x"0000",
                                         5 => x"7FFF",
-                                        6 => x"7FFF",
+                                        6 => x"0000",
                                         7 => x"0000",
                                         8 => x"0000",
-                                        9 => x"0000"),
+                                        9 => x"0000",
+                                        10 => x"0000"),
 
             mod_mapping             => mapping, 
             hk_enable               => '0',
@@ -633,7 +648,9 @@ package body wave_array_pkg is
             filter_select           => 0, -- Lowpass
             lfo_input               => (others => (0, '0', (others => '0'), '0', x"0000", '0')),
             envelope_input          => (others => (x"0000", x"0000", x"7FFF", x"0000", '0')),
-            dma_input               => (others => DMA_INPUT_INIT)
+            dma_input               => (others => DMA_INPUT_INIT),
+            noise_select            => '0',
+            midi_channel            => 13
         );
 
         return config;

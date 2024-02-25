@@ -29,6 +29,10 @@ architecture arch of tb_wave_array is
     signal s_leds                   : std_logic_vector(7 downto 0) := (others => '0');
     signal s_switches               : std_logic_vector(7 downto 0) := (others => '0');
 
+    signal s_qspi_sclk              : std_logic;
+    signal s_qspi_cs                : std_logic;
+    signal s_qspi_dq                : std_logic_vector(3 downto 0);
+
     signal s_sdram_rst_n            : std_logic;
     signal s_sdram_ck               : std_logic;
     signal s_sdram_ck_n             : std_logic;
@@ -44,7 +48,17 @@ architecture arch of tb_wave_array is
     signal s_sdram_dqs_n            : std_logic_vector(1 downto 0);
     signal s_sdram_tdqs_n           : std_logic_vector(1 downto 0);
     signal s_sdram_odt              : std_logic; 
+    
 
+    component N25Qxxx_wrapper is
+    port (
+        S                           : in    std_logic;
+        C                           : in    std_logic;
+        DQ0                         : in    std_logic;
+        DQ1                         : in    std_logic;
+        Vpp_W_DQ2                   : in    std_logic;
+        HOLD_DQ3                    : in    std_logic);
+    end component;
 
     component ddr3 is
     port (
@@ -64,6 +78,27 @@ architecture arch of tb_wave_array is
         dqs_n                       : inout std_logic_vector(1 downto 0);
         tdqs_n                      : out   std_logic_vector(1 downto 0);
         odt                         : in    std_logic);    
+    end component;
+
+    component qflexpress_wrapper is 
+    port (
+        i_clk                   : in  std_logic;
+        i_reset                 : in  std_logic;
+        i_wb_cyc                : in  std_logic;
+        i_wb_stb                : in  std_logic;
+        i_cfg_stb               : in  std_logic;
+        i_wb_we                 : in  std_logic;
+        i_wb_addr               : in  std_logic_vector(22 downto 0);
+        i_wb_data               : in  std_logic_vector(31 downto 0);
+        o_wb_stall              : out std_logic;
+        o_wb_ack                : out std_logic;
+        o_wb_data               : out std_logic_vector(31 downto 0);
+
+        o_qspi_sck              : out std_logic;
+        o_qspi_cs_n             : out std_logic;
+        o_qspi_mod              : out std_logic_vector(1 downto 0);
+        o_qspi_dat              : out std_logic_vector(3 downto 0);
+        i_qspi_dat              : in  std_logic_vector(3 downto 0));
     end component;
 
 begin
@@ -101,6 +136,9 @@ begin
         I2S_SCLK                => s_sclk,
         I2S_WSEL                => s_wsel,
         I2S_SDATA               => s_sdata,
+        QSPI_SCLK               => s_qspi_sclk,
+        QSPI_CS                 => s_qspi_cs,
+        QSPI_DQ                 => s_qspi_dq,
         DDR3_DQ                 => s_sdram_dq,
         DDR3_DQS_P              => s_sdram_dqs,
         DDR3_DQS_N              => s_sdram_dqs_n,
@@ -115,6 +153,16 @@ begin
         DDR3_CKE                => s_sdram_cke,
         DDR3_DM                 => s_sdram_dm_tdqs,
         DDR3_ODT                => s_sdram_odt
+    );
+
+    flash_verilog : N25Qxxx_wrapper
+    port map (
+        S                       => s_qspi_sclk,
+        C                       => s_qspi_cs,
+        DQ0                     => s_qspi_dq(0),
+        DQ1                     => s_qspi_dq(1),
+        Vpp_W_DQ2               => s_qspi_dq(2),
+        HOLD_DQ3                => s_qspi_dq(3)
     );
 
     ddr3_verilog : ddr3

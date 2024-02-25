@@ -108,7 +108,8 @@ begin
 
             when idle =>
 
-                if message_valid_s = '1' then
+                if message_valid_s = '1' 
+                        and to_integer(unsigned(midi_message_s.status_byte(3 downto 0))) = config.midi_channel then
 
                     case (midi_message_s.status_byte(7 downto 4)) is
                         when MIDI_VOICE_MSG_ON => 
@@ -293,7 +294,7 @@ begin
                 r_in.lowest_voice <= 0;
                 r_in.highest_voice <= 0;
                 r_in.voice_select <= 0;
-                if s_voice_enable = (POLYPHONY_MAX - 1 downto 0 => '0') then 
+                if s_voice_enable = (0 to POLYPHONY_MAX - 1 => '0') then 
                     r_in.state <= idle;
                 else 
                     r_in.state <= find_min_max_1;

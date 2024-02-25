@@ -14,6 +14,7 @@ use midi.midi_pkg.all;
 library sdram;
 library i2s;
 library uart;
+library work;
 
 
 entity wave_array is
@@ -44,6 +45,11 @@ entity wave_array is
         -- XADC_3P                 : in  std_logic;
         -- XADC_3N                 : in  std_logic;
 
+        -- FLASH interface.
+        QSPI_SCLK               : out std_logic;   
+        QSPI_CS                 : out std_logic;
+        QSPI_DQ                 : inout std_logic_vector(3 downto 0);
+
         -- SDRAM interface.
         DDR3_DQ                 : inout std_logic_vector(15 downto 0);
         DDR3_DQS_P              : inout std_logic_vector(1 downto 0);
@@ -63,6 +69,14 @@ entity wave_array is
 end entity;
 
 architecture arch of wave_array is
+
+    -- component dff is 
+    --     port (
+    --         i_D                 : in  std_logic;
+    --         i_clk               : in  std_logic;
+    --         o_Q                 : out std_logic
+    --     );
+    -- end component;
 
     signal s_system_clk         : std_logic;
     signal s_mig_ctrl_clk       : std_logic;
@@ -87,8 +101,8 @@ architecture arch of wave_array is
     signal s_mig_ui_reset       : std_logic;
     signal s_mig_reset          : std_logic;
 
-    signal s_sdram_inputs       : t_sdram_input_array(0 to N_TABLES); -- 1 for the UART and 1 for each wavetable.
-    signal s_sdram_outputs      : t_sdram_output_array(0 to N_TABLES);
+    signal s_sdram_inputs       : t_sdram_input_array(0 to 2); -- UART, flash and table DMA.
+    signal s_sdram_outputs      : t_sdram_output_array(0 to 2);
 
     signal s_uart_timeout       : std_logic;
     signal s_uart_state         : integer;
@@ -130,36 +144,23 @@ architecture arch of wave_array is
     signal s_filter_samples     : t_mono_sample_array(0 to POLYPHONY_MAX - 1);
     signal s_addrgen_outputs    : t_addrgen_output_array;
 
+    signal s_o_out              : std_logic;
+
+    signal s_dff_d              : std_logic;
+    signal s_dff_q              : std_logic;
+    
+
 begin
     
     LEDS(0) <= s_config.led;
     LEDS(1) <= s_system_reset;
     LEDS(2) <= s_i2s_reset;
-    LEDS(3) <= '0';
+    LEDS(3) <= s_dff_q xor s_o_out;
     gen_voice_led : for i in 0 to minimum(3, POLYPHONY_MAX - 1) generate
         LEDS(4 + i) <= s_voices(i).enable;
     end generate;
 
     I2S_SCLK <= s_i2s_clk;
-
-    -- 7 segment display.
-    -- s_display_data <= std_logic_vector(to_unsigned(s_voices(0).note.number, 8))
-    --                 & std_logic_vector(to_unsigned(s_voices(1).note.number, 8))
-    --                 & std_logic_vector(to_unsigned(s_voices(2).note.number, 8))
-    --                 & std_logic_vector(to_unsigned(s_voices(3).note.number, 8));
-
-    s_display_data <= std_logic_vector(s_mod_destinations(MODD_FILTER_CUTOFF)(0)) 
-                    & std_logic_vector(s_mod_destinations(MODD_MIXER)(0));
-
-    -- s_display_data <= std_logic_vector(s_pitched_osc_inputs(0)(0).velocity(15 downto 0)) 
-    --                 & std_logic_vector(s_spread_osc_inputs(0)(0).velocity(15 downto 0));
-
-    -- s_display_data <= (15 downto 4 => '0') & s_debug_uart_flags
-    --                   & std_logic_vector(to_unsigned(s_debug_uart_state, 16));
-
-    -- s_display_data <= s_addrgen_outputs(0)(0).enable 
-    --                   & std_logic_vector(to_unsigned(s_addrgen_outputs(0)(0).mipmap_level, 15))
-    --                   & std_logic_vector(resize(s_addrgen_outputs(0)(0).mipmap_address(0), 16));
 
     s_status.mod_destinations   <= s_mod_destinations;
     s_status.mod_sources        <= s_mod_sources;
@@ -178,6 +179,13 @@ begin
         s_status.voice_enabled(i) <= s_voices(i).enable;
         s_status.voice_active(i)  <= s_envelope_active(i);
     end generate;
+
+    -- dff_inst : dff 
+    -- port map (
+    --     i_D                     => s_dff_d,
+    --     i_clk                   => s_system_clk,
+    --     o_Q                     => s_dff_q
+    -- );
 
     clk_subsys : entity wave.clk_subsystem
     port map (
@@ -292,8 +300,8 @@ begin
         next_sample             => s_next_sample,
         voices                  => s_voices,
         sample                  => s_sample,
-        sdram_input             => s_sdram_inputs(1),
-        sdram_output            => s_sdram_outputs(1),
+        sdram_input             => s_sdram_inputs(2),
+        sdram_output            => s_sdram_outputs(2),
         envelope_0_active       => s_envelope_0_active,
         envelope_1_active       => s_envelope_1_active,
         mod_sources             => s_mod_sources,
@@ -359,6 +367,19 @@ begin
         DDR3_ODT                => DDR3_ODT
     );
 
+    qspi: entity wave.qspi_wrapper
+    port map (
+        clk                     => s_system_clk,
+        reset                   => s_system_reset,
+        config                  => s_config,
+        sdram_input             => s_sdram_inputs(1),
+        sdram_output            => s_sdram_outputs(1),
+        i_in                    => SWITCHES(7),
+        o_out                   => s_o_out,
+        QSPI_SCLK               => QSPI_SCLK,
+        QSPI_CS                 => QSPI_CS,
+        QSPI_DQ                 => QSPI_DQ
+    );
 
     -- microblaze_sys : entity wave.microblaze_sys_wrapper
     -- port map(

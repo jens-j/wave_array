@@ -37,22 +37,23 @@ end entity;
 
 architecture arch of synth_subsystem is
 
-    signal s_osc_inputs         : t_osc_input_array(0 to POLYPHONY_MAX - 1);
-    signal s_osc_samples        : t_mono_sample_array(0 to POLYPHONY_MAX - 1);
-    signal s_filter_samples     : t_mono_sample_array(0 to POLYPHONY_MAX - 1);
+    signal s_osc_inputs             : t_osc_input_array(0 to POLYPHONY_MAX - 1);
+    signal s_osc_samples            : t_mono_sample_array(0 to POLYPHONY_MAX - 1);
+    signal s_filter_samples         : t_mono_sample_array(0 to POLYPHONY_MAX - 1);
     signal s_mixer_left_sample_out  : t_mono_sample;
     signal s_mixer_right_sample_out : t_mono_sample;
-    signal s_dma2table          : t_dma2table_array(0 to N_TABLES - 1);
-    signal s_table2dma          : t_table2dma_array(0 to N_TABLES - 1);
-    signal s_lfo_ctrl           : t_ctrl_value_array(0 to POLYPHONY_MAX - 1);
-    signal s_envelope_ctrl      : t_ctrl_value_array(0 to POLYPHONY_MAX - 1);
-    signal s_mod_sources        : t_mods_array;
-    signal s_mod_destinations   : t_modd_array;
-    signal s_pitch_ctrl         : t_osc_ctrl_array;
-    signal s_pitched_osc_inputs : t_pitched_osc_inputs;
-    signal s_lfo_out            : t_lfo_out(0 to LFO_N - 1);
-    signal s_envelope_out       : t_envelope_out(0 to ENV_N - 1);
-    signal s_envelope_active    : std_logic_vector(ENV_N * POLYPHONY_MAX - 1 downto 0);
+    signal s_dma2table              : t_dma2table_array(0 to N_TABLES - 1);
+    signal s_table2dma              : t_table2dma_array(0 to N_TABLES - 1);
+    signal s_lfo_ctrl               : t_ctrl_value_array(0 to POLYPHONY_MAX - 1);
+    signal s_envelope_ctrl          : t_ctrl_value_array(0 to POLYPHONY_MAX - 1);
+    signal s_mod_sources            : t_mods_array;
+    signal s_mod_destinations       : t_modd_array;
+    signal s_pitch_ctrl             : t_osc_ctrl_array;
+    signal s_pitched_osc_inputs     : t_pitched_osc_inputs;
+    signal s_lfo_out                : t_lfo_out(0 to LFO_N - 1);
+    signal s_envelope_out           : t_envelope_out(0 to ENV_N - 1);
+    signal s_envelope_active        : std_logic_vector(ENV_N * POLYPHONY_MAX - 1 downto 0);
+    signal s_unison_mixer_output    : t_unison_mixer_output;
 
 begin
 
@@ -75,7 +76,9 @@ begin
         s_mod_sources(MODS_ENVELOPE_1)(i) <= s_envelope_out(1)(i);
         s_mod_sources(MODS_LFO_0)(i)      <= s_lfo_out(0)(i);
         s_mod_sources(MODS_LFO_1)(i)      <= s_lfo_out(1)(i);
-        s_mod_sources(MODS_VELOCITY)(i)   <= '0' & signed(voices(i).midi_velocity) & (7 downto 0 => '0'); -- Extend 7 bit midi velocity to signed 16 bit control value.
+        s_mod_sources(MODS_VELOCITY)(i)   <= '0' & signed(voices(i).midi_velocity) & (0 to 7 => '0'); -- Extend 7 bit midi velocity to signed 16 bit control value.
+        s_mod_sources(MODS_TABLE_0)(i)    <= s_unison_mixer_output(0)(i);
+        s_mod_sources(MODS_TABLE_1)(i)    <= s_unison_mixer_output(1)(i);
     end generate;
 
     osc_controller : entity osc.osc_controller
@@ -98,7 +101,7 @@ begin
         pitched_osc_inputs      => s_pitched_osc_inputs
     );
 
-    osc_stack : entity osc.oscillator_subsystem
+    osc_subsys : entity osc.oscillator_subsystem
     port map (
         clk                     => clk,
         reset                   => reset,
@@ -112,7 +115,8 @@ begin
         output_samples          => s_osc_samples,
         spread_osc_inputs       => spread_osc_inputs,
         lowest_velocity         => lowest_velocity,
-        addrgen_outputs         => addrgen_outputs
+        addrgen_outputs         => addrgen_outputs,
+        unison_mixer_output     => s_unison_mixer_output
     );
 
 
@@ -168,7 +172,7 @@ begin
         config                  => config,
         status                  => status,
         next_sample             => next_sample,
-        ctrl_in                 => s_mod_destinations(MODD_MIXER),
+        ctrl_in                 => s_mod_destinations(MODD_VOLUME),
         sample_in               => s_filter_samples,
         sample_out              => sample
     );

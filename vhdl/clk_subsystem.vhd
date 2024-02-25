@@ -7,7 +7,8 @@ library xil_defaultlib;
 library unisim;
 use unisim.vcomponents.all;
 
-library ip;
+library wave;
+use wave.wave_array_pkg.all;
 
 
 entity clk_subsystem is
@@ -31,7 +32,7 @@ architecture arch of clk_subsystem is
     -- Component is necessary because the ip is in verilog.
     component sys_clk_generator
     port (
-        mig_ctrl_clk            : out std_logic;
+        mig_ctrl_clk           : out std_logic;
         mig_ref_clk            : out std_logic;
         reset                  : in  std_logic;
         ext_clk                : in  std_logic;
@@ -53,6 +54,7 @@ begin
     mig_ctrl_clk <= s_mig_ctrl_clk;
     mig_ref_clk <= s_mig_ref_clk;
 
+
     sys_clk_gen : sys_clk_generator
     port map (
         mig_ctrl_clk           => s_mig_ctrl_clk,
@@ -68,6 +70,7 @@ begin
         reset                  => reset,
         sys_clk                => s_mig_ctrl_clk
     );
+
 
     -- Global clock buffer for the I2S clock.
     i2s_bufg : BUFG
