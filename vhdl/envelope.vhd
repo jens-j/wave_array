@@ -43,21 +43,21 @@ architecture arch of envelope is
     constant ATTACK_A           : std_logic_vector := std_logic_vector(to_unsigned(
         integer((ATTACK_MAX - ATTACK_MIN) * real(2**CTRL_SIZE)), 16));
     constant ATTACK_C           : std_logic_vector := std_logic_vector(to_unsigned(
-        integer(ATTACK_MIN * real(2**(2 * CTRL_SIZE))), 32));
+        integer(ATTACK_MIN * 2.0**(2 * CTRL_SIZE)), 32));
 
     constant DECAY_MIN          : real := 1.0 / real(ENV_MAX_DECAY_T * real(SAMPLE_RATE)); 
     constant DECAY_MAX          : real := 1.0 / real(ENV_MIN_DECAY_T * real(SAMPLE_RATE));      
     constant DECAY_A            : std_logic_vector := std_logic_vector(to_unsigned(
         integer((DECAY_MAX - DECAY_MIN) * real(2**CTRL_SIZE)), 16));
     constant DECAY_C            : std_logic_vector := std_logic_vector(to_unsigned(
-        integer(DECAY_MIN * real(2**(2 * CTRL_SIZE))), 32));
+        integer(DECAY_MIN * 2.0**(2 * CTRL_SIZE)), 32));
 
     constant RELEASE_MIN        : real := 1.0 / real(ENV_MAX_RELEASE_T * real(SAMPLE_RATE)); 
     constant RELEASE_MAX        : real := 1.0 / real(ENV_MIN_RELEASE_T * real(SAMPLE_RATE));      
     constant RELEASE_A          : std_logic_vector := std_logic_vector(to_unsigned(
         integer((RELEASE_MAX - RELEASE_MIN) * real(2**CTRL_SIZE)), 16));
     constant RELEASE_C          : std_logic_vector := std_logic_vector(to_unsigned(
-        integer(ATTACK_MIN * real(2**(2 * CTRL_SIZE))), 32));
+        integer(ATTACK_MIN * 2.0**(2 * CTRL_SIZE)), 32));
 
 
     type t_state is (idle, wait_valid, map_attack, map_decay, map_release, running);
@@ -127,26 +127,31 @@ architecture arch of envelope is
     signal s_data_out_valid     : std_logic;
     signal s_data_out           : unsigned(31 downto 0);
 
+
     -- Increment phase with a velocity based on the adsr state.
-    procedure increment_phase(signal phase_in   : in  unsigned(31 downto 0);
-                              signal phase_out  : out unsigned(31 downto 0);
-                              signal adsr_state : out t_adsr_state;
+    procedure increment_phase(signal r          : in  t_envelope_reg;
+                              signal r_in       : out t_envelope_reg;
                               signal velocity   : in  unsigned(31 downto 0);
                               constant next_state : in  t_adsr_state) is
         
         variable v_phase : unsigned(31 downto 0);
+        variable v_new_phase : unsigned(31 downto 0);
     begin
+
+        v_phase := r.phase(r.instance_counter)(r.index_array(0));
+
         -- Increment phase.
-        v_phase := phase_in + velocity;
+        v_new_phase := v_phase + velocity;
 
         -- Check for overflow.
-        if v_phase(31) = '0' and phase_in(31) = '1' then 
-            phase_out <= (others => '0');
-            adsr_state <= next_state;
+        if v_new_phase(31) = '0' and v_phase(31) = '1' then 
+            r_in.phase(r.instance_counter)(r.index_array(0)) <= (others => '0');
+            r_in.adsr_state(r.instance_counter)(r.index_array(0)) <= next_state;
         else 
-            phase_out <= v_phase;
+            r_in.phase(r.instance_counter)(r.index_array(0)) <= v_new_phase;
         end if;
     end procedure;   
+
  
     -- Check if the voice is still enabled and go to release state if not.
     procedure check_release(signal r          : in  t_envelope_reg;
@@ -301,35 +306,18 @@ begin
                         end if;
                 
                     when attack =>
-                        -- increment_phase(r, r_in, r.velocity_attack, decay);
-                        increment_phase(r.phase(r.instance_counter)(r.index_array(0)),
-                                        r_in.phase(r.instance_counter)(r.index_array(0)), 
-                                        r_in.adsr_state(r.instance_counter)(r.index_array(0)), 
-                                        r.velocity_attack, 
-                                        decay);
-
+                        increment_phase(r, r_in, r.velocity_attack, decay);
                         check_release(r, r_in, osc_inputs);
 
                     when decay => 
-                        -- increment_phase(r, r_in, r.velocity_decay, sustain);
-                        increment_phase(r.phase(r.instance_counter)(r.index_array(0)),
-                                        r_in.phase(r.instance_counter)(r.index_array(0)), 
-                                        r_in.adsr_state(r.instance_counter)(r.index_array(0)), 
-                                        r.velocity_decay, 
-                                        sustain);
-
+                        increment_phase(r, r_in, r.velocity_decay, sustain);
                         check_release(r, r_in, osc_inputs);
 
                     when sustain => 
                         check_release(r, r_in, osc_inputs);
 
                     when state_release => 
-                        -- increment_phase(r, r_in, r.velocity_release, closed);
-                        increment_phase(r.phase(r.instance_counter)(r.index_array(0)),
-                                        r_in.phase(r.instance_counter)(r.index_array(0)), 
-                                        r_in.adsr_state(r.instance_counter)(r.index_array(0)), 
-                                        r.velocity_release, 
-                                        closed);
+                        increment_phase(r, r_in, r.velocity_release, closed);
 
                         -- Note is re-triggered during release.
                         if osc_inputs(r.index_array(0)).enable = '1' then 
@@ -337,7 +325,7 @@ begin
                             -- Set phase so that the attack continues from the current mod level.
                             r_in.phase(r.instance_counter)(r.index_array(0)) <= 
                                 unsigned(r.envelope_buffer(r.instance_counter)(r.index_array(0))(14 downto 0))
-                                & (16 downto 0 => '0');
+                                & (0 to 16 => '0');
 
                             r_in.adsr_state(r.instance_counter)(r.index_array(0)) <= attack;
                         end if;
