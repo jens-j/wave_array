@@ -10,7 +10,7 @@ use wave.wave_array_pkg.all;
 -- Mixes together multiple wavetable outputs (after unison) into a single waveform.
 -- This is done for a each polyphonic voice in parallel.
 -- Every cycle one tabe sample is multiplied with a mix control value. 
--- Samples of each wavetable are added to create the output sample for each voice. 
+-- Samples of each wavetable (and noise) are added to create the output sample for each voice. 
 entity table_mixer is
     port (
         clk                     : in  std_logic;
@@ -18,8 +18,8 @@ entity table_mixer is
         config                  : in  t_config;
         status                  : in  t_status;
         next_sample             : in  std_logic;
-        control                 : in  t_osc_ctrl_array;
-        samples_in              : in  t_unison_mixer_samples;
+        control                 : in  t_table_mix_ctrl_array;
+        samples_in              : in  t_table_mixer_input;
         samples_out             : out t_mono_sample_array(0 to POLYPHONY_MAX - 1)
     );
 end entity;
@@ -38,7 +38,7 @@ architecture arch of table_mixer is
     type t_state is (idle, running);
 
     type t_voice_count_array is array (0 to PIPE_SUM_MUX_OUT - 1) of integer range 0 to POLYPHONY_MAX - 1;
-    type t_table_count_array is array (0 to PIPE_SUM_MUX_OUT - 1) of integer range 0 to N_TABLES - 1;
+    type t_table_count_array is array (0 to PIPE_SUM_MUX_OUT - 1) of integer range 0 to N_TABLES;
 
     type t_table_mixer_reg is record
         state                   : t_state;
@@ -104,7 +104,7 @@ begin
             r_in.coefficient_buffer <= control(r.table_count(0))(r.voice_count(0));
 
             -- Update counters.
-            if r.table_count(0) < N_TABLES - 1 then 
+            if r.table_count(0) < N_TABLES then 
                 r_in.table_count(0) <= r.table_count(0) + 1;
             else 
                 r_in.table_count(0) <= 0;
@@ -132,10 +132,10 @@ begin
             end if;
         end if;
 
-        -- Pipeline stage 3: output mux.
+        -- Pipeline stage 3: output mux. Slice one bit to the left to avoid overflow because of noise
         if r.pipeline_valid(PIPE_SUM_MUX_OUT - 2) = '1' then  
             r_in.samples_out_buffer(r.voice_count(PIPE_SUM_MUX_OUT - 1)) <= 
-                r.mix_buffer(SAMPLE_SIZE + N_TABLES_LOG2 - 2 downto N_TABLES_LOG2 - 1);
+                r.mix_buffer(SAMPLE_SIZE + N_TABLES_LOG2 - 1 downto N_TABLES_LOG2);
         end if;
 
         -- Update shift registers.

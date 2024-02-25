@@ -22,7 +22,8 @@ entity oscillator_subsystem is
         output_samples          : out t_mono_sample_array(0 to POLYPHONY_MAX - 1);
         spread_osc_inputs       : out t_spread_osc_inputs;
         lowest_velocity         : out t_osc_phase;
-        addrgen_outputs         : out t_addrgen_output_array
+        addrgen_outputs         : out t_addrgen_output_array;
+        unison_mixer_output     : out t_unison_mixer_output
     );
 end entity;
 
@@ -31,21 +32,27 @@ architecture arch of oscillator_subsystem is
     type t_new_period_array is array (0 to N_TABLES - 1) of std_logic_vector(N_VOICES - 1 downto 0);
     
     signal s_osc_samples : t_osc_sample_array;
-    signal s_mixer_ctrl  : t_osc_ctrl_array;
+    signal s_mixer_ctrl  : t_table_mix_ctrl_array;
     signal s_spread_osc_inputs : t_spread_osc_inputs;
     signal s_frame_ctrl_index : t_frame_ctrl_index;
     signal s_addrgen_outputs : t_addrgen_output_array;
-    signal s_unison_mixer_samples : t_unison_mixer_samples;
-    
+    signal s_unison_mixer_output : t_unison_mixer_output;
+    signal s_table_mixer_input : t_table_mixer_input;
+    signal s_noise_samples : t_mono_sample_array(POLYPHONY_MAX - 1 downto 0);
 
 begin 
 
     spread_osc_inputs <= s_spread_osc_inputs;
     addrgen_outputs <= s_addrgen_outputs;
+    unison_mixer_output <= s_unison_mixer_output;
 
     mix_ctrl_gen : for i in 0 to N_TABLES - 1 generate 
         s_mixer_ctrl(i) <= mod_destinations(MODD_OSC_0_MIX + i);
+        s_table_mixer_input(i) <= s_unison_mixer_output(i);
     end generate; 
+
+    s_mixer_ctrl(N_TABLES) <= mod_destinations(MODD_NOISE_MIX);
+    s_table_mixer_input(N_TABLES) <= s_noise_samples;
 
     unison : Entity osc.unison_spread 
     port map (
@@ -87,7 +94,7 @@ begin
         status                  => status,
         next_sample             => next_sample,
         sample_in               => s_osc_samples,
-        sample_out              => s_unison_mixer_samples
+        sample_out              => s_unison_mixer_output
     );
 
     table_mixer : entity osc.table_mixer
@@ -98,8 +105,17 @@ begin
         status                  => status,
         next_sample             => next_sample,
         control                 => s_mixer_ctrl,
-        samples_in              => s_unison_mixer_samples,
+        samples_in              => s_table_mixer_input,
         samples_out             => output_samples
+    );
+
+    noise_source : entity osc.noise_source
+    port map (
+        clk                     => clk,
+        reset                   => reset,
+        config                  => config,
+        next_sample             => next_sample,
+        output_samples          => s_noise_samples
     );
 
 end architecture;

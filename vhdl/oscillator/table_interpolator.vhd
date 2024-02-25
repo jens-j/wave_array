@@ -503,7 +503,7 @@ begin
             s_frame_interp_a <= std_logic_vector(shift_right(signed(s_wave_read_data_a), 1));
             
             s_frame_interp_c <= 
-                (1 downto 0 => s_wave_read_data_a(SAMPLE_SIZE - 1)) -- sign extention
+                (0 to 1 => s_wave_read_data_a(SAMPLE_SIZE - 1)) -- sign extention
                 & s_wave_read_data_a                                -- operand
                 & (0 to OSC_SAMPLE_FRAC - 2 => '0');                -- shift
 

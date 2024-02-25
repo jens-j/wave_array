@@ -70,7 +70,7 @@ architecture arch of unison_step is
 
 begin 
 
-    comb_process : process (r, config, status, next_sample, config, spread_ctrl, pitched_osc_inputs)
+    comb_process : process (r, config, status, next_sample, spread_ctrl, pitched_osc_inputs)
 
         variable v_mult_result : signed(OSC_PHASE_SIZE + CTRL_SIZE downto 0);
 

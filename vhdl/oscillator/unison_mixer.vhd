@@ -16,7 +16,7 @@ entity unison_mixer is
         next_sample             : in  std_logic;
         -- sample_in               : in  t_mono_sample_array(0 to N_VOICES - 1);
         sample_in               : in  t_osc_sample_array;
-        sample_out              : out t_unison_mixer_samples
+        sample_out              : out t_unison_mixer_output
     );
 end entity;
 
@@ -30,8 +30,8 @@ architecture arch of unison_mixer is
 
     type t_mixer_reg is record
         state                   : t_state;
-        sample_out              : t_unison_mixer_samples;
-        sample_out_buffer       : t_unison_mixer_samples;
+        sample_out              : t_unison_mixer_output;
+        sample_out_buffer       : t_unison_mixer_output;
         osc_count               : integer range 0 to N_VOICES - 1;
         unison_count            : integer range 0 to 2 * UNISON_MAX - 1;
         poly_count              : integer range 0 to POLYPHONY_MAX;
