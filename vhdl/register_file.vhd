@@ -72,6 +72,7 @@ begin
         variable v_modd_destination : integer range 0 to MODD_LEN - 1;
         variable v_modd_voice : integer range 0 to POLYPHONY_MAX - 1;
         variable v_table_index : integer range 0 to N_TABLES - 1;
+        variable v_table_mix_index : integer range 0 to N_TABLES;
         variable v_voice_index : integer range 0 to POLYPHONY_MAX - 1;
         variable v_unison_n : integer range 1 to UNISON_MAX;
     begin
@@ -126,7 +127,7 @@ begin
             r_in.register_output.valid <= '1';
 
             if register_input.address = REG_LED then
-                r_in.register_output.read_data <= (1 to 15 => '0') & r.config.led;
+                r_in.register_output.read_data(0) <= r.config.led;
 
             elsif register_input.address = REG_FAULT then
                 r_in.register_output.read_data <= r.faults;
@@ -139,6 +140,9 @@ begin
 
             elsif register_input.address = REG_LFO_N then
                 r_in.register_output.read_data <= std_logic_vector(to_unsigned(LFO_N, REGISTER_WIDTH));
+
+            elsif register_input.address = REG_MIDI_CHANNEL then
+                r_in.register_output.read_data(3 downto 0) <= std_logic_vector(to_unsigned(r.config.midi_channel, 4));
 
             elsif register_input.address = REG_DBG_WAVE_TIMER then
                 r_in.register_output.read_data <= status.debug_wave_timer; 
@@ -174,6 +178,9 @@ begin
             elsif register_input.address = REG_UNISON_SPREAD then
                 r_in.register_output.read_data <= std_logic_vector(r.config.base_ctrl(MODD_UNISON));
 
+            elsif register_input.address = REG_NOISE_SELECT then
+                r_in.register_output.read_data(0) <= r.config.noise_select;
+
             elsif register_input.address = REG_VOICES then
                 r_in.register_output.read_data <= std_logic_vector(to_unsigned(POLYPHONY_MAX, REGISTER_WIDTH));
 
@@ -186,8 +193,8 @@ begin
             elsif register_input.address = REG_FILTER_SELECT then
                 r_in.register_output.read_data(2 downto 0) <= std_logic_vector(to_unsigned(r.config.filter_select, 3));
 
-            elsif register_input.address = REG_MIXER_CTRL then
-                r_in.register_output.read_data <= std_logic_vector(r.config.base_ctrl(MODD_MIXER));
+            elsif register_input.address = REG_VOLUME_CTRL then
+                r_in.register_output.read_data <= std_logic_vector(r.config.base_ctrl(MODD_VOLUME));
 
             -- Read oscillator frequency mod control base value registers.
             elsif register_input.address >= REG_FREQ_CTRL_BASE 
@@ -201,13 +208,13 @@ begin
 
             -- Read table mixer control value registers.
             elsif register_input.address >= REG_MIX_CTRL_BASE 
-                    and register_input.address < REG_MIX_CTRL_BASE + N_TABLES then
+                    and register_input.address < REG_MIX_CTRL_BASE + N_TABLES + 1 then
 
                 v_rel_address := register_input.address and x"0000_0FFF";
 
-                v_table_index := to_integer(unsigned(v_rel_address(N_TABLES_LOG2 - 1 downto 0)));
+                v_table_mix_index := to_integer(unsigned(v_rel_address(N_TABLES_LOG2 downto 0)));
                 r_in.register_output.read_data <= std_logic_vector(
-                    r.config.base_ctrl(MODD_OSC_0_MIX + v_table_index));
+                    r.config.base_ctrl(MODD_OSC_0_MIX + v_table_mix_index));
 
             -- Read frame control value registers.
             elsif register_input.address >= REG_FRAME_CTRL_BASE 
@@ -354,6 +361,9 @@ begin
             elsif register_input.address = REG_LED then
                 r_in.config_buffer.led <= register_input.write_data(0);
 
+            elsif register_input.address = REG_MIDI_CHANNEL then
+                r_in.config_buffer.midi_channel <= to_integer(unsigned(register_input.write_data(3 downto 0)));
+
             elsif register_input.address = REG_FAULT then
                 r_in.faults <= (others => '0');
 
@@ -379,6 +389,9 @@ begin
             elsif register_input.address = REG_UNISON_SPREAD then
                 r_in.config_buffer.base_ctrl(MODD_UNISON) <= signed(register_input.write_data);
 
+            elsif register_input.address = REG_NOISE_SELECT then
+                r_in.config_buffer.noise_select <= register_input.write_data(0);
+
             elsif register_input.address = REG_WAVE_PERIOD then
                 r_in.config_buffer.binaural_enable <= register_input.write_data(0);
 
@@ -395,8 +408,8 @@ begin
                     r_in.config_buffer.filter_select <= 4;
                 end if;
 
-            elsif register_input.address = REG_MIXER_CTRL then
-                r_in.config_buffer.base_ctrl(MODD_MIXER) <= signed(register_input.write_data); 
+            elsif register_input.address = REG_VOLUME_CTRL then
+                r_in.config_buffer.base_ctrl(MODD_VOLUME) <= signed(register_input.write_data); 
 
             
             -- oscillator frequency mod control base value registers.
@@ -412,12 +425,12 @@ begin
             -- Table mixer control base value registers.
             -- One for each wavetable.
             elsif register_input.address >= REG_MIX_CTRL_BASE and 
-                    register_input.address < REG_MIX_CTRL_BASE + N_TABLES then
+                    register_input.address < REG_MIX_CTRL_BASE + N_TABLES + 1 then
 
                 v_rel_address := register_input.address and x"0000_0FFF";
-                v_table_index := to_integer(unsigned(v_rel_address(N_TABLES_LOG2 - 1 downto 0)));
+                v_table_mix_index := to_integer(unsigned(v_rel_address(N_TABLES_LOG2 downto 0)));
                 
-                r_in.config_buffer.base_ctrl(MODD_OSC_0_MIX + v_table_index) <= signed(register_input.write_data);
+                r_in.config_buffer.base_ctrl(MODD_OSC_0_MIX + v_table_mix_index) <= signed(register_input.write_data);
 
             -- Frame control base value registers.
             -- One for each wavetable.
