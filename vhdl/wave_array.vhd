@@ -143,11 +143,6 @@ architecture arch of wave_array is
     signal s_osc_samples        : t_mono_sample_array(0 to POLYPHONY_MAX - 1);
     signal s_filter_samples     : t_mono_sample_array(0 to POLYPHONY_MAX - 1);
     signal s_addrgen_outputs    : t_addrgen_output_array;
-
-    signal s_o_out              : std_logic;
-
-    signal s_dff_d              : std_logic;
-    signal s_dff_q              : std_logic;
     
 
 begin
@@ -155,7 +150,6 @@ begin
     LEDS(0) <= s_config.led;
     LEDS(1) <= s_system_reset;
     LEDS(2) <= s_i2s_reset;
-    LEDS(3) <= s_dff_q xor s_o_out;
     gen_voice_led : for i in 0 to minimum(3, POLYPHONY_MAX - 1) generate
         LEDS(4 + i) <= s_voices(i).enable;
     end generate;
@@ -179,13 +173,6 @@ begin
         s_status.voice_enabled(i) <= s_voices(i).enable;
         s_status.voice_active(i)  <= s_envelope_active(i);
     end generate;
-
-    -- dff_inst : dff 
-    -- port map (
-    --     i_D                     => s_dff_d,
-    --     i_clk                   => s_system_clk,
-    --     o_Q                     => s_dff_q
-    -- );
 
     clk_subsys : entity wave.clk_subsystem
     port map (
@@ -365,20 +352,6 @@ begin
         DDR3_CKE                => DDR3_CKE,
         DDR3_DM                 => DDR3_DM,
         DDR3_ODT                => DDR3_ODT
-    );
-
-    qspi: entity wave.qspi_wrapper
-    port map (
-        clk                     => s_system_clk,
-        reset                   => s_system_reset,
-        config                  => s_config,
-        sdram_input             => s_sdram_inputs(1),
-        sdram_output            => s_sdram_outputs(1),
-        i_in                    => SWITCHES(7),
-        o_out                   => s_o_out,
-        QSPI_SCLK               => QSPI_SCLK,
-        QSPI_CS                 => QSPI_CS,
-        QSPI_DQ                 => QSPI_DQ
     );
 
     -- microblaze_sys : entity wave.microblaze_sys_wrapper

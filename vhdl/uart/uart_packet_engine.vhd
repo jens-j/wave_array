@@ -99,7 +99,7 @@ architecture arch of uart_packet_engine is
         next_state              => idle,
         tx_write_enable         => '0',
         tx_data                 => (others => '0'),
-        register_input          => ('0', '0', (others => '0'), (others => '0')),
+        register_input          => REGISTER_INPUT_INIT,
         sdram_read_enable       => '0',
         sdram_write_enable      => '0',
         sdram_burst_n           => 1,

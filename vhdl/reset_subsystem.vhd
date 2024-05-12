@@ -63,7 +63,7 @@ begin
         output                  => s_i2s_reset
     );
 
-    comb_process : process (r, software_reset, s_btn_reset, s_i2s_reset)
+    comb_process : process (r, software_reset, s_btn_reset, s_i2s_reset, mig_ui_reset)
     begin
 
         r_in <= r;

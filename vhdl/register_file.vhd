@@ -47,7 +47,7 @@ architecture arch of register_file is
         software_reset          => '0',
         config                  => INITIALIZE_CONFIG,
         config_buffer           => INITIALIZE_CONFIG,
-        register_output         => ('0', '0', (others => '0')),
+        register_output         => REGISTER_OUTPUT_INIT,
         faults                  => (others => '0'),
         polyphony               => 1,
         active_voices           => 1,

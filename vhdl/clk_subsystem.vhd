@@ -59,7 +59,7 @@ begin
     port map (
         mig_ctrl_clk           => s_mig_ctrl_clk,
         mig_ref_clk            => s_mig_ref_clk,
-        reset                  => reset,
+        reset                  => '0',
         ext_clk                => ext_clk,
         locked                 => pll_locked
     );
@@ -67,7 +67,7 @@ begin
     i2s_clk_gen : i2s_clk_generator
     port map (
         i2s_intermediate_clk   => s_i2s_intermediate_clk,
-        reset                  => reset,
+        reset                  => '0',
         sys_clk                => s_mig_ctrl_clk
     );
 

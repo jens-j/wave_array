@@ -40,22 +40,9 @@ vcom -2008 -work osc $SOURCE_DIR/oscillator/unison_step.vhd
 vcom -2008 -work osc $SOURCE_DIR/oscillator/unison_spread.vhd
 vcom -2008 -work osc $SOURCE_DIR/oscillator/oscillator_subsystem.vhd
 
-vlog -work qspi $SOURCE_DIR/qspi/iceddrck.v
-vlog -work qspi $SOURCE_DIR/qspi/llqspi.v
-vlog -work qspi $SOURCE_DIR/qspi/xddrcck.v
-vlog -work qspi $SOURCE_DIR/qspi/xioddr.v
-vlog -work qspi $SOURCE_DIR/qspi/xoddr.v
-vlog -work qspi $SOURCE_DIR/qspi/qflexpress.v
-vlog -work qspi $SOURCE_DIR/qfl_wrapper.v
-
-# Flash memory simulation model
-vlog -sv -work flash $SOURCE_DIR/flash/N25Qxxx.v
-vlog -sv -work flash $SOURCE_DIR/flash/N25Qxxx_wrapper.v
-
 # SDRAM simulation model
 vlog +define+den4096Mb -sv -work work $SOURCE_DIR/ddr3/ddr3.v
 
-vcom -2008 -work wave $SOURCE_DIR/qspi_wrapper.vhd 
 vcom -2008 -work wave $SOURCE_DIR/cdc_ff.vhd
 vcom -2008 -work wave $SOURCE_DIR/rom.vhd
 vcom -2008 -work wave $SOURCE_DIR/lin2log.vhd

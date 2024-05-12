@@ -5,10 +5,10 @@ add wave -divider tb:
 add wave tb_wave_array/*
 add wave -divider top:
 add wave tb_wave_array/wave_array/*
-add wave -divider qspi:
-add wave tb_wave_array/wave_array/qspi/qspi_inst/qflexpress_inst/*
 add wave -divider clk_subsys:
 add wave tb_wave_array/wave_array/clk_subsys/*
+add wave -divider reset_subsys:
+add wave tb_wave_array/wave_array/reset_subsys/*
 add wave -divider i2s:
 add wave tb_wave_array/wave_array/i2s_interface/*
 add wave -divider midi:

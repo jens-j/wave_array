@@ -50,17 +50,6 @@ architecture arch_no_sdram of tb_wave_array is
     signal s_sdram_tdqs_n           : std_logic_vector(1 downto 0);
     signal s_sdram_odt              : std_logic; 
 
-    -- component N25Qxxx_wrapper is
-    --     port (
-    --         S                           : in    std_logic;
-    --         C                           : in    std_logic;
-    --         DQ0                         : inout std_logic;
-    --         DQ1                         : inout std_logic;
-    --         W_DQ2                       : inout std_logic;
-    --         HOLD_DQ3                    : inout std_logic
-    --     );
-    -- end component N25Qxxx_wrapper;
-
 begin
 
     uart_tester : entity uart.uart_tester
@@ -116,16 +105,6 @@ begin
         DDR3_CKE                => s_sdram_cke,
         DDR3_DM                 => s_sdram_dm_tdqs,
         DDR3_ODT                => s_sdram_odt
-    );
-
-    flash_verilog : entity flash.N25Qxxx_wrapper
-    port map (
-        S                       => s_qspi_sclk,
-        C                       => s_qspi_cs,
-        DQ0                     => s_qspi_dq(0),
-        DQ1                     => s_qspi_dq(1),
-        W_DQ2                   => s_qspi_dq(2),
-        HOLD_DQ3                => s_qspi_dq(3)
     );
 
     s_clk <= not s_clk after 5 ns;

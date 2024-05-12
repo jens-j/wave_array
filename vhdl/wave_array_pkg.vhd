@@ -145,16 +145,17 @@ package wave_array_pkg is
     constant ADDR_DEPTH_LOG2        : integer := 32;
     -- constant ADDR_DEPTH             : integer := 2**ADDR_DEPTH_LOG2;
 
-    -- Flash constants.
-    constant FLASH_DEPTH_LOG2       : integer := 25; -- Bytes.
-    constant FLASH_DEPTH            : integer := 2**FLASH_DEPTH_LOG2; -- Bytes.
-
     -- SDRAM constants.
     constant SDRAM_WIDTH            : integer := 16;
     constant SDRAM_DEPTH_LOG2       : integer := 28;
     constant SDRAM_DEPTH            : integer := 2**SDRAM_DEPTH_LOG2;
     constant SDRAM_MAX_BURST_LOG2   : integer := 29;
     constant SDRAM_MAX_BURST        : integer := 2**SDRAM_MAX_BURST_LOG2 - 1;
+
+    -- FLASH constants.
+    constant FLASH_WIDTH            : integer := 8;
+    constant FLASH_DEPTH_LOG2       : integer := 25;
+    constant FLASH_DEPTH            : integer := 2**FLASH_DEPTH_LOG2;
 
     -- Register file constants.
     constant REGISTER_WIDTH         : integer := 16;
@@ -260,6 +261,13 @@ package wave_array_pkg is
                                                -- x"0008XX3"; -- rw 15 bit unsigned | Binaural LFO phase difference, [-180 - 180] degrees.
                                                -- x"0008XX4"; -- rw  1 bit          | One-shot mode to turn the LFO into an envelope.
                                                -- x"0008XX5"; -- wo  1 bit          | Reset LFO phase.
+
+    -- Memory mapped FLASH registers (read-only).
+    -- The addresses correspond to the flash commands.
+    constant REG_FLASH_MASK         : unsigned := x"1000000";
+    constant REG_FLASH_JEDEC        : unsigned := x"100009F";
+    constant REG_FLASH_STATUS_1     : unsigned := x"1000005";
+    constant REG_FLASH_STATUS_2     : unsigned := x"1000007";
 
      -- fault register (sticky-)bit indices.
     constant FAULT_UART_TIMEOUT     : integer := 0; -- UART packet engine timout.
@@ -446,9 +454,9 @@ package wave_array_pkg is
     end record;
 
     type t_sdram_input is record
-        read_enable             : std_logic;
+        read_enable             : std_logic; 
         write_enable            : std_logic;
-        burst_n                 : integer range 1 to 2**29 - 1; -- Number of 8 word bursts.
+        burst_n                 : integer range 1 to 2**SDRAM_MAX_BURST_LOG2 - 1; -- Number of 8 word bursts.
         address                 : unsigned(SDRAM_DEPTH_LOG2 - 1 downto 0);
         write_data              : std_logic_vector(SDRAM_WIDTH - 1 downto 0);
     end record;
@@ -461,18 +469,35 @@ package wave_array_pkg is
         read_data               : std_logic_vector(SDRAM_WIDTH - 1 downto 0);
     end record;
 
+    type t_flash_input is record
+        read_enable             : std_logic;
+        write_enable            : std_logic;
+        erase_enable            : std_logic;
+        bytes_n                 : integer range 1 to FLASH_DEPTH - 1; -- Number of 8 word bursts.
+        address                 : unsigned(FLASH_DEPTH_LOG2 - 1 downto 0);
+        write_data              : std_logic_vector(FLASH_WIDTH - 1 downto 0);
+    end record;
+
+    type t_flash_output is record
+        ack                     : std_logic; -- Signal the read- or write-enable has been seen.
+        read_valid              : std_logic; -- Signal valid read word.
+        write_req               : std_logic; -- Request next write word.
+        done                    : std_logic; -- Signal end of read or write in last valid cycle.
+        read_data               : std_logic_vector(FLASH_WIDTH - 1 downto 0);
+    end record;
+
     -- Register file interface.
     -- Does not support block reads and writes.
     type t_register_input is record
-        read_enable             : std_logic;
-        write_enable            : std_logic;
+        read_enable             : std_logic; -- Asserted for 1 cycle.
+        write_enable            : std_logic; -- Asserted for 1 cycle.
         address                 : unsigned(ADDR_DEPTH_LOG2 - 1 downto 0);
         write_data              : std_logic_vector(REGISTER_WIDTH - 1 downto 0);
     end record;
 
     type t_register_output is record
         valid                   : std_logic; -- Indicates read data is valid
-        fault                   : std_logic;
+        fault                   : std_logic; -- Asserted for 1 cycle.
         read_data               : std_logic_vector(REGISTER_WIDTH - 1 downto 0);
     end record;
 
@@ -503,7 +528,6 @@ package wave_array_pkg is
         frames_log2             => 0                -- Log2 of number of frames in the wavetable.
     );
 
-    
     constant SDRAM_INPUT_INIT : t_sdram_input := (
         read_enable             => '0',
         write_enable            => '0',
@@ -520,6 +544,23 @@ package wave_array_pkg is
         read_data               => (others => '0')
     );
 
+    constant FLASH_INPUT_INIT : t_flash_input := (
+        read_enable             => '0',
+        write_enable            => '0',
+        erase_enable            => '0',
+        bytes_n                 => 1,
+        address                 => (others => '0'),
+        write_data              => (others => '0')
+    );
+
+    constant FLASH_OUTPUT_INIT : t_flash_output := (
+        ack                     => '0',
+        read_valid              => '0',
+        write_req               => '0',
+        done                    => '0',
+        read_data               => (others => '0')
+    );
+
     constant DMA2TABLE_INIT : t_dma2table := (
         req                     => '0',
         done                    => '0',
@@ -527,6 +568,19 @@ package wave_array_pkg is
         write_address           => (others => '0'),
         write_data              => (others => '0'),
         frames_log2             => 0
+    );
+
+    constant REGISTER_INPUT_INIT : t_register_input := (
+        read_enable             => '0',
+        write_enable            => '0',
+        address                 => (others => '0'),
+        write_data              => (others => '0')
+    );
+
+    constant REGISTER_OUTPUT_INIT : t_register_output := (
+        valid                   => '0',
+        fault                   => '0',
+        read_data               => (others => '0')
     );
 
     constant MIPMAP_THRESHOLDS : t_osc_phase_array(1 to MIPMAP_LEVELS - 1) := (
