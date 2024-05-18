@@ -71,6 +71,21 @@ architecture arch_no_sdram of tb_qspi is
         wait until rising_edge(s_system_clk) and s_flash_output.done = '1';
     end procedure;
 
+    procedure erase_flash (
+        signal s_flash_input        : out t_flash_input;
+        signal s_flash_output       : in  t_flash_output;
+        constant address            : in  std_logic_vector(FLASH_DEPTH_LOG2 - 1 downto 0)
+    ) is 
+    begin 
+        -- 4 byte write.
+        s_flash_input.erase_enable <= '1';
+        s_flash_input.address <= address;
+
+        wait until rising_edge(s_system_clk) and s_flash_output.ack = '1';
+        s_flash_input.erase_enable <= '0';
+    end procedure;
+
+
 begin
 
     qspi_if: entity qspi.qspi_interface
@@ -112,6 +127,9 @@ begin
         wait until rising_edge(s_system_clk) and s_reset = '0';
 
         write_flash(s_flash_input, s_flash_output, 25x"000_0100", x"00", FLASH_PAGE_SIZE);
+        read_flash(s_flash_input, s_flash_output, 25x"000_0100", FLASH_PAGE_SIZE);
+        erase_flash(s_flash_input, s_flash_output, 25x"000_0000");
+        write_flash(s_flash_input, s_flash_output, 25x"000_0100", x"55", FLASH_PAGE_SIZE);
         read_flash(s_flash_input, s_flash_output, 25x"000_0100", FLASH_PAGE_SIZE);
 
         wait;

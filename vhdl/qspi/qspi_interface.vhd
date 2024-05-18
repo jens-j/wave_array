@@ -10,9 +10,6 @@ library xil_defaultlib;
 library wave;
 use wave.wave_array_pkg.all;
 
-library qspi;
-use qspi.qspi_pkg.all;
-
 
 entity qspi_interface is
     port (
@@ -30,9 +27,21 @@ end entity;
 
 architecture arch of qspi_interface is 
 
+    -- JEDEC FLASH commands.
+    constant FLASH_CMD_READ_JEDEC       : std_logic_vector(7 downto 0) := x"9F";
+    constant FLASH_CMD_READ_STATUS_1    : std_logic_vector(7 downto 0) := x"05";
+    constant FLASH_CMD_READ_STATUS_2    : std_logic_vector(7 downto 0) := x"07";
+    constant FLASH_CMD_READ_CONFIG      : std_logic_vector(7 downto 0) := x"35";
+    constant FLASH_CMD_WRITE_ENABLE     : std_logic_vector(7 downto 0) := x"06";
+    constant FLASH_CMD_WRITE_REGISTERS  : std_logic_vector(7 downto 0) := x"01";
+    constant FLASH_CMD_4BYTE_PROGRAM    : std_logic_vector(7 downto 0) := x"12";
+    constant FLASH_CMD_4BYTE_READ       : std_logic_vector(7 downto 0) := x"13";
+    constant FLASH_CMD_4BYTE_QUAD_READ  : std_logic_vector(7 downto 0) := x"6C";
+    constant FLASH_CMD_SECTOR_ERASE     : std_logic_vector(7 downto 0) := x"DC";
+
     type t_state is 
         (init_0, init_1, init_2, init_3, init_4, 
-         idle, tx_stream_start, stream_wait, poll_wip_0, poll_wip_1);
+         idle, tx_stream_start, erase_start, wait_rx_done, poll_wip_0, poll_wip_1, poll_wip_2);
 
     type t_qspi_if_reg is record
         -- State regster.
@@ -240,12 +249,12 @@ begin
 
                 r_in.flash_output.ack <= '1';
                 r_in.tx_req <= '1';
-                r_in.tx_buffer <= FLASH_CMD_4BYTE_QUAD_READ & (0 to 31 - FLASH_DEPTH_LOG2 => '0') & flash_input.address;
+                r_in.tx_buffer <= FLASH_CMD_4BYTE_QUAD_READ & (0 to 31 - FLASH_DEPTH_LOG2 => '0') & flash_input.address; -- Extend address to 32 bits.
                 r_in.tx_counter <= 39;
                 r_in.rx_stream <= '1';
                 r_in.rx_counter <= to_integer(to_unsigned(flash_input.bytes_n, FLASH_PAGE_SIZE_LOG2 + 1) & "0") + 7; -- Convert to nibbles and add delay cycles.
-                r_in.dummy_counter <= 0;
-                r_in.state <= stream_wait;
+                r_in.dummy_counter <= 8;
+                r_in.state <= wait_rx_done;
             
             elsif flash_input.write_enable = '1' then 
 
@@ -256,6 +265,14 @@ begin
                 -- First a write enable command must be sent.
                 cmd_write_enable(r_in, tx_stream_start);
 
+            elsif flash_input.erase_enable = '1' then 
+
+                r_in.flash_output.ack <= '1';
+                r_in.address <= flash_input.address;
+
+                -- First a write enable command must be sent.
+                cmd_write_enable(r_in, erase_start);
+
             end if;
 
         when tx_stream_start => 
@@ -264,39 +281,54 @@ begin
                 r_in.tx_stream <= '1';
                 r_in.tx_buffer <= FLASH_CMD_4BYTE_PROGRAM & (0 to 31 - FLASH_DEPTH_LOG2 => '0') & r.address;
                 r_in.tx_counter <= 39 + to_integer(to_unsigned(flash_input.bytes_n, FLASH_PAGE_SIZE_LOG2 + 1) & "000"); -- Convert to bits.
-                r_in.next_state <= idle;
+                r_in.state <= poll_wip_0;
+            end if;
+
+        when erase_start => 
+            if r.rx_done = '1' then 
+                r_in.tx_req <= '1';
+                r_in.tx_buffer <= FLASH_CMD_SECTOR_ERASE 
+                    & (0 to 31 - FLASH_DEPTH_LOG2 => '0') -- Extend address to 32 bits.
+                    & r.address(FLASH_DEPTH_LOG2 - 1 downto FLASH_SECTOR_SIZE_LOG2) 
+                    & (0 to FLASH_SECTOR_SIZE_LOG2 - 1 => '0');
+                r_in.tx_counter <= 39;
                 r_in.state <= poll_wip_0;
             end if;
 
         -- Wait for the rx_done flag.
-        when stream_wait => 
+        when wait_rx_done => 
             if r.rx_done = '1' then 
                 r_in.state <= idle;
             end if;
 
-        -- Poll the WIP bit once every 1000 cycle.
+        -- Wait for the rx_done flag.
         when poll_wip_0 => 
-            if (r.rx_busy or r.tx_busy) = '0' then  
-                if r.sleep_counter < 999 then 
-                    r_in.sleep_counter <= r.sleep_counter + 1;
-                else 
-                    r_in.sleep_counter <= 0;
-                    r_in.tx_req <= '1';
-                    r_in.tx_buffer <= FLASH_CMD_READ_STATUS_1 & (0 to 31 => '0');
-                    r_in.tx_counter <= 7;
-                    r_in.rx_counter <= 7;
-                    r_in.state <= poll_wip_1;
-                end if; 
+            if r.rx_done = '1' then 
+                r_in.state <= poll_wip_1;
             end if;
 
+        -- Read the status_1 register once every 1000 cycle.
         when poll_wip_1 => 
+            if r.sleep_counter < 999 then 
+                r_in.sleep_counter <= r.sleep_counter + 1;
+            else 
+                r_in.sleep_counter <= 0;
+                r_in.tx_req <= '1';
+                r_in.tx_buffer <= FLASH_CMD_READ_STATUS_1 & (0 to 31 => '0');
+                r_in.tx_counter <= 7;
+                r_in.rx_counter <= 7;
+                r_in.state <= poll_wip_2;
+            end if; 
+
+        -- Check WIP bit.
+        when poll_wip_2 => 
             if r.rx_done = '1' then 
                 r_in.reg_status_1 <= r.rx_buffer(7 downto 0);
 
                 if r.rx_buffer(0) = '0' then 
                     r_in.state <= r.next_state;
                 else   
-                    r_in.state <= poll_wip_0;
+                    r_in.state <= poll_wip_1;
                 end if;
             end if;
 
@@ -367,12 +399,12 @@ begin
                 r_in.rx_buffer <= r.rx_buffer(30 downto 0) & QSPI_DQ(1);
             end if;
 
-            if r.dummy_counter < 8 then 
-                r_in.dummy_counter <= r.dummy_counter + 1;
+            if r.dummy_counter > 0 then 
+                r_in.dummy_counter <= r.dummy_counter - 1;
             end if;
 
             -- Send received bytes to the flash_ouput interface (after 8 dummy cycles) every even cycle.
-            if r.rx_stream = '1' and r.dummy_counter = 8  
+            if r.rx_stream = '1' and r.dummy_counter = 0  
                     and to_unsigned(r.rx_counter, FLASH_PAGE_SIZE_BITS + 1)(0) = '0' then 
 
                 r_in.flash_output.read_valid <= '1';

@@ -157,10 +157,12 @@ package wave_array_pkg is
     constant FLASH_DEPTH_LOG2       : integer := 25;
     constant FLASH_DEPTH            : integer := 2**FLASH_DEPTH_LOG2;
     constant FLASH_ADDR_WIDTH_LOG2  : integer := 32;
-    constant FLASH_PAGE_SIZE_LOG2   : integer := 8; -- In bytes.
-    constant FLASH_PAGE_SIZE        : integer := 2**FLASH_PAGE_SIZE_LOG2; -- In bytes.
-    constant FLASH_PAGE_SIZE_NIBBLES: integer := 8 * FLASH_PAGE_SIZE; -- In 4 bit nibbles.
-    constant FLASH_PAGE_SIZE_BITS   : integer := 8 * FLASH_PAGE_SIZE; -- In bytes.
+    constant FLASH_PAGE_SIZE_LOG2   : integer := 8;                         -- In bytes.
+    constant FLASH_PAGE_SIZE        : integer := 2**FLASH_PAGE_SIZE_LOG2;   -- In bytes.
+    constant FLASH_PAGE_SIZE_NIBBLES: integer := 8 * FLASH_PAGE_SIZE;       -- In 4 bit nibbles.
+    constant FLASH_PAGE_SIZE_BITS   : integer := 8 * FLASH_PAGE_SIZE;       -- In bytes.
+    constant FLASH_SECTOR_SIZE_LOG2 : integer := 16;                        -- In bytes.       
+    constant FLASH_SECTOR_SIZE      : integer := 2**FLASH_SECTOR_SIZE_LOG2; -- In bytes.       
 
     -- Register file constants.
     constant REGISTER_WIDTH         : integer := 16;
