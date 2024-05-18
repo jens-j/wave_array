@@ -156,6 +156,11 @@ package wave_array_pkg is
     constant FLASH_WIDTH            : integer := 8;
     constant FLASH_DEPTH_LOG2       : integer := 25;
     constant FLASH_DEPTH            : integer := 2**FLASH_DEPTH_LOG2;
+    constant FLASH_ADDR_WIDTH_LOG2  : integer := 32;
+    constant FLASH_PAGE_SIZE_LOG2   : integer := 8; -- In bytes.
+    constant FLASH_PAGE_SIZE        : integer := 2**FLASH_PAGE_SIZE_LOG2; -- In bytes.
+    constant FLASH_PAGE_SIZE_NIBBLES: integer := 8 * FLASH_PAGE_SIZE; -- In 4 bit nibbles.
+    constant FLASH_PAGE_SIZE_BITS   : integer := 8 * FLASH_PAGE_SIZE; -- In bytes.
 
     -- Register file constants.
     constant REGISTER_WIDTH         : integer := 16;
@@ -261,13 +266,6 @@ package wave_array_pkg is
                                                -- x"0008XX3"; -- rw 15 bit unsigned | Binaural LFO phase difference, [-180 - 180] degrees.
                                                -- x"0008XX4"; -- rw  1 bit          | One-shot mode to turn the LFO into an envelope.
                                                -- x"0008XX5"; -- wo  1 bit          | Reset LFO phase.
-
-    -- Memory mapped FLASH registers (read-only).
-    -- The addresses correspond to the flash commands.
-    constant REG_FLASH_MASK         : unsigned := x"1000000";
-    constant REG_FLASH_JEDEC        : unsigned := x"100009F";
-    constant REG_FLASH_STATUS_1     : unsigned := x"1000005";
-    constant REG_FLASH_STATUS_2     : unsigned := x"1000007";
 
      -- fault register (sticky-)bit indices.
     constant FAULT_UART_TIMEOUT     : integer := 0; -- UART packet engine timout.
@@ -471,10 +469,10 @@ package wave_array_pkg is
 
     type t_flash_input is record
         read_enable             : std_logic;
-        write_enable            : std_logic;
+        write_enable            : std_logic; 
         erase_enable            : std_logic;
-        bytes_n                 : integer range 1 to FLASH_DEPTH - 1; -- Number of 8 word bursts.
-        address                 : unsigned(FLASH_DEPTH_LOG2 - 1 downto 0);
+        bytes_n                 : integer range 1 to FLASH_PAGE_SIZE;
+        address                 : std_logic_vector(FLASH_DEPTH_LOG2 - 1 downto 0);
         write_data              : std_logic_vector(FLASH_WIDTH - 1 downto 0);
     end record;
 

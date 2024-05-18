@@ -5,6 +5,8 @@ use IEEE.numeric_std.all;
 Library UNISIM;
 use UNISIM.vcomponents.all;
 
+library xil_defaultlib;
+
 library wave;
 use wave.wave_array_pkg.all;
 
@@ -17,6 +19,8 @@ entity qspi_interface is
         system_clk              : in  std_logic;
         spi_clk                 : in  std_logic;
         reset                   : in  std_logic;
+        flash_input             : in  t_flash_input;
+        flash_output            : out t_flash_output;
         QSPI_CS                 : out std_logic;
         QSPI_SCK                : out std_logic;
         QSPI_DQ                 : inout std_logic_vector(3 downto 0)
@@ -26,47 +30,110 @@ end entity;
 
 architecture arch of qspi_interface is 
 
-    type t_state is (idle, done,
-        lower_cs, write_command, dummy_cycle, read_data);
+    type t_state is 
+        (init_0, init_1, init_2, init_3, init_4, 
+         idle, tx_stream_start, stream_wait, poll_wip_0, poll_wip_1);
 
-    type t_qspi_wrapper_reg is record
+    type t_qspi_if_reg is record
+        -- State regster.
         state                   : t_state;
         next_state              : t_state;
-        register_output         : t_register_output;
+
+        -- Output registers.
+        flash_output            : t_flash_output;
         qspi_cs                 : std_logic;
         qspi_dq                 : std_logic_vector(3 downto 0);
-        read_enable             : std_logic;
-        read_address            : std_logic_vector(7 downto 0);
-        read_data               : std_logic_vector(23 downto 0);
-        write_enable            : std_logic;
+        reg_jedec_vendor        : std_logic_vector(7 downto 0);
+        reg_jedec_device        : std_logic_vector(15 downto 0);
+        reg_status_1            : std_logic_vector(7 downto 0);
+        reg_status_2            : std_logic_vector(7 downto 0);
+        reg_config              : std_logic_vector(7 downto 0);
+
+        -- IF control registers.
         clock_enable            : std_logic;
         output_enable           : std_logic_vector(3 downto 0);
-        command                 : std_logic_vector(7 downto 0);
-        bit_counter             : integer range 0 to 23;
+
+        -- flash_input registers.
+        address                 : std_logic_vector(FLASH_DEPTH_LOG2 - 1 downto 0);
+        prefetch_counter        : integer range 0 to FLASH_PAGE_SIZE;
+        fifo_wr_en              : std_logic;
+
+        -- TX registers.
+        tx_req                  : std_logic;                                        -- Request TX start.
+        tx_stream               : std_logic;                                        -- TX stream flag.
+        tx_busy                 : std_logic;                                        -- TX busy flag.
+        tx_counter              : natural range 0 to 39 + FLASH_PAGE_SIZE_BITS;     -- TX bit counter.
+        tx_buffer               : std_logic_vector(39 downto 0);                    -- TX output buffer.
+
+        -- RX registers.
+        rx_req                  : std_logic;                                        -- Request RX start.
+        rx_stream               : std_logic;                                        -- RX stream (and quad mode) flag.
+        rx_busy                 : std_logic;                                        -- RX busy flag.
+        rx_counter              : natural range 0 to 7 + FLASH_PAGE_SIZE_NIBBLES;   -- RX bit counter.
+        rx_buffer               : std_logic_vector(31 downto 0);                    -- RX receive buffer.                    
+        rx_done                 : std_logic;                                        -- RX done strobe.
+
+        -- Misc registers. 
+        sleep_counter           : integer range 0 to 999;                           -- Count sleep cycles for WIP polling. 
+        dummy_counter           : integer range 0 to 8;                             -- Count dummy cycles in quad read.
     end record;
 
-    constant R_INIT : t_qspi_wrapper_reg := (
-        state                   => idle,
-        next_state              => idle,
-        register_output         => REGISTER_OUTPUT_INIT,
+    constant R_INIT : t_qspi_if_reg := (
+        state                   => init_0,
+        next_state              => init_0,
+        flash_output            => FLASH_OUTPUT_INIT,
         qspi_cs                 => '1',
         qspi_dq                 => (others => '0'),
-        read_enable             => '0',
-        read_address            => (others => '0'),
-        read_data               => (others => '0'),
-        write_enable            => '0',
+        reg_jedec_vendor        => (others => '0'),
+        reg_jedec_device        => (others => '0'),
+        reg_status_1            => (others => '0'),
+        reg_status_2            => (others => '0'),
+        reg_config              => (others => '0'),
         clock_enable            => '0',
         output_enable           => (others => '0'),
-        command                 => (others => '0'),
-        bit_counter             => 0
+        address                 => (others => '0'),
+        prefetch_counter        => 0,
+        fifo_wr_en              => '0',
+        tx_req                  => '0',
+        tx_stream               => '0',
+        tx_busy                 => '0',
+        tx_counter              => 0,
+        tx_buffer               => (others => '0'),
+        rx_req                  => '0',
+        rx_stream               => '0',
+        rx_busy                 => '0',
+        rx_counter              => 0,
+        rx_buffer               => (others => '0'),
+        rx_done                 => '0',
+        sleep_counter           => 0,
+        dummy_counter           => 0
     );
 
-    signal r, r_in : t_qspi_wrapper_reg := R_INIT;
+
+    signal r, r_in : t_qspi_if_reg := R_INIT;
+
+    signal s_fifo_rd_en         : std_logic;
+    signal s_fifo_dout          : std_logic_vector(FLASH_WIDTH - 1 downto 0);
+    signal s_fifo_full          : std_logic;
+    signal s_fifo_empty         : std_logic;
+    signal s_fifo_data_count    : std_logic_vector(4 downto 0);
+
+    procedure cmd_write_enable (
+        signal r_in             : out t_qspi_if_reg;
+        constant next_state     : in  t_state
+    ) is 
+    begin 
+        r_in.tx_req <= '1';
+        r_in.tx_buffer <= FLASH_CMD_WRITE_ENABLE & (0 to 31 => '0');
+        r_in.tx_counter <= 7;
+        r_in.rx_counter <= 0;
+        r_in.state <= next_state;
+    end procedure;
 
 begin 
 
     -- Instantiate spi clock gate.
-    -- This is very sketchy because the clock enable signal has 180 phase difference with the input clock.
+    -- This is sketchy because the clock enable signal has 180 phase difference with the input clock.
     BUFGCE_inst : BUFGCE_1
     port map (
         O   => QSPI_SCK,        -- 1-bit output: Clock output
@@ -79,63 +146,263 @@ begin
         QSPI_DQ(i) <= r.qspi_dq(i) when r.output_enable(i) = '1' else 'Z';
     end generate;
 
+    -- 18 word deep FWFT fifo.
+    prefetch : entity xil_defaultlib.flash_fifo
+    port map (
+        clk                     => system_clk,
+        srst                    => reset,
+        din                     => flash_input.write_data,
+        wr_en                   => r.fifo_wr_en,
+        rd_en                   => s_fifo_rd_en,
+        dout                    => s_fifo_dout,
+        full                    => s_fifo_full,
+        empty                   => s_fifo_empty,
+        data_count              => s_fifo_data_count
+    );
+
     -- Connect output registers.
     qspi_cs <= r.qspi_cs;
+    flash_output <= r.flash_output;
 
-
-    comb_proc : process (r, QSPI_DQ)
+    state_proc : process (r, QSPI_DQ, flash_input, s_fifo_dout, s_fifo_data_count)
     begin 
 
         r_in <= r;
+        r_in.flash_output.ack <= '0';
+        r_in.flash_output.read_valid <= '0';
+        r_in.flash_output.write_req <= '0';
+        r_in.flash_output.done <= '0';
+        r_in.fifo_wr_en <= '0';
+        r_in.rx_done <= '0';
+        s_fifo_rd_en <= '0';
+
+        -- Prefetch write words to avoid latency issues with handshaking. Wait for the write_enable is deasserted to start prefetching after the ack is returned. 
+        if r.prefetch_counter > 0 and to_integer(unsigned(s_fifo_data_count)) < 16  
+                and flash_input.write_enable = '0' then
+
+            r_in.fifo_wr_en <= '1';
+            r_in.prefetch_counter <= r.prefetch_counter - 1;
+            
+            if r.prefetch_counter = 1 then
+                r_in.flash_output.done <= '1';
+            else
+                r_in.flash_output.write_req <= '1';
+            end if;
+        end if;
         
         case r.state is 
+
+        -- Read JEDEC register.
+        when init_0 => 
+            r_in.tx_req <= '1';
+            r_in.tx_buffer <= FLASH_CMD_READ_JEDEC & (0 to 31 => '0');
+            r_in.tx_counter <= 7;
+            r_in.rx_counter <= 23;
+            r_in.state <= init_1;
+
+        -- register JEDEC values, send write enable command.
+        when init_1 => 
+            if r.rx_done = '1' then 
+                r_in.reg_jedec_vendor <= r.rx_buffer(23 downto 16);
+                r_in.reg_jedec_device <= r.rx_buffer(15 downto 0);
+                cmd_write_enable(r_in, init_2);
+            end if;
+
+        -- Write registers. 
+        when init_2 =>
+            if r.rx_done = '1' then 
+                r_in.tx_req <= '1';
+                r_in.tx_buffer <= FLASH_CMD_WRITE_REGISTERS & x"0002" & (0 to 15 => '0');
+                r_in.tx_counter <= 23;
+                r_in.rx_counter <= 0;
+                r_in.next_state <= init_3;
+                r_in.state <= poll_wip_0;
+            end if;
+
+        -- Issue read config command.
+        when init_3 => 
+            r_in.tx_req <= '1';
+            r_in.tx_buffer <= FLASH_CMD_READ_CONFIG & (0 to 31 => '0');
+            r_in.tx_counter <= 7;
+            r_in.rx_counter <= 7;
+            r_in.state <= init_4;
+
+        -- Register config value.
+        when init_4 => 
+            if r.rx_done = '1' then 
+                r_in.reg_config <= r.rx_buffer(7 downto 0);
+                r_in.state <= idle;
+            end if;
+
+        -- Wait for read_ or write_enable.
         when idle => 
-            r_in.read_data <= (others => '0');
-            r_in.command <= x"9F";
-            r_in.bit_counter <= 7;
-            r_in.state <= lower_cs;
+            if flash_input.read_enable = '1' then 
 
-        when lower_cs => 
-            r_in.qspi_cs <= '0';
-            r_in.clock_enable <= '1';
-            r_in.output_enable <= "0001";
-            r_in.state <= write_command;
-
-        when write_command => 
-
-            r_in.qspi_dq(0) <= r.command(r.bit_counter);
+                r_in.flash_output.ack <= '1';
+                r_in.tx_req <= '1';
+                r_in.tx_buffer <= FLASH_CMD_4BYTE_QUAD_READ & (0 to 31 - FLASH_DEPTH_LOG2 => '0') & flash_input.address;
+                r_in.tx_counter <= 39;
+                r_in.rx_stream <= '1';
+                r_in.rx_counter <= to_integer(to_unsigned(flash_input.bytes_n, FLASH_PAGE_SIZE_LOG2 + 1) & "0") + 7; -- Convert to nibbles and add delay cycles.
+                r_in.dummy_counter <= 0;
+                r_in.state <= stream_wait;
             
-            if r.bit_counter > 0 then 
-                r_in.bit_counter <= r.bit_counter - 1;
-            else 
-                r_in.state <= dummy_cycle;
+            elsif flash_input.write_enable = '1' then 
+
+                r_in.flash_output.ack <= '1';
+                r_in.address <= flash_input.address;
+                r_in.prefetch_counter <= flash_input.bytes_n;
+
+                -- First a write enable command must be sent.
+                cmd_write_enable(r_in, tx_stream_start);
+
             end if;
 
-        when dummy_cycle =>
-            r_in.output_enable <= "0000";
-            r_in.bit_counter <= 23;
-            r_in.state <= read_data;
-
-        when read_data => 
-
-            r_in.read_data(r.bit_counter) <= QSPI_DQ(1);
-
-            if r.bit_counter = 1 then 
-                r_in.clock_enable <= '0';
-            end if;
-            
-            if r.bit_counter > 0 then 
-                r_in.bit_counter <= r.bit_counter - 1;
-            else 
-                r_in.qspi_cs <= '1';
-                r_in.state <= done;
+        when tx_stream_start => 
+            if r.rx_done = '1' then 
+                r_in.tx_req <= '1';
+                r_in.tx_stream <= '1';
+                r_in.tx_buffer <= FLASH_CMD_4BYTE_PROGRAM & (0 to 31 - FLASH_DEPTH_LOG2 => '0') & r.address;
+                r_in.tx_counter <= 39 + to_integer(to_unsigned(flash_input.bytes_n, FLASH_PAGE_SIZE_LOG2 + 1) & "000"); -- Convert to bits.
+                r_in.next_state <= idle;
+                r_in.state <= poll_wip_0;
             end if;
 
-        when done =>
+        -- Wait for the rx_done flag.
+        when stream_wait => 
+            if r.rx_done = '1' then 
+                r_in.state <= idle;
+            end if;
+
+        -- Poll the WIP bit once every 1000 cycle.
+        when poll_wip_0 => 
+            if (r.rx_busy or r.tx_busy) = '0' then  
+                if r.sleep_counter < 999 then 
+                    r_in.sleep_counter <= r.sleep_counter + 1;
+                else 
+                    r_in.sleep_counter <= 0;
+                    r_in.tx_req <= '1';
+                    r_in.tx_buffer <= FLASH_CMD_READ_STATUS_1 & (0 to 31 => '0');
+                    r_in.tx_counter <= 7;
+                    r_in.rx_counter <= 7;
+                    r_in.state <= poll_wip_1;
+                end if; 
+            end if;
+
+        when poll_wip_1 => 
+            if r.rx_done = '1' then 
+                r_in.reg_status_1 <= r.rx_buffer(7 downto 0);
+
+                if r.rx_buffer(0) = '0' then 
+                    r_in.state <= r.next_state;
+                else   
+                    r_in.state <= poll_wip_0;
+                end if;
+            end if;
 
         end case;
 
+        -- Start transmission.
+        if r.tx_req = '1' then 
+            r_in.tx_req <= '0';
+            r_in.tx_busy <= '1';
+            r_in.qspi_cs <= '0';
+            r_in.clock_enable <= '1';
+            r_in.qspi_dq <= "0000";
+            r_in.output_enable <= "0001";
+        end if;
+
+        -- Output TX bits.
+        if r.tx_busy = '1' then 
+
+            -- Shift out TX bits
+            r_in.qspi_dq(0) <= r.tx_buffer(39);
+            r_in.tx_buffer <= r.tx_buffer(38 downto 0) & '0';
+
+            -- Insert bytes from the fifo into the TX buffer
+            if r.tx_stream = '1' and unsigned(s_fifo_data_count) > 0
+                    and to_unsigned(r.tx_counter, FLASH_PAGE_SIZE_BITS + 1)(2 downto 0) = "000" then 
+
+                r_in.tx_buffer(7 downto 0) <= s_fifo_dout;
+                s_fifo_rd_en <= '1';
+            else 
+                
+            end if;
+
+            if r.tx_counter > 0 then 
+                r_in.tx_counter <= r.tx_counter - 1;
+            else 
+                r_in.tx_busy <= '0';
+                r_in.tx_stream <= '0';
+                r_in.rx_req <= '1';
+
+                if r.rx_counter = 0 then 
+                    r_in.clock_enable <= '0';
+                end if;
+            end if;
+        end if;
+
+        -- Start RX, end transaction if no RX data is expected. 
+        if r.rx_req = '1' then 
+            r_in.rx_req <= '0';
+            r_in.output_enable <= "0000";
+            r_in.rx_buffer <= (others => '0');
+
+            if r.rx_counter = 0 then 
+                r_in.qspi_cs <= '1';
+                r_in.rx_done <= '1';
+            else 
+                r_in.rx_busy <= '1';
+            end if;
+
+        end if; 
+
+        -- Receive RX data.
+        if r.rx_busy = '1' then 
+
+            -- Shift in RX bits.
+            if r.rx_stream = '1' then 
+                r_in.flash_output.read_data <= r.flash_output.read_data(3 downto 0) & QSPI_DQ;
+            else 
+                r_in.rx_buffer <= r.rx_buffer(30 downto 0) & QSPI_DQ(1);
+            end if;
+
+            if r.dummy_counter < 8 then 
+                r_in.dummy_counter <= r.dummy_counter + 1;
+            end if;
+
+            -- Send received bytes to the flash_ouput interface (after 8 dummy cycles) every even cycle.
+            if r.rx_stream = '1' and r.dummy_counter = 8  
+                    and to_unsigned(r.rx_counter, FLASH_PAGE_SIZE_BITS + 1)(0) = '0' then 
+
+                r_in.flash_output.read_valid <= '1';
+            end if; 
+
+            if r.rx_counter = 1 then 
+                r_in.clock_enable <= '0';
+            end if;
+
+            if r.rx_counter > 0 then 
+                r_in.rx_counter <= r.rx_counter - 1;
+            else 
+                r_in.rx_busy <= '0';
+                r_in.rx_stream <= '0';
+                r_in.rx_done <= '1';
+                r_in.qspi_cs <= '1';
+                r_in.flash_output.done <= '1';
+            end if;
+        end if;
+
+
     end process;
+
+
+    tx_proc : process (r)
+    begin 
+
+        
+
+    end process; 
 
     reg_process : process(system_clk)
     begin
