@@ -97,7 +97,11 @@ begin
         flash_output            => s_flash_output,
         QSPI_CS                 => s_qspi_cs,
         QSPI_SCK                => s_qspi_sck,
-        QSPI_DQ                 => s_qspi_dq
+        QSPI_DQ                 => s_qspi_dq,
+        reg_jedec_vendor        => open,
+        reg_jedec_device        => open,
+        reg_status_1            => open,
+        reg_config              => open
     );
 
     flash_model : entity flash.s25fl256s
