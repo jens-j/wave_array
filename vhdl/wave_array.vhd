@@ -143,6 +143,11 @@ architecture arch of wave_array is
     signal s_osc_samples        : t_mono_sample_array(0 to POLYPHONY_MAX - 1);
     signal s_filter_samples     : t_mono_sample_array(0 to POLYPHONY_MAX - 1);
     signal s_addrgen_outputs    : t_addrgen_output_array;
+
+    signal s_qspi_jedec_vendor   : std_logic(7 downto 0);
+    signal s_qspi_jedec_device   : std_logic_vector(15 downto 0);
+    signal s_qspi_status_1       : std_logic_vector(7 downto 0);
+    signal s_qspi_config         : std_logic_vector(7 downto 0);
     
 
 begin
@@ -166,6 +171,11 @@ begin
     s_status.debug_wave_timer   <= s_debug_wave_timer;
     s_status.debug_wave_flags   <= s_debug_wave_flags;
     s_status.debug_uart_flags   <= s_debug_uart_flags;
+    s_status.qspi_jedec_vendor  <= s_qspi_jedec_vendor;
+    s_status.qspi_jedec_device  <= s_qspi_jedec_device;
+    s_status.qspi_status_1      <= s_qspi_status_1;
+    s_status.qspi_config        <= s_qspi_config;
+
     
 
     status_gen : for i in 0 to POLYPHONY_MAX - 1 generate 
@@ -352,6 +362,22 @@ begin
         DDR3_CKE                => DDR3_CKE,
         DDR3_DM                 => DDR3_DM,
         DDR3_ODT                => DDR3_ODT
+    );
+
+    qspi_if: entity qspi.qspi_interface
+    port map (
+        system_clk              => s_system_clk,
+        spi_clk                 => s_spi_clk,
+        reset                   => s_reset,
+        flash_input             => s_flash_input,
+        flash_output            => s_flash_output,
+        QSPI_CS                 => s_qspi_cs,
+        QSPI_SCK                => s_qspi_sck,
+        QSPI_DQ                 => s_qspi_dq,
+        reg_jedec_vendor        => s_qspi_jedec_vendor,
+        reg_jedec_device        => s_qspi_jedec_device,
+        reg_status_1            => s_qspi_status_1,
+        reg_config              => s_qspi_config
     );
 
     -- microblaze_sys : entity wave.microblaze_sys_wrapper

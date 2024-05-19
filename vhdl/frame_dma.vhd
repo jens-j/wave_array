@@ -62,7 +62,7 @@ begin
         r_in.dma2table(i).write_data <= (others => '0');
 
         -- Register new_table strobes as sticky bits.
-        r_in.new_table(i) <= '1' when config.dma_input(i).new_table = '1';
+        r_in.new_table(i) <= '1' when config.frame_dma_input(i).new_table = '1';
     end loop;
 
     case r.state is 
@@ -91,11 +91,11 @@ begin
     -- Initiate wavetable DMA by issueing an SDRAM read. 
     when sdram_read => 
 
-        r_in.sdram_input.address <= config.dma_input(r.table_index).base_address;
-        r_in.sdram_input.burst_n <= 2**config.dma_input(r.table_index).frames_log2 * MIPMAP_TABLE_SIZE / 8; -- Number of bursts of 8 words.
+        r_in.sdram_input.address <= config.frame_dma_input(r.table_index).base_address;
+        r_in.sdram_input.burst_n <= 2**config.frame_dma_input(r.table_index).frames_log2 * MIPMAP_TABLE_SIZE / 8; -- Number of bursts of 8 words.
 
         -- Register and wait until the DMA transfer is complete to update the table size.
-        r_in.frames_log2 <= config.dma_input(r.table_index).frames_log2;
+        r_in.frames_log2 <= config.frame_dma_input(r.table_index).frames_log2;
 
         if sdram_output.ack = '1' then
             r_in.wavetable_address <= (others => '0');
