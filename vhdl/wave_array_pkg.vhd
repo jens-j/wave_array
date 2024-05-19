@@ -161,8 +161,13 @@ package wave_array_pkg is
     constant FLASH_PAGE_SIZE        : integer := 2**FLASH_PAGE_SIZE_LOG2;   -- In bytes.
     constant FLASH_PAGE_SIZE_NIBBLES: integer := 8 * FLASH_PAGE_SIZE;       -- In 4 bit nibbles.
     constant FLASH_PAGE_SIZE_BITS   : integer := 8 * FLASH_PAGE_SIZE;       -- In bytes.
+    constant FLASH_PAGES_N_LOG2     : integer := FLASH_DEPTH_LOG2 - FLASH_PAGE_SIZE_LOG2;
+    constant FLASH_PAGES_N          : integer := FLASH_DEPTH // FLASH_PAGE_SIZE;
     constant FLASH_SECTOR_SIZE_LOG2 : integer := 16;                        -- In bytes.       
-    constant FLASH_SECTOR_SIZE      : integer := 2**FLASH_SECTOR_SIZE_LOG2; -- In bytes.       
+    constant FLASH_SECTOR_SIZE      : integer := 2**FLASH_SECTOR_SIZE_LOG2; -- In bytes.      
+    constant FLASH_SECTORS_N        : integer := FLASH_DEPTH // FLASH_SECTOR_SIZE;    
+    constant FLASH_PAGES_PER_SECTOR_LOG2 : integer := FLASH_SECTOR_SIZE_LOG2 - FLASH_PAGE_SIZE_LOG2;    
+    constant FLASH_PAGES_PER_SECTOR : integer := FLASH_SECTOR_SIZE // FLASH_PAGE_SIZE;    
 
     -- Register file constants.
     constant REGISTER_WIDTH         : integer := 16;
@@ -240,6 +245,11 @@ package wave_array_pkg is
 
     constant REG_WAVE_ENABLE        : unsigned := x"0000902"; -- rw  1 bit          | Write '1' to enable wave offload.
     constant REG_WAVE_PERIOD        : unsigned := x"0000903"; -- rw 16 bit unsigned | Wave offoad update period in steps of 1024 cycles (~10 us).
+
+    constant REG_QSPI_JEDEC_VENDOR  : unsigned := x"0000A00"; -- ro  8 bit          | FLASH JEDEC vendor ID. 
+    constant REG_QSPI_JEDEC_DEVICE  : unsigned := x"0000A01"; -- ro 16 bit          | FLASH JEDEC device ID. 
+    constant REG_QSPI_STATUS_1      : unsigned := x"0000A02"; -- ro  8 bit          | FLASH status_1 register. 
+    constant REG_QSPI_CONFIG        : unsigned := x"0000A03"; -- ro  8 bit          | FLASH config register. 
 
     -- Base addresses for stuff that has multiple similar registers.
     constant REG_MOD_MAP_BASE       : unsigned := x"0001000"; -- Mod mapping starts here. Ordered major to minor, [destination, source (address, value)]
@@ -363,13 +373,21 @@ package wave_array_pkg is
     type t_mod_mapping_2d_array is array (0 to MODD_LEN - 1) of t_mod_mapping_array;
 
 
-    type t_dma_input is record 
+    type t_frame_dma_input is record 
         new_table               : std_logic;                               -- Pulse indicating a new table should be loaded.
         base_address            : unsigned(SDRAM_DEPTH_LOG2 - 1 downto 0); -- SDRAM base address of current mipmap table.
-        frames_log2             : integer range 0 to FRAMES_MAX_LOG2; -- Log2 of number of frames in the wavetable - 1.
+        frames_log2             : integer range 0 to FRAMES_MAX_LOG2;      -- Log2 of number of frames in the wavetable - 1.
     end record;
 
-    type t_dma_input_array is array (0 to N_TABLES - 1) of t_dma_input;
+    type t_frame_dma_input_array is array (0 to N_TABLES - 1) of t_frame_dma_input;
+
+    type t_flash_dma_input is record 
+        start_sdram_to_flash    : std_logic;
+        start_flash_to_sdram    : std_logic;
+        sdram_address           : unsigned(SDRAM_DEPTH_LOG2 - 1 downto 0);
+        flash_address           : unsigned(FLASH_DEPTH_LOG2 - 1 downto 0);
+        sectors_n               : integer range 1 to FLASH_SECTORS_N;
+    end record;
 
     type t_lfo_input is record 
         wave_select             : integer range 0 to LFO_N_WAVEFORMS - 1;
@@ -406,7 +424,8 @@ package wave_array_pkg is
         filter_select           : integer range 0 to 4;
         lfo_input               : t_lfo_input_array(0 to LFO_N - 1);
         envelope_input          : t_envelope_input_array(0 to ENV_N - 1);
-        dma_input               : t_dma_input_array;
+        frame_dma_input         : t_frame_dma_input_array;
+        flash_dma_input         : t_flash_dma_input;
         noise_select            : std_logic;
         midi_channel            : integer range 0 to 15;
     end record;
@@ -420,6 +439,10 @@ package wave_array_pkg is
         active_oscillators      : integer range 1 to N_VOICES; -- Total active oscillators depending on the unison and binaural settings.
         mod_sources             : t_mods_array;
         mod_destinations        : t_modd_array;
+        qspi_jedec_vendor       : std_logic_vector(7 downto 0);
+        qspi_jedec_device       : std_logic_vector(15 downto 0);
+        qspi_status_1           : std_logic_vector(7 downto 0);
+        qspi_config             : std_logic_vector(7 downto 0);
         debug_wave_state        : integer;
         debug_wave_fifo_count   : integer;
         debug_wave_timer        : std_logic_vector(15 downto 0); -- Only 16 lsb.
@@ -522,10 +545,18 @@ package wave_array_pkg is
         amount                  => (others => '0')
     );
 
-    constant DMA_INPUT_INIT : t_dma_input := (
-        new_table               => '0',             -- Pulse indicating a new table should be loaded.
-        base_address            => (others => '0'), -- SDRAM base address of current mipmap table.
-        frames_log2             => 0                -- Log2 of number of frames in the wavetable.
+    constant FRAME_DMA_INPUT_INIT : t_frame_dma_input := (
+        new_table               => '0',             
+        base_address            => (others => '0'), 
+        frames_log2             => 0              
+    );
+
+    constant FLASH_DMA_INPUT_INIT : t_frame_dma_input := (
+        start_sdram_to_flash    => '0',
+        start_flash_to_sdram    => '0',
+        sdram_address           => (others => '0'), 
+        flash_address           => (others => '0'), 
+        sectors_n               => 1,
     );
 
     constant SDRAM_INPUT_INIT : t_sdram_input := (
@@ -702,7 +733,8 @@ package body wave_array_pkg is
             filter_select           => 0, -- Lowpass
             lfo_input               => (others => (0, '0', (others => '0'), '0', x"0000", '0')),
             envelope_input          => (others => (x"0000", x"0000", x"7FFF", x"0000", '0')),
-            dma_input               => (others => DMA_INPUT_INIT),
+            frame_dma_input         => (others => FRAME_DMA_INPUT_INIT),
+            flash_dma_input         => FLASH_DMA_INPUT_INIT,
             noise_select            => '0',
             midi_channel            => 13
         );

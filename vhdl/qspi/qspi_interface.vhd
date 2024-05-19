@@ -20,7 +20,11 @@ entity qspi_interface is
         flash_output            : out t_flash_output;
         QSPI_CS                 : out std_logic;
         QSPI_SCK                : out std_logic;
-        QSPI_DQ                 : inout std_logic_vector(3 downto 0)
+        QSPI_DQ                 : inout std_logic_vector(3 downto 0);
+        reg_jedec_vendor        : out std_logic(7 downto 0);
+        reg_jedec_device        : out std_logic_vector(15 downto 0);
+        reg_status_1            : out std_logic_vector(7 downto 0);
+        reg_config              : out std_logic_vector(7 downto 0);
     );
 end entity;
 
@@ -55,7 +59,6 @@ architecture arch of qspi_interface is
         reg_jedec_vendor        : std_logic_vector(7 downto 0);
         reg_jedec_device        : std_logic_vector(15 downto 0);
         reg_status_1            : std_logic_vector(7 downto 0);
-        reg_status_2            : std_logic_vector(7 downto 0);
         reg_config              : std_logic_vector(7 downto 0);
 
         -- IF control registers.
@@ -96,7 +99,6 @@ architecture arch of qspi_interface is
         reg_jedec_vendor        => (others => '0'),
         reg_jedec_device        => (others => '0'),
         reg_status_1            => (others => '0'),
-        reg_status_2            => (others => '0'),
         reg_config              => (others => '0'),
         clock_enable            => '0',
         output_enable           => (others => '0'),
@@ -172,6 +174,11 @@ begin
     -- Connect output registers.
     qspi_cs <= r.qspi_cs;
     flash_output <= r.flash_output;
+    reg_jedec_vendor <= r.reg_jedec_vendor;
+    reg_jedec_device <= r.reg_jedec_device;
+    reg_status_1 <= r.reg_status_1;
+    reg_config <= r.reg_config;
+
 
     state_proc : process (r, QSPI_DQ, flash_input, s_fifo_dout, s_fifo_data_count)
     begin 

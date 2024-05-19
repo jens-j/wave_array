@@ -87,7 +87,7 @@ begin
 
         -- Clear new_table output after one cycle.
         for i in 0 to N_TABLES - 1 loop 
-            r_in.config.dma_input(i).new_table <= '0'; 
+            r_in.config.frame_dma_input(i).new_table <= '0'; 
         end loop;
 
         -- Update config on next_sample pulse. 
@@ -100,7 +100,7 @@ begin
 
             -- Reset new_table flags.
             for i in 0 to N_TABLES - 1 loop 
-                r_in.config_buffer.dma_input(i).new_table <= '0'; 
+                r_in.config_buffer.frame_dma_input(i).new_table <= '0'; 
             end loop;
 
             -- Reset LFO reset flags.
@@ -196,6 +196,18 @@ begin
             elsif register_input.address = REG_VOLUME_CTRL then
                 r_in.register_output.read_data <= std_logic_vector(r.config.base_ctrl(MODD_VOLUME));
 
+            elsif register_input.address = REG_QSPI_JEDEC_VENDOR then
+                r_in.register_output.read_data(7 downto 0) <= r.status.qspi_jedec_vendor;
+
+            elsif register_input.address = REG_QSPI_JEDEC_DEVICE then
+                r_in.register_output.read_data <= r.status.qspi_jedec_device;
+
+            elsif register_input.address = REG_QSPI_STATUS_1 then
+                r_in.register_output.read_data(7 downto 0) <= r.status.qspi_status_1;
+            
+            elsif register_input.address = REG_QSPI_CONFIG then
+                r_in.register_output.read_data(7 downto 0) <= r.status.qspi_config;
+
             -- Read oscillator frequency mod control base value registers.
             elsif register_input.address >= REG_FREQ_CTRL_BASE 
                     and register_input.address < REG_FREQ_CTRL_BASE + N_TABLES then
@@ -237,16 +249,16 @@ begin
                 case v_rel_address(3 downto 0) is 
                 when x"0" =>
                     r_in.register_output.read_data <= std_logic_vector(
-                        r.config.dma_input(v_table_index).base_address(REGISTER_WIDTH - 1 downto 0));
+                        r.config.frame_dma_input(v_table_index).base_address(REGISTER_WIDTH - 1 downto 0));
                 
                 when x"1" => 
                     r_in.register_output.read_data <= std_logic_vector(resize(
-                        r.config.dma_input(v_table_index).base_address(SDRAM_DEPTH_LOG2 - 1 downto REGISTER_WIDTH),
+                        r.config.frame_dma_input(v_table_index).base_address(SDRAM_DEPTH_LOG2 - 1 downto REGISTER_WIDTH),
                         REGISTER_WIDTH));
 
                 when x"2" => 
                     r_in.register_output.read_data <= std_logic_vector(
-                            to_unsigned(r.config.dma_input(v_table_index).frames_log2, REGISTER_WIDTH));
+                            to_unsigned(r.config.frame_dma_input(v_table_index).frames_log2, REGISTER_WIDTH));
                 
                 when others => 
                     r_in.register_output.valid <= '0';
@@ -452,19 +464,19 @@ begin
 
                 case v_rel_address(3 downto 0) is 
                 when x"0" =>
-                    r_in.config_buffer.dma_input(v_table_index).base_address(REGISTER_WIDTH - 1 downto 0) <= 
+                    r_in.config_buffer.frame_dma_input(v_table_index).base_address(REGISTER_WIDTH - 1 downto 0) <= 
                         unsigned(register_input.write_data);
                 
                 when x"1" => 
-                    r_in.config_buffer.dma_input(v_table_index).base_address(SDRAM_DEPTH_LOG2 - 1 downto REGISTER_WIDTH) <= 
+                    r_in.config_buffer.frame_dma_input(v_table_index).base_address(SDRAM_DEPTH_LOG2 - 1 downto REGISTER_WIDTH) <= 
                         unsigned(register_input.write_data(SDRAM_DEPTH_LOG2 - REGISTER_WIDTH - 1 downto 0));
 
                 when x"2" => 
-                    r_in.config_buffer.dma_input(v_table_index).frames_log2 <= 
+                    r_in.config_buffer.frame_dma_input(v_table_index).frames_log2 <= 
                         minimum(FRAMES_MAX_LOG2, to_integer(unsigned(register_input.write_data)));
                 
                 when x"3" => 
-                    r_in.config_buffer.dma_input(v_table_index).new_table <= '1';
+                    r_in.config_buffer.frame_dma_input(v_table_index).new_table <= '1';
 
                 when others => 
                     r_in.register_output.valid <= '0';
