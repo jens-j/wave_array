@@ -30,7 +30,7 @@ architecture arch_no_sdram of tb_wave_array is
     signal s_leds                   : std_logic_vector(7 downto 0) := (others => '0');
     signal s_switches               : std_logic_vector(7 downto 0) := (others => '0');
 
-    signal s_qspi_sclk              : std_logic;
+    signal s_qspi_sck               : std_logic;
     signal s_qspi_cs                : std_logic;
     signal s_qspi_dq                : std_logic_vector(3 downto 0);
 
@@ -88,7 +88,7 @@ begin
         I2S_SCLK                => s_sclk,
         I2S_WSEL                => s_wsel,
         I2S_SDATA               => s_sdata,
-        QSPI_SCLK               => s_qspi_sclk,
+        QSPI_SCK                => s_qspi_sck,
         QSPI_CS                 => s_qspi_cs,
         QSPI_DQ                 => s_qspi_dq,
         DDR3_DQ                 => s_sdram_dq,
@@ -107,8 +107,25 @@ begin
         DDR3_ODT                => s_sdram_odt
     );
 
+    flash_model : entity flash.s25fl256s
+    generic map (
+        TimingModel             => "S25FL256SAGMFI000_R_30pF.sdf",
+        MsgOn                   => true,
+        LongTimming             => false
+    )
+    port map (
+
+        SI                      => s_qspi_dq(0), -- serial data input/IO0
+        SO                      => s_qspi_dq(1), -- serial data output/IO1
+        SCK                     => s_qspi_sck,   -- serial clock input
+        CSNeg                   => s_qspi_cs,    -- chip select input
+        RSTNeg                  => s_resetn,     -- hardware reset pin
+        WPNeg                   => s_qspi_dq(2), -- write protect input/IO2
+        HOLDNeg                 => s_qspi_dq(3)  -- hold input/IO3
+    );
+
     s_clk <= not s_clk after 5 ns;
-    s_resetn <= '1' after 1 us;
+    s_resetn <= '1' after 320 us; -- 300 us reset required for flash model.
     s_reset <= not s_resetn;
     s_switches <= x"00";
 

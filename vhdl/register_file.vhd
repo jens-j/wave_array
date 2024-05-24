@@ -90,6 +90,10 @@ begin
             r_in.config.frame_dma_input(i).new_table <= '0'; 
         end loop;
 
+        -- Clear flash dma triggers after one cycle. 
+        r_in.config.flash_dma_input.start_flash_to_sdram <= '0';
+        r_in.config.flash_dma_input.start_sdram_to_flash <= '0';
+
         -- Update config on next_sample pulse. 
         if next_sample = '1' then 
 
@@ -98,15 +102,19 @@ begin
             r_in.active_voices <= r.active_voices_buffer;
             r_in.active_oscillators <= r.active_oscillators_buffer;
 
-            -- Reset new_table flags.
+            -- Reset new_table triggers.
             for i in 0 to N_TABLES - 1 loop 
                 r_in.config_buffer.frame_dma_input(i).new_table <= '0'; 
             end loop;
 
-            -- Reset LFO reset flags.
+            -- Reset LFO reset triggers.
             for i in 0 to LFO_N - 1 loop
                 r_in.config_buffer.lfo_input(i).reset <= '0';
             end loop;
+
+            -- Reset DMA triggers.
+            r_in.config_buffer.flash_dma_input.start_flash_to_sdram <= '0';
+            r_in.config_buffer.flash_dma_input.start_sdram_to_flash <= '0';
         end if;
 
         -- Lookup derived parameters based on unison setting.
@@ -193,20 +201,41 @@ begin
             elsif register_input.address = REG_FILTER_SELECT then
                 r_in.register_output.read_data(2 downto 0) <= std_logic_vector(to_unsigned(r.config.filter_select, 3));
 
+            elsif register_input.address = REG_DMA_BUSY then
+                r_in.register_output.read_data(0) <= status.flash_dma_busy;
+
+            elsif register_input.address = REG_DMA_FLASH_ADDR_LO then
+                r_in.register_output.read_data <= std_logic_vector(r.config.flash_dma_input.sdram_address(15 downto 0));
+
+            elsif register_input.address = REG_DMA_FLASH_ADDR_HI then
+                r_in.register_output.read_data(FLASH_DEPTH_LOG2 - 17 downto 0) 
+                    <= std_logic_vector(r.config.flash_dma_input.sdram_address(FLASH_DEPTH_LOG2 - 1 downto 16));
+
+            elsif register_input.address = REG_DMA_SDRAM_ADDR_LO then
+                r_in.register_output.read_data <= std_logic_vector(r.config.flash_dma_input.sdram_address(15 downto 0));
+
+            elsif register_input.address = REG_DMA_SDRAM_ADDR_HI then
+                r_in.register_output.read_data(SDRAM_DEPTH_LOG2 - 17 downto 0) 
+                    <= std_logic_vector(r.config.flash_dma_input.sdram_address(SDRAM_DEPTH_LOG2 - 1 downto 16));
+
+            elsif register_input.address = REG_DMA_SECTOR_N then
+                r_in.register_output.read_data(FLASH_SECTOR_N_LOG2 - 1 downto 0) 
+                    <= std_logic_vector(to_unsigned(config.flash_dma_input.sector_n, FLASH_SECTOR_N_LOG2));
+
             elsif register_input.address = REG_VOLUME_CTRL then
                 r_in.register_output.read_data <= std_logic_vector(r.config.base_ctrl(MODD_VOLUME));
 
             elsif register_input.address = REG_QSPI_JEDEC_VENDOR then
-                r_in.register_output.read_data(7 downto 0) <= r.status.qspi_jedec_vendor;
+                r_in.register_output.read_data(7 downto 0) <= status.qspi_jedec_vendor;
 
             elsif register_input.address = REG_QSPI_JEDEC_DEVICE then
-                r_in.register_output.read_data <= r.status.qspi_jedec_device;
+                r_in.register_output.read_data <= status.qspi_jedec_device;
 
             elsif register_input.address = REG_QSPI_STATUS_1 then
-                r_in.register_output.read_data(7 downto 0) <= r.status.qspi_status_1;
+                r_in.register_output.read_data(7 downto 0) <= status.qspi_status_1;
             
             elsif register_input.address = REG_QSPI_CONFIG then
-                r_in.register_output.read_data(7 downto 0) <= r.status.qspi_config;
+                r_in.register_output.read_data(7 downto 0) <= status.qspi_config;
 
             -- Read oscillator frequency mod control base value registers.
             elsif register_input.address >= REG_FREQ_CTRL_BASE 
@@ -420,9 +449,32 @@ begin
                     r_in.config_buffer.filter_select <= 4;
                 end if;
 
-            elsif register_input.address = REG_VOLUME_CTRL then
-                r_in.config_buffer.base_ctrl(MODD_VOLUME) <= signed(register_input.write_data); 
+            elsif register_input.address = REG_DMA_START_S2F then
+                r_in.config_buffer.flash_dma_input.start_sdram_to_flash <= register_input.write_data(0);
 
+            elsif register_input.address = REG_DMA_START_F2S then
+                r_in.config_buffer.flash_dma_input.start_flash_to_sdram <= register_input.write_data(0);
+
+            elsif register_input.address = REG_DMA_START_S2F then
+                r_in.config_buffer.flash_dma_input.start_sdram_to_flash <= register_input.write_data(0);
+
+            elsif register_input.address = REG_DMA_FLASH_ADDR_LO then
+                r_in.config_buffer.flash_dma_input.flash_address(15 downto 0) <= unsigned(register_input.write_data); 
+
+            elsif register_input.address = REG_DMA_FLASH_ADDR_HI then
+                r_in.config_buffer.flash_dma_input.flash_address(FLASH_DEPTH_LOG2 - 1 downto 16) 
+                    <= unsigned(register_input.write_data(FLASH_DEPTH_LOG2 - 17 downto 0));  
+
+            elsif register_input.address = REG_DMA_SDRAM_ADDR_LO then
+                r_in.config_buffer.flash_dma_input.sdram_address(15 downto 0) <= unsigned(register_input.write_data); 
+
+            elsif register_input.address = REG_DMA_SDRAM_ADDR_HI then
+                r_in.config_buffer.flash_dma_input.sdram_address(SDRAM_DEPTH_LOG2 - 1 downto 16) 
+                    <= unsigned(register_input.write_data(SDRAM_DEPTH_LOG2 - 17 downto 0));  
+
+            elsif register_input.address = REG_DMA_SECTOR_N then
+                r_in.config_buffer.flash_dma_input.sector_n 
+                    <= to_integer(unsigned(register_input.write_data(FLASH_SECTOR_N_LOG2 - 1 downto 0)));
             
             -- oscillator frequency mod control base value registers.
             -- One for each wavetable.

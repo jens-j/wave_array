@@ -14,7 +14,7 @@ use midi.midi_pkg.all;
 library sdram;
 library i2s;
 library uart;
-library work;
+library qspi;
 
 
 entity wave_array is
@@ -46,7 +46,7 @@ entity wave_array is
         -- XADC_3N                 : in  std_logic;
 
         -- FLASH interface.
-        QSPI_SCLK               : out std_logic;   
+        QSPI_SCK                : out std_logic;   
         QSPI_CS                 : out std_logic;
         QSPI_DQ                 : inout std_logic_vector(3 downto 0);
 
@@ -82,6 +82,7 @@ architecture arch of wave_array is
     signal s_mig_ctrl_clk       : std_logic;
     signal s_mig_ref_clk        : std_logic;
     signal s_i2s_clk            : std_logic;
+    signal s_spi_clk            : std_logic;
     signal s_system_reset       : std_logic; -- Active high.
     signal s_i2s_reset          : std_logic; -- Active high.
     signal s_pll_locked         : std_logic;
@@ -103,6 +104,9 @@ architecture arch of wave_array is
 
     signal s_sdram_inputs       : t_sdram_input_array(0 to 2); -- UART, flash and table DMA.
     signal s_sdram_outputs      : t_sdram_output_array(0 to 2);
+
+    signal s_flash_input        : t_flash_input;
+    signal s_flash_output       : t_flash_output;
 
     signal s_uart_timeout       : std_logic;
     signal s_uart_state         : integer;
@@ -144,10 +148,12 @@ architecture arch of wave_array is
     signal s_filter_samples     : t_mono_sample_array(0 to POLYPHONY_MAX - 1);
     signal s_addrgen_outputs    : t_addrgen_output_array;
 
-    signal s_qspi_jedec_vendor   : std_logic(7 downto 0);
+    signal s_qspi_jedec_vendor   : std_logic_vector(7 downto 0);
     signal s_qspi_jedec_device   : std_logic_vector(15 downto 0);
     signal s_qspi_status_1       : std_logic_vector(7 downto 0);
     signal s_qspi_config         : std_logic_vector(7 downto 0);
+
+    signal s_flash_dma_busy      : std_logic;
     
 
 begin
@@ -175,8 +181,8 @@ begin
     s_status.qspi_jedec_device  <= s_qspi_jedec_device;
     s_status.qspi_status_1      <= s_qspi_status_1;
     s_status.qspi_config        <= s_qspi_config;
+    s_status.flash_dma_busy     <= s_flash_dma_busy;
 
-    
 
     status_gen : for i in 0 to POLYPHONY_MAX - 1 generate 
         s_envelope_active(i)      <= s_envelope_0_active(i) or s_envelope_1_active(i);
@@ -190,6 +196,7 @@ begin
         ext_clk                 => EXT_CLK,         -- 100 MHz.
         mig_ctrl_clk            => s_mig_ctrl_clk,  -- 100 MHz. This goes to the MIG which outputs a ui clock that is used as system clock.
         i2s_clk                 => s_i2s_clk,       -- 1.5360175 MHz.
+        spi_clk                 => s_spi_clk,       -- 100 MHz 180 degrees out of phase.
         mig_ref_clk             => s_mig_ref_clk,   -- 200 MHz.
         pll_locked              => s_pll_locked
     );
@@ -323,6 +330,18 @@ begin
         wsel                    => I2S_WSEL
     );
 
+    flash_dma : entity wave.flash_dma 
+    port map (
+        clk                     => s_system_clk,
+        reset                   => s_system_reset,
+        config                  => s_config,
+        sdram_output            => s_sdram_outputs(1),
+        sdram_input             => s_sdram_inputs(1),
+        flash_output            => s_flash_output,
+        flash_input             => s_flash_input,
+        dma_busy                => s_flash_dma_busy
+    );
+
     -- input : entity wave.input_subsystem
     -- port map (
     --     clk                     => s_system_clk,
@@ -368,12 +387,12 @@ begin
     port map (
         system_clk              => s_system_clk,
         spi_clk                 => s_spi_clk,
-        reset                   => s_reset,
+        reset                   => s_system_reset,
         flash_input             => s_flash_input,
         flash_output            => s_flash_output,
-        QSPI_CS                 => s_qspi_cs,
-        QSPI_SCK                => s_qspi_sck,
-        QSPI_DQ                 => s_qspi_dq,
+        QSPI_CS                 => QSPI_CS,
+        QSPI_SCK                => QSPI_SCK,
+        QSPI_DQ                 => QSPI_DQ,
         reg_jedec_vendor        => s_qspi_jedec_vendor,
         reg_jedec_device        => s_qspi_jedec_device,
         reg_status_1            => s_qspi_status_1,

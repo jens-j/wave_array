@@ -18,6 +18,7 @@ entity clk_subsystem is
         mig_ctrl_clk            : out std_logic; -- 100 MHz.
         mig_ref_clk             : out std_logic; -- 200 MHz.
         i2s_clk                 : out std_logic; -- 1.5360175 MHz.
+        spi_clk                 : out std_logic; -- 100 MHz 180 degrees out of phase.
         pll_locked              : out std_logic  -- SDRAM clock PLL locked.
     );
 end entity;
@@ -34,6 +35,7 @@ architecture arch of clk_subsystem is
     port (
         mig_ctrl_clk           : out std_logic;
         mig_ref_clk            : out std_logic;
+        spi_clk                : out std_logic;
         reset                  : in  std_logic;
         ext_clk                : in  std_logic;
         locked                 : out std_logic
@@ -59,6 +61,7 @@ begin
     port map (
         mig_ctrl_clk           => s_mig_ctrl_clk,
         mig_ref_clk            => s_mig_ref_clk,
+        spi_clk                => spi_clk,
         reset                  => '0',
         ext_clk                => ext_clk,
         locked                 => pll_locked

@@ -9,13 +9,14 @@ library midi;
 use midi.midi_pkg.all;
 
 library uart;
-
+library flash;
+library ddr3;
 
 entity tb_wave_array is
 end entity;
 
 
-architecture arch of tb_wave_array is
+architecture arch_with_sdram of tb_wave_array is
 
     signal s_clk                    : std_logic := '0';
     signal s_resetn                 : std_logic := '0';
@@ -28,10 +29,6 @@ architecture arch of tb_wave_array is
     signal s_midi_uart              : std_logic := '0';
     signal s_leds                   : std_logic_vector(7 downto 0) := (others => '0');
     signal s_switches               : std_logic_vector(7 downto 0) := (others => '0');
-
-    signal s_qspi_sclk              : std_logic;
-    signal s_qspi_cs                : std_logic;
-    signal s_qspi_dq                : std_logic_vector(3 downto 0);
 
     signal s_sdram_rst_n            : std_logic;
     signal s_sdram_ck               : std_logic;
@@ -49,25 +46,30 @@ architecture arch of tb_wave_array is
     signal s_sdram_tdqs_n           : std_logic_vector(1 downto 0);
     signal s_sdram_odt              : std_logic; 
 
-    component ddr3 is
-    port (
-        rst_n                       : in    std_logic;
-        ck                          : in    std_logic;
-        ck_n                        : in    std_logic;
-        cke                         : in    std_logic;
-        cs_n                        : in    std_logic;
-        ras_n                       : in    std_logic;
-        cas_n                       : in    std_logic;
-        we_n                        : in    std_logic;
-        dm_tdqs                     : inout std_logic_vector(1 downto 0);
-        ba                          : in    std_logic_vector(2 downto 0);
-        addr                        : in    std_logic_vector(14 downto 0);
-        dq                          : inout std_logic_vector(15 downto 0);
-        dqs                         : inout std_logic_vector(1 downto 0);
-        dqs_n                       : inout std_logic_vector(1 downto 0);
-        tdqs_n                      : out   std_logic_vector(1 downto 0);
-        odt                         : in    std_logic);    
-    end component;
+    signal s_qspi_sck               : std_logic := '0';
+    signal s_qspi_cs                : std_logic;
+    signal s_qspi_dq                : std_logic_vector(3 downto 0);
+
+
+    -- component ddr3 is
+    -- port (
+    --     rst_n                       : in    std_logic;
+    --     ck                          : in    std_logic;
+    --     ck_n                        : in    std_logic;
+    --     cke                         : in    std_logic;
+    --     cs_n                        : in    std_logic;
+    --     ras_n                       : in    std_logic;
+    --     cas_n                       : in    std_logic;
+    --     we_n                        : in    std_logic;
+    --     dm_tdqs                     : inout std_logic_vector(1 downto 0);
+    --     ba                          : in    std_logic_vector(2 downto 0);
+    --     addr                        : in    std_logic_vector(14 downto 0);
+    --     dq                          : inout std_logic_vector(15 downto 0);
+    --     dqs                         : inout std_logic_vector(1 downto 0);
+    --     dqs_n                       : inout std_logic_vector(1 downto 0);
+    --     tdqs_n                      : out   std_logic_vector(1 downto 0);
+    --     odt                         : in    std_logic);    
+    -- end component;
 
 begin
 
@@ -104,7 +106,7 @@ begin
         I2S_SCLK                => s_sclk,
         I2S_WSEL                => s_wsel,
         I2S_SDATA               => s_sdata,
-        QSPI_SCLK               => s_qspi_sclk,
+        QSPI_SCK                => s_qspi_sck,
         QSPI_CS                 => s_qspi_cs,
         QSPI_DQ                 => s_qspi_dq,
         DDR3_DQ                 => s_sdram_dq,
@@ -123,7 +125,7 @@ begin
         DDR3_ODT                => s_sdram_odt
     );
 
-    ddr3_verilog : ddr3
+    ddr3_verilog : entity ddr3.ddr3
     port map (
         rst_n                   => s_sdram_rst_n,
         ck                      => s_sdram_ck,
@@ -143,8 +145,28 @@ begin
         odt                     => s_sdram_odt 
     );
 
+    flash_model : entity flash.s25fl256s
+    generic map (
+        TimingModel             => "S25FL256SAGMFI000_R_30pF.sdf",
+        MsgOn                   => true,
+        -- LongTimming             => false
+        tdevice_WRR             => 50 us,
+        tdevice_PP256           => 9 us,
+        tdevice_SE64            => 50 us
+    )
+    port map (
+
+        SI                      => s_qspi_dq(0), -- serial data input/IO0
+        SO                      => s_qspi_dq(1), -- serial data output/IO1
+        SCK                     => s_qspi_sck,   -- serial clock input
+        CSNeg                   => s_qspi_cs,    -- chip select input
+        RSTNeg                  => s_resetn,     -- hardware reset pin
+        WPNeg                   => s_qspi_dq(2), -- write protect input/IO2
+        HOLDNeg                 => s_qspi_dq(3)  -- hold input/IO3
+    );
+
     s_clk <= not s_clk after 5 ns;
-    s_resetn <= '1' after 1 us;
+    s_resetn <= '1' after 320 us; -- 300 us reset required for flash model.
     s_reset <= not s_resetn;
     s_switches <= x"00";
 

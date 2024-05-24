@@ -1,8 +1,6 @@
 set SOURCE_DIR ../vhdl
 set SIM_LIB_DIR ../vivado/wave_array/wave_array.cache/compile_simlib/questa
 
-vlib work
-
 vcom -2008 -work wave $SOURCE_DIR/wave_array_pkg.vhd
 
 vcom -2008 -work i2s $SOURCE_DIR/i2s/i2s_serializer.vhd
@@ -25,6 +23,8 @@ vcom -2008 -work midi $SOURCE_DIR/midi/midi_tester.vhd
 
 vcom -2008 -work sdram $SOURCE_DIR/sdram/ddr_arbiter.vhd
 
+vcom -2008 -work qspi $SOURCE_DIR/qspi/qspi_interface.vhd
+
 vcom -2008 -work osc $SOURCE_DIR/oscillator/lfsr32.vhd
 vcom -2008 -work osc $SOURCE_DIR/oscillator/noise_source.vhd
 vcom -2008 -work osc $SOURCE_DIR/oscillator/osc_controller.vhd
@@ -41,7 +41,7 @@ vcom -2008 -work osc $SOURCE_DIR/oscillator/unison_spread.vhd
 vcom -2008 -work osc $SOURCE_DIR/oscillator/oscillator_subsystem.vhd
 
 # SDRAM simulation model
-vlog +define+den4096Mb -sv -work work $SOURCE_DIR/ddr3/ddr3.v
+vlog +define+den4096Mb -sv -work ddr3 $SOURCE_DIR/ddr3/ddr3.v
 
 vcom -2008 -work wave $SOURCE_DIR/cdc_ff.vhd
 vcom -2008 -work wave $SOURCE_DIR/rom.vhd
@@ -61,7 +61,8 @@ vcom -2008 -work wave $SOURCE_DIR/voice_mixer_subsystem.vhd
 vcom -2008 -work wave $SOURCE_DIR/wave_offload.vhd
 vcom -2008 -work wave $SOURCE_DIR/synth_subsystem.vhd
 
+vcom -2008 -work wave $SOURCE_DIR/flash_dma.vhd
 vcom -2008 -work wave $SOURCE_DIR/register_file.vhd
 vcom -2008 -work wave $SOURCE_DIR/wave_array.vhd
 vcom -2008 -work wave $SOURCE_DIR/tb_wave_array.vhd
-vcom -2008 -work wave $SOURCE_DIR/tb_wave_array_no_sdram.vhd
+#vcom -2008 -work wave $SOURCE_DIR/tb_wave_array_no_sdram.vhd

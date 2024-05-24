@@ -1,5 +1,5 @@
 quit -sim
-vsim -voptargs="+acc" -t ps wave.tb_wave_array
+vsim -L unisims_ver -L unisim -L secureip -voptargs="+acc" -t ps xil_defaultlib.glbl wave.tb_wave_array 
 
 add wave -divider tb:
 add wave tb_wave_array/*
@@ -37,6 +37,10 @@ add wave -divider sdram_arbiter:
 add wave tb_wave_array/wave_array/arbiter/*
 add wave -divider sdram_controller:
 add wave tb_wave_array/wave_array/arbiter/*
+add wave -divider flash_interface:
+add wave tb_wave_array/wave_array/qspi_if/*
+add wave -divider flash_dma:
+add wave tb_wave_array/wave_array/flash_dma/*
 #add wave -divider sdram:
 #add wave tb_wave_array/sdram/*
 add wave -divider uart_tester:

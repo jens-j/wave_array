@@ -21,10 +21,10 @@ entity qspi_interface is
         QSPI_CS                 : out std_logic;
         QSPI_SCK                : out std_logic;
         QSPI_DQ                 : inout std_logic_vector(3 downto 0);
-        reg_jedec_vendor        : out std_logic(7 downto 0);
+        reg_jedec_vendor        : out std_logic_vector(7 downto 0);
         reg_jedec_device        : out std_logic_vector(15 downto 0);
         reg_status_1            : out std_logic_vector(7 downto 0);
-        reg_config              : out std_logic_vector(7 downto 0);
+        reg_config              : out std_logic_vector(7 downto 0)
     );
 end entity;
 
@@ -66,7 +66,7 @@ architecture arch of qspi_interface is
         output_enable           : std_logic_vector(3 downto 0);
 
         -- flash_input registers.
-        address                 : std_logic_vector(FLASH_DEPTH_LOG2 - 1 downto 0);
+        address                 : unsigned(FLASH_DEPTH_LOG2 - 1 downto 0);
         prefetch_counter        : integer range 0 to FLASH_PAGE_SIZE;
         fifo_wr_en              : std_logic;
 
@@ -256,7 +256,8 @@ begin
 
                 r_in.flash_output.ack <= '1';
                 r_in.tx_req <= '1';
-                r_in.tx_buffer <= FLASH_CMD_4BYTE_QUAD_READ & (0 to 31 - FLASH_DEPTH_LOG2 => '0') & flash_input.address; -- Extend address to 32 bits.
+                r_in.tx_buffer <= FLASH_CMD_4BYTE_QUAD_READ 
+                    & (0 to 31 - FLASH_DEPTH_LOG2 => '0') & std_logic_vector(flash_input.address); -- Extend address to 32 bits.
                 r_in.tx_counter <= 39;
                 r_in.rx_stream <= '1';
                 r_in.rx_counter <= to_integer(to_unsigned(flash_input.bytes_n, FLASH_PAGE_SIZE_LOG2 + 1) & "0") + 7; -- Convert to nibbles and add delay cycles.
@@ -286,8 +287,10 @@ begin
             if r.rx_done = '1' then 
                 r_in.tx_req <= '1';
                 r_in.tx_stream <= '1';
-                r_in.tx_buffer <= FLASH_CMD_4BYTE_PROGRAM & (0 to 31 - FLASH_DEPTH_LOG2 => '0') & r.address;
+                r_in.tx_buffer <= FLASH_CMD_4BYTE_PROGRAM 
+                    & (0 to 31 - FLASH_DEPTH_LOG2 => '0') & std_logic_vector(r.address);
                 r_in.tx_counter <= 39 + to_integer(to_unsigned(flash_input.bytes_n, FLASH_PAGE_SIZE_LOG2 + 1) & "000"); -- Convert to bits.
+                r_in.next_state <= idle;
                 r_in.state <= poll_wip_0;
             end if;
 
@@ -296,9 +299,10 @@ begin
                 r_in.tx_req <= '1';
                 r_in.tx_buffer <= FLASH_CMD_SECTOR_ERASE 
                     & (0 to 31 - FLASH_DEPTH_LOG2 => '0') -- Extend address to 32 bits.
-                    & r.address(FLASH_DEPTH_LOG2 - 1 downto FLASH_SECTOR_SIZE_LOG2) 
+                    & std_logic_vector( r.address(FLASH_DEPTH_LOG2 - 1 downto FLASH_SECTOR_SIZE_LOG2))
                     & (0 to FLASH_SECTOR_SIZE_LOG2 - 1 => '0');
                 r_in.tx_counter <= 39;
+                r_in.next_state <= idle;
                 r_in.state <= poll_wip_0;
             end if;
 
@@ -428,7 +432,7 @@ begin
                 r_in.rx_stream <= '0';
                 r_in.rx_done <= '1';
                 r_in.qspi_cs <= '1';
-                r_in.flash_output.done <= '1';
+                r_in.flash_output.done <= r.rx_stream;
             end if;
         end if;
 
