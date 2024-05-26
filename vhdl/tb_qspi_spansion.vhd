@@ -6,14 +6,14 @@ library wave;
 use wave.wave_array_pkg.all;
 
 library qspi;
-library flash;
+library spansion;
 
 
-entity tb_qspi is
+entity tb_qspi_spansion is
 end entity;
 
 
-architecture arch_no_sdram of tb_qspi is
+architecture arch_no_sdram of tb_qspi_spansion is
 
     signal s_system_clk             : std_logic := '0'; -- 100 MHz
     signal s_spi_clk                : std_logic := '0'; -- 100 MHz
@@ -30,7 +30,7 @@ architecture arch_no_sdram of tb_qspi is
     procedure write_flash (
         signal s_flash_input        : out t_flash_input;
         signal s_flash_output       : in  t_flash_output;
-        constant address            : in  std_logic_vector(FLASH_DEPTH_LOG2 - 1 downto 0);
+        constant address            : in  unsigned(FLASH_DEPTH_LOG2 - 1 downto 0);
         constant start_value        : in  std_logic_vector(FLASH_WIDTH - 1 downto 0);
         constant length             : in  integer range 1 to FLASH_PAGE_SIZE
     ) is 
@@ -56,7 +56,7 @@ architecture arch_no_sdram of tb_qspi is
     procedure read_flash (
         signal s_flash_input        : out t_flash_input;
         signal s_flash_output       : in  t_flash_output;
-        constant address            : in  std_logic_vector(FLASH_DEPTH_LOG2 - 1 downto 0);
+        constant address            : in  unsigned(FLASH_DEPTH_LOG2 - 1 downto 0);
         constant length             : in  integer range 1 to FLASH_PAGE_SIZE
     ) is 
     begin 
@@ -74,7 +74,7 @@ architecture arch_no_sdram of tb_qspi is
     procedure erase_flash (
         signal s_flash_input        : out t_flash_input;
         signal s_flash_output       : in  t_flash_output;
-        constant address            : in  std_logic_vector(FLASH_DEPTH_LOG2 - 1 downto 0)
+        constant address            : in  unsigned(FLASH_DEPTH_LOG2 - 1 downto 0)
     ) is 
     begin 
         -- 4 byte write.
@@ -88,7 +88,7 @@ architecture arch_no_sdram of tb_qspi is
 
 begin
 
-    qspi_if: entity qspi.qspi_interface
+    qspi_if: entity qspi.qspi_interface_spansion
     port map (
         system_clk              => s_system_clk,
         spi_clk                 => s_spi_clk,
@@ -104,7 +104,7 @@ begin
         reg_config              => open
     );
 
-    flash_model : entity flash.s25fl256s
+    flash_model : entity spansion.s25fl256s
     generic map (
         TimingModel             => "S25FL256SAGMFI000_R_30pF.sdf",
         MsgOn                   => true,

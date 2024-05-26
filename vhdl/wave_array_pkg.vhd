@@ -156,18 +156,18 @@ package wave_array_pkg is
     constant FLASH_WIDTH            : integer := 8;
     constant FLASH_DEPTH_LOG2       : integer := 25;
     constant FLASH_DEPTH            : integer := 2**FLASH_DEPTH_LOG2;
-    constant FLASH_ADDR_WIDTH_LOG2  : integer := 32;
     constant FLASH_PAGE_SIZE_LOG2   : integer := 8;                         -- In bytes.
     constant FLASH_PAGE_SIZE        : integer := 2**FLASH_PAGE_SIZE_LOG2;   -- In bytes.
     constant FLASH_PAGE_SIZE_NIBBLES: integer := 8 * FLASH_PAGE_SIZE;       -- In 4 bit nibbles.
     constant FLASH_PAGE_SIZE_BITS   : integer := 8 * FLASH_PAGE_SIZE;       -- In bytes.
     constant FLASH_PAGES_N_LOG2     : integer := FLASH_DEPTH_LOG2 - FLASH_PAGE_SIZE_LOG2;
-    constant FLASH_PAGES_N          : integer := FLASH_DEPTH // FLASH_PAGE_SIZE;
-    constant FLASH_SECTOR_SIZE_LOG2 : integer := 16;                        -- In bytes.       
+    constant FLASH_PAGES_N          : integer := FLASH_DEPTH / FLASH_PAGE_SIZE;
+    constant FLASH_SECTOR_SIZE_LOG2 : integer := 10; -- 16;                        -- In bytes.       
     constant FLASH_SECTOR_SIZE      : integer := 2**FLASH_SECTOR_SIZE_LOG2; -- In bytes.      
-    constant FLASH_SECTORS_N        : integer := FLASH_DEPTH // FLASH_SECTOR_SIZE;    
+    constant FLASH_SECTOR_N_LOG2    : integer := FLASH_DEPTH_LOG2 - FLASH_SECTOR_SIZE_LOG2;    
+    constant FLASH_SECTOR_N         : integer := FLASH_DEPTH / FLASH_SECTOR_SIZE;    
     constant FLASH_PAGES_PER_SECTOR_LOG2 : integer := FLASH_SECTOR_SIZE_LOG2 - FLASH_PAGE_SIZE_LOG2;    
-    constant FLASH_PAGES_PER_SECTOR : integer := FLASH_SECTOR_SIZE // FLASH_PAGE_SIZE;    
+    constant FLASH_PAGES_PER_SECTOR : integer := FLASH_SECTOR_SIZE / FLASH_PAGE_SIZE;    
 
     -- Register file constants.
     constant REGISTER_WIDTH         : integer := 16;
@@ -238,6 +238,15 @@ package wave_array_pkg is
     constant REG_FILTER_RESONANCE   : unsigned := x"0000601"; -- rw 15 bit unsigned | Filter resonance control value. 
     constant REG_FILTER_SELECT      : unsigned := x"0000602"; -- rw 3  bit          | Filter output select. 0 = LP, 1 = HP, 2 = BP, 3 = BS, 4 = bypass.
 
+    constant REG_DMA_BUSY           : unsigned := x"0000700"; -- ro 1  bit          | Flash DMA busy flag.
+    constant REG_DMA_START_S2F      : unsigned := x"0000701"; -- wo 1  bit          | Start SDRAM to FLASH transfer.
+    constant REG_DMA_START_F2S      : unsigned := x"0000702"; -- wo 1  bit          | Start FLASH to SDRAM transfer.
+    constant REG_DMA_FLASH_ADDR_LO  : unsigned := x"0000703"; -- rw 16 bit          | Flash base address bits 0 - 15.
+    constant REG_DMA_FLASH_ADDR_HI  : unsigned := x"0000704"; -- rw 9  bit          | Flash base address bits 16 - 24.
+    constant REG_DMA_SDRAM_ADDR_LO  : unsigned := x"0000705"; -- rw 16 bit          | SDRAM base address bits 0 - 15.
+    constant REG_DMA_SDRAM_ADDR_HI  : unsigned := x"0000706"; -- rw 12 bit          | SDRAM base address bits 16 - 27.
+    constant REG_DMA_SECTOR_N       : unsigned := x"0000707"; -- rw 9  bit          | Number of (flash) sectors to transfer.
+
     constant REG_VOLUME_CTRL        : unsigned := x"0000800"; -- rw 15 bit unsigned | Volume base value value.
 
     constant REG_HK_ENABLE          : unsigned := x"0000900"; -- rw  1 bit          | Write '1' to enable HK.
@@ -248,8 +257,8 @@ package wave_array_pkg is
 
     constant REG_QSPI_JEDEC_VENDOR  : unsigned := x"0000A00"; -- ro  8 bit          | FLASH JEDEC vendor ID. 
     constant REG_QSPI_JEDEC_DEVICE  : unsigned := x"0000A01"; -- ro 16 bit          | FLASH JEDEC device ID. 
-    constant REG_QSPI_STATUS_1      : unsigned := x"0000A02"; -- ro  8 bit          | FLASH status_1 register. 
-    constant REG_QSPI_CONFIG        : unsigned := x"0000A03"; -- ro  8 bit          | FLASH config register. 
+    constant REG_QSPI_STATUS        : unsigned := x"0000A02"; -- ro  8 bit          | FLASH status register. 
+    constant REG_QSPI_CONFIG        : unsigned := x"0000A03"; -- ro 16 bit          | FLASH config register. 
 
     -- Base addresses for stuff that has multiple similar registers.
     constant REG_MOD_MAP_BASE       : unsigned := x"0001000"; -- Mod mapping starts here. Ordered major to minor, [destination, source (address, value)]
@@ -260,7 +269,7 @@ package wave_array_pkg is
 
     -- Wavetable registers base address. Contiguous blocks of 4 registers for each wavetable. Stride = 0x10.
     constant REG_TABLE_BASE         : unsigned := x"0003000"; -- rw 16 bit unsigned | Bit 15 downto 0 of the wavetable base SDRAM address.
-                                               -- x"0003XX1"; -- rw 16 bit unsigned | Bit 22 downto 16 of the wavetable base SDRAM address.
+                                               -- x"0003XX1"; -- rw 12 bit unsigned | Bit 27 downto 16 of the wavetable base SDRAM address.
                                                -- x"0003XX2"; -- rw  4 bit unsigned | Log2 of the number of frames in the wavetable.
                                                -- x"0003XX3"; -- wo  1 bit          | Writing to this register triggers initialization of the wavetable BRAMS.
     
@@ -386,7 +395,7 @@ package wave_array_pkg is
         start_flash_to_sdram    : std_logic;
         sdram_address           : unsigned(SDRAM_DEPTH_LOG2 - 1 downto 0);
         flash_address           : unsigned(FLASH_DEPTH_LOG2 - 1 downto 0);
-        sectors_n               : integer range 1 to FLASH_SECTORS_N;
+        sector_n                : integer range 1 to FLASH_SECTOR_N;
     end record;
 
     type t_lfo_input is record 
@@ -441,8 +450,9 @@ package wave_array_pkg is
         mod_destinations        : t_modd_array;
         qspi_jedec_vendor       : std_logic_vector(7 downto 0);
         qspi_jedec_device       : std_logic_vector(15 downto 0);
-        qspi_status_1           : std_logic_vector(7 downto 0);
-        qspi_config             : std_logic_vector(7 downto 0);
+        qspi_status             : std_logic_vector(7 downto 0);
+        qspi_config             : std_logic_vector(15 downto 0);
+        flash_dma_busy          : std_logic;
         debug_wave_state        : integer;
         debug_wave_fifo_count   : integer;
         debug_wave_timer        : std_logic_vector(15 downto 0); -- Only 16 lsb.
@@ -488,7 +498,7 @@ package wave_array_pkg is
         ack                     : std_logic; -- Signal the read- or write-enable has been seen.
         read_valid              : std_logic; -- Signal valid read word.
         write_req               : std_logic; -- Request next write word.
-        done                    : std_logic; -- Signal end of read or write in last valid cycle.
+        done                    : std_logic; -- Signal end of read or write in last valid cycle for data (erase has no done strobe).
         read_data               : std_logic_vector(SDRAM_WIDTH - 1 downto 0);
     end record;
 
@@ -497,7 +507,7 @@ package wave_array_pkg is
         write_enable            : std_logic; 
         erase_enable            : std_logic;
         bytes_n                 : integer range 1 to FLASH_PAGE_SIZE;
-        address                 : std_logic_vector(FLASH_DEPTH_LOG2 - 1 downto 0);
+        address                 : unsigned(FLASH_DEPTH_LOG2 - 1 downto 0);
         write_data              : std_logic_vector(FLASH_WIDTH - 1 downto 0);
     end record;
 
@@ -551,12 +561,12 @@ package wave_array_pkg is
         frames_log2             => 0              
     );
 
-    constant FLASH_DMA_INPUT_INIT : t_frame_dma_input := (
+    constant FLASH_DMA_INPUT_INIT : t_flash_dma_input := (
         start_sdram_to_flash    => '0',
         start_flash_to_sdram    => '0',
         sdram_address           => (others => '0'), 
         flash_address           => (others => '0'), 
-        sectors_n               => 1,
+        sector_n                => 1
     );
 
     constant SDRAM_INPUT_INIT : t_sdram_input := (

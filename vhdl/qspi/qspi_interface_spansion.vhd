@@ -11,7 +11,7 @@ library wave;
 use wave.wave_array_pkg.all;
 
 
-entity qspi_interface is
+entity qspi_interface_spansion is
     port (
         system_clk              : in  std_logic;
         spi_clk                 : in  std_logic;
@@ -29,19 +29,19 @@ entity qspi_interface is
 end entity;
 
 
-architecture arch of qspi_interface is 
+architecture arch of qspi_interface_spansion is 
 
     -- JEDEC FLASH commands.
-    constant FLASH_CMD_READ_JEDEC       : std_logic_vector(7 downto 0) := x"9F";
-    constant FLASH_CMD_READ_STATUS_1    : std_logic_vector(7 downto 0) := x"05";
-    constant FLASH_CMD_READ_STATUS_2    : std_logic_vector(7 downto 0) := x"07";
-    constant FLASH_CMD_READ_CONFIG      : std_logic_vector(7 downto 0) := x"35";
-    constant FLASH_CMD_WRITE_ENABLE     : std_logic_vector(7 downto 0) := x"06";
-    constant FLASH_CMD_WRITE_REGISTERS  : std_logic_vector(7 downto 0) := x"01";
-    constant FLASH_CMD_4BYTE_PROGRAM    : std_logic_vector(7 downto 0) := x"12";
-    constant FLASH_CMD_4BYTE_READ       : std_logic_vector(7 downto 0) := x"13";
-    constant FLASH_CMD_4BYTE_QUAD_READ  : std_logic_vector(7 downto 0) := x"6C";
-    constant FLASH_CMD_SECTOR_ERASE     : std_logic_vector(7 downto 0) := x"DC";
+    constant FLASH_CMD_READ_JEDEC           : std_logic_vector(7 downto 0) := x"9F";
+    constant FLASH_CMD_READ_STATUS_1        : std_logic_vector(7 downto 0) := x"05";
+    constant FLASH_CMD_READ_STATUS_2        : std_logic_vector(7 downto 0) := x"07";
+    constant FLASH_CMD_READ_CONFIG          : std_logic_vector(7 downto 0) := x"35";
+    constant FLASH_CMD_WRITE_ENABLE         : std_logic_vector(7 downto 0) := x"06";
+    constant FLASH_CMD_WRITE_REGISTERS      : std_logic_vector(7 downto 0) := x"01";
+    constant FLASH_CMD_4BYTE_PROGRAM        : std_logic_vector(7 downto 0) := x"12";
+    constant FLASH_CMD_4BYTE_READ           : std_logic_vector(7 downto 0) := x"13";
+    constant FLASH_CMD_4BYTE_QUAD_READ      : std_logic_vector(7 downto 0) := x"6C";
+    constant FLASH_CMD_4BYTE_SECTOR_ERASE   : std_logic_vector(7 downto 0) := x"DC";
 
     type t_state is 
         (init_0, init_1, init_2, init_3, init_4, 
@@ -216,12 +216,15 @@ begin
             r_in.rx_counter <= 23;
             r_in.state <= init_1;
 
-        -- register JEDEC values, send write enable command.
+        -- register JEDEC values, enter 4-byte address mode.
         when init_1 => 
             if r.rx_done = '1' then 
                 r_in.reg_jedec_vendor <= r.rx_buffer(23 downto 16);
                 r_in.reg_jedec_device <= r.rx_buffer(15 downto 0);
-                cmd_write_enable(r_in, init_2);
+
+                r_in.tx_req <= '1';
+                r_in.tx_buffer <= FLASH_CMD_READ_JEDEC & (0 to 31 => '0');
+                r_in.tx_counter <= 7;
             end if;
 
         -- Write registers. 
@@ -297,7 +300,7 @@ begin
         when erase_start => 
             if r.rx_done = '1' then 
                 r_in.tx_req <= '1';
-                r_in.tx_buffer <= FLASH_CMD_SECTOR_ERASE 
+                r_in.tx_buffer <= FLASH_CMD_4BYTE_SECTOR_ERASE 
                     & (0 to 31 - FLASH_DEPTH_LOG2 => '0') -- Extend address to 32 bits.
                     & std_logic_vector( r.address(FLASH_DEPTH_LOG2 - 1 downto FLASH_SECTOR_SIZE_LOG2))
                     & (0 to FLASH_SECTOR_SIZE_LOG2 - 1 => '0');

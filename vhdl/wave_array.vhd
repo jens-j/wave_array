@@ -150,8 +150,8 @@ architecture arch of wave_array is
 
     signal s_qspi_jedec_vendor   : std_logic_vector(7 downto 0);
     signal s_qspi_jedec_device   : std_logic_vector(15 downto 0);
-    signal s_qspi_status_1       : std_logic_vector(7 downto 0);
-    signal s_qspi_config         : std_logic_vector(7 downto 0);
+    signal s_qspi_status         : std_logic_vector(7 downto 0);
+    signal s_qspi_config         : std_logic_vector(15 downto 0);
 
     signal s_flash_dma_busy      : std_logic;
     
@@ -179,7 +179,7 @@ begin
     s_status.debug_uart_flags   <= s_debug_uart_flags;
     s_status.qspi_jedec_vendor  <= s_qspi_jedec_vendor;
     s_status.qspi_jedec_device  <= s_qspi_jedec_device;
-    s_status.qspi_status_1      <= s_qspi_status_1;
+    s_status.qspi_status        <= s_qspi_status;
     s_status.qspi_config        <= s_qspi_config;
     s_status.flash_dma_busy     <= s_flash_dma_busy;
 
@@ -383,7 +383,7 @@ begin
         DDR3_ODT                => DDR3_ODT
     );
 
-    qspi_if: entity qspi.qspi_interface
+    qspi_if: entity qspi.qspi_interface_micron
     port map (
         system_clk              => s_system_clk,
         spi_clk                 => s_spi_clk,
@@ -395,7 +395,7 @@ begin
         QSPI_DQ                 => QSPI_DQ,
         reg_jedec_vendor        => s_qspi_jedec_vendor,
         reg_jedec_device        => s_qspi_jedec_device,
-        reg_status_1            => s_qspi_status_1,
+        reg_status              => s_qspi_status,
         reg_config              => s_qspi_config
     );
 

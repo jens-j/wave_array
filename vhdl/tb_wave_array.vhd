@@ -9,7 +9,7 @@ library midi;
 use midi.midi_pkg.all;
 
 library uart;
-library flash;
+library micron;
 library ddr3;
 
 entity tb_wave_array is
@@ -145,25 +145,35 @@ begin
         odt                     => s_sdram_odt 
     );
 
-    flash_model : entity flash.s25fl256s
-    generic map (
-        TimingModel             => "S25FL256SAGMFI000_R_30pF.sdf",
-        MsgOn                   => true,
-        -- LongTimming             => false
-        tdevice_WRR             => 50 us,
-        tdevice_PP256           => 9 us,
-        tdevice_SE64            => 50 us
-    )
+    flash_model : entity micron.N25Qxxx_wrapper
     port map (
-
-        SI                      => s_qspi_dq(0), -- serial data input/IO0
-        SO                      => s_qspi_dq(1), -- serial data output/IO1
-        SCK                     => s_qspi_sck,   -- serial clock input
-        CSNeg                   => s_qspi_cs,    -- chip select input
-        RSTNeg                  => s_resetn,     -- hardware reset pin
-        WPNeg                   => s_qspi_dq(2), -- write protect input/IO2
-        HOLDNeg                 => s_qspi_dq(3)  -- hold input/IO3
+        DQ0                     => s_qspi_dq(0), -- serial data input/IO0
+        DQ1                     => s_qspi_dq(1), -- serial data output/IO1
+        S                       => s_qspi_cs,    -- serial clock input
+        C                       => s_qspi_sck,   -- chip select input
+        W_DQ2                   => s_qspi_dq(2), -- write protect input/IO2
+        HOLD_DQ3                => s_qspi_dq(3)  -- hold input/IO3
     );
+
+    -- flash_model : entity spansion.s25fl256s
+    -- generic map (
+    --     TimingModel             => "S25FL256SAGMFI000_R_30pF.sdf",
+    --     MsgOn                   => true,
+    --     -- LongTimming             => false
+    --     tdevice_WRR             => 50 us,
+    --     tdevice_PP256           => 9 us,
+    --     tdevice_SE64            => 50 us
+    -- )
+    -- port map (
+
+    --     SI                      => s_qspi_dq(0), -- serial data input/IO0
+    --     SO                      => s_qspi_dq(1), -- serial data output/IO1
+    --     SCK                     => s_qspi_sck,   -- serial clock input
+    --     CSNeg                   => s_qspi_cs,    -- chip select input
+    --     RSTNeg                  => s_resetn,     -- hardware reset pin
+    --     WPNeg                   => s_qspi_dq(2), -- write protect input/IO2
+    --     HOLDNeg                 => s_qspi_dq(3)  -- hold input/IO3
+    -- );
 
     s_clk <= not s_clk after 5 ns;
     s_resetn <= '1' after 320 us; -- 300 us reset required for flash model.

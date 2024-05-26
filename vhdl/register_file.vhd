@@ -231,11 +231,11 @@ begin
             elsif register_input.address = REG_QSPI_JEDEC_DEVICE then
                 r_in.register_output.read_data <= status.qspi_jedec_device;
 
-            elsif register_input.address = REG_QSPI_STATUS_1 then
-                r_in.register_output.read_data(7 downto 0) <= status.qspi_status_1;
+            elsif register_input.address = REG_QSPI_STATUS then
+                r_in.register_output.read_data(7 downto 0) <= status.qspi_status;
             
             elsif register_input.address = REG_QSPI_CONFIG then
-                r_in.register_output.read_data(7 downto 0) <= status.qspi_config;
+                r_in.register_output.read_data <= status.qspi_config;
 
             -- Read oscillator frequency mod control base value registers.
             elsif register_input.address >= REG_FREQ_CTRL_BASE 
