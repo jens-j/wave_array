@@ -23,7 +23,7 @@ end entity;
 
 architecture arch of table_address_generator is
 
-    type t_state is (idle, init, select_level, calculate_address_0, calculate_address_1, increment_phase);
+    type t_state is (idle, init, select_level_0, select_level_1, calculate_address_0, calculate_address_1, increment_phase);
 
     type t_tag_reg is record
         state                   : t_state;
@@ -40,6 +40,7 @@ architecture arch of table_address_generator is
         mipmap_level_buffers    : t_mipmap_level_array(0 to N_VOICES - 1);
         enable                  : std_logic_vector(N_VOICES - 1 downto 0);
         enable_buffer           : std_logic_vector(N_VOICES - 1 downto 0);
+        set_level               : std_logic;
     end record;
 
     -- Generate initial phases that are shifted to accommodate binaural stuff.
@@ -67,7 +68,8 @@ architecture arch of table_address_generator is
         mipmap_levels           => (others => 0),
         mipmap_level_buffers    => (others => 0),
         enable                  => (others => '0'),
-        enable_buffer           => (others => '0')
+        enable_buffer           => (others => '0'),
+        set_level               => '0'
     );
 
     signal r, r_in              : t_tag_reg;
@@ -77,7 +79,6 @@ begin
     combinatorial : process (r, next_sample, osc_inputs)
         variable v_level : integer range 0 to MIPMAP_LEVELS - 1;
         variable v_index : integer range 0 to 2 * N_VOICES - 1;
-        variable v_local_addr : t_mipmap_address;
     begin
 
         v_index := 2 * r.osc_counter + r.sample_counter;
@@ -115,40 +116,39 @@ begin
                 r_in.enable_buffer(i) <= osc_inputs(i).enable;
             end loop;
 
-            r_in.state <= select_level;
+            r_in.state <= select_level_0;
 
         -- Compare the velocity with the threshold for each mipmap level.
-        elsif r.state = select_level then
+        -- Level selection is split in two states to improve timing.
+        elsif r.state = select_level_0 then
 
             -- Both samples have the same mipmap level.
             if osc_inputs(r.osc_counter).velocity > MIPMAP_THRESHOLDS(r.level_counter) then
+                r_in.set_level <= '1';
+            else 
+                r_in.set_level <= '0';
+            end if;
+
+            r_in.state <= select_level_1;
+
+        -- Assign level to active oscillator if threshold was met in previous state.
+        elsif r.state = select_level_1 then
+
+            if r.set_level = '1' then
                 r_in.mipmap_level_buffers(r.osc_counter) <= r.level_counter;
             end if;
 
+            -- This could exit on r.set_level = '0'
             if r.level_counter < MIPMAP_LEVELS - 1 then
                 r_in.level_counter <= r.level_counter + 1;
+                r_in.state <= select_level_0;
             else
                 r_in.state <= calculate_address_0;
             end if;
 
+        -- Calculate address in mipmap table based on level.
         elsif r.state = calculate_address_0 then
-
-            -- -- Create address in mipmap level table.
-            -- v_local_addr := "0" & shift_right(r.table_phases(r.osc_counter)
-            --     (t_osc_phase'length - 1 downto t_osc_phase_frac'length), v_level);
-
-            -- -- Subtract half of the filter length to comensate for the filter delay.
-            -- -- But underflow the address if it goes below zero.
-            -- if v_local_addr < POLY_N / 2 - 1 then
-            --     v_local_addr := v_local_addr + 2**(MIPMAP_L0_SIZE_LOG2 - v_level);
-            -- end if;
-
-            -- r_in.local_address <= v_local_addr - POLY_N / 2 - 1;
-
-            -- r_in.local_address <= "0" & shift_right(r.table_phases(r.osc_counter)
-            --     (t_osc_phase'length - 1 downto t_osc_phase_frac'length), v_level);
-
-            -- Create address in mipmap level table.
+            
             r_in.local_address <= "0" & shift_right(r.table_phases(r.osc_counter)
                 (t_osc_phase'length - 1 downto t_osc_phase_frac'length), v_level);
 
@@ -181,7 +181,7 @@ begin
                 r_in.osc_counter <= r.osc_counter + 1;
                 r_in.sample_counter <= 0;
                 r_in.level_counter <= 1;
-                r_in.state <= select_level;
+                r_in.state <= select_level_0;
             else
                 r_in.state <= idle;
             end if;
