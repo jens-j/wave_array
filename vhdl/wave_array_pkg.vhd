@@ -162,7 +162,7 @@ package wave_array_pkg is
     constant FLASH_PAGE_SIZE_BITS   : integer := 8 * FLASH_PAGE_SIZE;       -- In bytes.
     constant FLASH_PAGES_N_LOG2     : integer := FLASH_DEPTH_LOG2 - FLASH_PAGE_SIZE_LOG2;
     constant FLASH_PAGES_N          : integer := FLASH_DEPTH / FLASH_PAGE_SIZE;
-    constant FLASH_SECTOR_SIZE_LOG2 : integer := 10; -- 16;                        -- In bytes.       
+    constant FLASH_SECTOR_SIZE_LOG2 : integer := 16;                        -- In bytes.       
     constant FLASH_SECTOR_SIZE      : integer := 2**FLASH_SECTOR_SIZE_LOG2; -- In bytes.      
     constant FLASH_SECTOR_N_LOG2    : integer := FLASH_DEPTH_LOG2 - FLASH_SECTOR_SIZE_LOG2;    
     constant FLASH_SECTOR_N         : integer := FLASH_DEPTH / FLASH_SECTOR_SIZE;    

@@ -100,7 +100,7 @@ begin
         QSPI_DQ                 => s_qspi_dq,
         reg_jedec_vendor        => open,
         reg_jedec_device        => open,
-        reg_status_1            => open,
+        reg_status              => open,
         reg_config              => open
     );
 

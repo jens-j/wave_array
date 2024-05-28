@@ -129,6 +129,8 @@ architecture arch of qspi_interface_micron is
     signal s_fifo_empty         : std_logic;
     signal s_fifo_data_count    : std_logic_vector(4 downto 0);
 
+    signal s_iddr_out           : std_logic_vector(3 downto 0);
+
     procedure cmd_write_enable (
         signal r_in             : out t_qspi_if_reg;
         constant next_state     : in  t_state
@@ -142,6 +144,24 @@ architecture arch of qspi_interface_micron is
     end procedure;
 
 begin 
+
+    iddr_gen : for i in 0 to 3 generate
+        IDDR_inst : IDDR
+        generic map (
+            DDR_CLK_EDGE => "OPPOSITE_EDGE",
+            INIT_Q1 => '0',     -- Initial value of Q1: '0' or '1'
+            INIT_Q2 => '0',     -- Initial value of Q2: '0' or '1'
+            SRTYPE => "SYNC")   -- Set/Reset type: "SYNC" or "ASYNC"
+        port map (
+            Q1 => open,         -- 1-bit output for positive edge of clock
+            Q2 => s_iddr_out(i),-- 1-bit output for negative edge of clock
+            C => system_clk,    -- 1-bit clock input
+            CE => '1',          -- 1-bit clock enable input
+            D => QSPI_DQ(i),       -- 1-bit DDR data input
+            R => '0',           -- 1-bit reset
+            S => '0'            -- 1-bit set
+        );
+    end generate;
 
     -- Instantiate spi clock gate.
     -- This is sketchy because the clock enable signal has 180 phase difference with the input clock.
@@ -180,7 +200,7 @@ begin
     reg_config <= r.reg_config;
 
 
-    state_proc : process (r, QSPI_DQ, flash_input, s_fifo_dout, s_fifo_data_count)
+    state_proc : process (r, QSPI_DQ, flash_input, s_fifo_dout, s_fifo_data_count, s_iddr_out)
     begin 
 
         r_in <= r;
@@ -391,9 +411,9 @@ begin
 
             -- Shift in RX bits.
             if r.rx_stream = '1' then 
-                r_in.flash_output.read_data <= r.flash_output.read_data(3 downto 0) & QSPI_DQ;
+                r_in.flash_output.read_data <= r.flash_output.read_data(3 downto 0) & s_iddr_out;
             else 
-                r_in.rx_buffer <= r.rx_buffer(30 downto 0) & QSPI_DQ(1);
+                r_in.rx_buffer <= r.rx_buffer(30 downto 0) & s_iddr_out(1);
             end if;
 
             if r.dummy_counter > 0 then 
