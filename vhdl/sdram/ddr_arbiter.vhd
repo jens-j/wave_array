@@ -217,7 +217,7 @@ begin
     -- Connect output registers.
     sdram_outputs <= r.sdram_outputs;
 
-    comb_process : process (r, sdram_inputs, s_mig_ui_clk, 
+    comb_process : process (r, sdram_inputs, s_mig_ui_clk, s_mig_ui_reset,
         s_app_rd_data, s_app_rd_data_end, s_app_rd_data_valid, s_app_rdy, s_app_wdf_rdy,
         s_fifo_dout, s_fifo_full, s_fifo_empty, s_fifo_data_count, s_init_calib_complete)
 
