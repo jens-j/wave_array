@@ -40,12 +40,8 @@ architecture arch of synth_subsystem is
     signal s_osc_inputs             : t_osc_input_array(0 to POLYPHONY_MAX - 1);
     signal s_osc_samples            : t_mono_sample_array(0 to POLYPHONY_MAX - 1);
     signal s_filter_samples         : t_mono_sample_array(0 to POLYPHONY_MAX - 1);
-    signal s_mixer_left_sample_out  : t_mono_sample;
-    signal s_mixer_right_sample_out : t_mono_sample;
     signal s_dma2table              : t_dma2table_array(0 to N_TABLES - 1);
     signal s_table2dma              : t_table2dma_array(0 to N_TABLES - 1);
-    signal s_lfo_ctrl               : t_ctrl_value_array(0 to POLYPHONY_MAX - 1);
-    signal s_envelope_ctrl          : t_ctrl_value_array(0 to POLYPHONY_MAX - 1);
     signal s_mod_sources            : t_mods_array;
     signal s_mod_destinations       : t_modd_array;
     signal s_pitch_ctrl             : t_osc_ctrl_array;
