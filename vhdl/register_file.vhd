@@ -220,7 +220,7 @@ begin
 
             elsif register_input.address = REG_DMA_SECTOR_N then
                 r_in.register_output.read_data(FLASH_SECTOR_N_LOG2 - 1 downto 0) 
-                    <= std_logic_vector(to_unsigned(config.flash_dma_input.sector_n, FLASH_SECTOR_N_LOG2));
+                    <= std_logic_vector(to_unsigned(r.config.flash_dma_input.sector_n, FLASH_SECTOR_N_LOG2));
 
             elsif register_input.address = REG_VOLUME_CTRL then
                 r_in.register_output.read_data <= std_logic_vector(r.config.base_ctrl(MODD_VOLUME));
