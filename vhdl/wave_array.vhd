@@ -165,7 +165,7 @@ begin
         LEDS(4 + i) <= s_voices(i).enable;
     end generate;
 
-    I2S_SCLK <= s_i2s_clk;
+    --I2S_SCLK <= s_i2s_clk;
 
     s_status.mod_destinations   <= s_mod_destinations;
     s_status.mod_sources        <= s_mod_sources;
@@ -383,10 +383,10 @@ begin
         DDR3_ODT                => DDR3_ODT
     );
 
-    qspi_if: entity qspi.qspi_interface_micron
+    qspi_if: entity qspi.qspi_interface_micron_50mhz
     port map (
         system_clk              => s_system_clk,
-        spi_clk                 => s_spi_clk,
+        --spi_clk                 => s_spi_clk,
         reset                   => s_system_reset,
         flash_input             => s_flash_input,
         flash_output            => s_flash_output,

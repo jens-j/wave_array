@@ -88,10 +88,9 @@ architecture arch_no_sdram of tb_qspi_micron is
 
 begin
 
-    qspi_if: entity qspi.qspi_interface_micron
+    qspi_if: entity qspi.qspi_interface_micron_50mhz
     port map (
         system_clk              => s_system_clk,
-        spi_clk                 => s_spi_clk,
         reset                   => s_reset,
         flash_input             => s_flash_input,
         flash_output            => s_flash_output,

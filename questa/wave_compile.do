@@ -30,7 +30,7 @@ vcom -2008 -work midi $SOURCE_DIR/midi/midi_tester.vhd
 
 vcom -2008 -work sdram $SOURCE_DIR/sdram/ddr_arbiter.vhd
 
-vcom -2008 -work qspi $SOURCE_DIR/qspi/qspi_interface_micron.vhd
+vcom -2008 -work qspi $SOURCE_DIR/qspi/qspi_interface_micron_50mhz.vhd
 
 vcom -2008 -work osc $SOURCE_DIR/oscillator/lfsr32.vhd
 vcom -2008 -work osc $SOURCE_DIR/oscillator/noise_source.vhd
@@ -69,4 +69,4 @@ vcom -2008 -work wave $SOURCE_DIR/flash_dma.vhd
 vcom -2008 -work wave $SOURCE_DIR/register_file.vhd
 vcom -2008 -work wave $SOURCE_DIR/wave_array.vhd
 vcom -2008 -work wave $SOURCE_DIR/tb_wave_array.vhd
-#vcom -2008 -work wave $SOURCE_DIR/tb_wave_array_no_sdram.vhd
+vcom -2008 -work wave $SOURCE_DIR/tb_wave_array_no_sdram.vhd

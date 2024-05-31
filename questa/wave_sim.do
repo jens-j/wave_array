@@ -1,5 +1,5 @@
 quit -sim
-vsim -L unisims_ver -L unisim -L secureip -voptargs="+acc" -t ps xil_defaultlib.glbl wave.tb_wave_array 
+vsim -L unisims_ver -L unisim -L secureip -voptargs="+acc" -t ps xil_defaultlib.glbl wave.tb_wave_array(arch_no_sdram)
 
 add wave -divider tb:
 add wave tb_wave_array/*
@@ -27,6 +27,8 @@ add wave -divider halfband:
 add wave tb_wave_array/wave_array/synth_subsys/osc_subsys/osc_gen(0)/osc_n/halfband/*
 add wave -divider mixer:
 add wave tb_wave_array/wave_array/synth_subsys/voice_mixer_subsys/*
+add wave -divider envelope:
+add wave tb_wave_array/wave_array/synth_subsys/envelope/*
 add wave -divider uart_subsys:
 add wave tb_wave_array/wave_array/uart_subsys/*
 add wave -divider packet_engine:

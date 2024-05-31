@@ -157,7 +157,7 @@ begin
             Q2 => s_iddr_out(i),-- 1-bit output for negative edge of clock
             C => system_clk,    -- 1-bit clock input
             CE => '1',          -- 1-bit clock enable input
-            D => QSPI_DQ(i),       -- 1-bit DDR data input
+            D => QSPI_DQ(i),    -- 1-bit DDR data input
             R => '0',           -- 1-bit reset
             S => '0'            -- 1-bit set
         );
