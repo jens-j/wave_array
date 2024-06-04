@@ -35,6 +35,7 @@ class UartProtocol:
 
 
     def write(self, address, data):
+
         request = struct.pack('>BIh', UartType.WRITE_REQ, address, np.int16(data))
         # self.logger.info(f'write request: {request}')
         reply = self.command(request)
@@ -45,21 +46,24 @@ class UartProtocol:
         elif opcode != UartType.WRITE_REP:
             raise UartException(f'received {opcode} instead of {UartType.WRITE_REP}')
         
-        self.logger.info(f'write [{address:04X}] <= {np.int16(data) & 0xFFFF:04X}')
+        self.logger.info(f'write [{address:04X}] <= {np.int16(data):04X}')
 
 
     def read_block(self, address, length):
+
         assert length % 8 == 0, 'block reads must be a multiple of 8 words'
+
         request = struct.pack('>BII', UartType.READ_BLOCK_REQ, address, length // 8)
         reply = self.command(request)
-        reply = list(struct.unpack(f'>BI{length}h', reply))
-        if reply[0] != UartType.READ_BLOCK_REP:
+        fields = list(struct.unpack(f'>BI{length}h', reply))
+
+        if fields[0] != UartType.READ_BLOCK_REP:
             raise UartException(f'received {reply[0]} instead of {UartType.READ_BLOCK_REP}')
 
-        return list(reply)[2:]
+        return np.array(fields[2:], dtype=np.int16)
+    
 
-
-    # Write a list of data to the SDRAM. Max length is 128 and addresses must be aligned to 128
+    # Write a list of 16 bit words to the SDRAM. Max length is 128 and addresses must be aligned to 128
     # word boundaries.
     def write_block(self, address, data):
         assert len(data) % 8 == 0, 'block writes must be a multiple of 8 words'
@@ -68,8 +72,8 @@ class UartProtocol:
         opcode, = struct.unpack('>B', reply)
         if opcode != UartType.WRITE_BLOCK_REP:
             raise UartException(f'received {opcode} instead of {UartType.WRITE_BLOCK_REP}')
-
-
+        
+        
     # Write request and read response.
     def command(self, request):
 
