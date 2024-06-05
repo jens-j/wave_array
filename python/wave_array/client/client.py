@@ -176,30 +176,33 @@ class WaveArray:
         self.protocol.write(self.REG_HK_ENABLE, hk_enable)
         return data
     
-    def dma_flash_to_sdram(self, sectors):
+    def dma_flash_to_sdram(self, flash_address, sdram_address, sectors):
         """ DMA FLASH to the SDRAM. """
 
+        logger.info(f'DMA {sectors} sectors from FLASH 0x{flash_address:08X} to SDRAM 0x{sdram_address:08x}')
+
         self.write(WaveArray.REG_DMA_SECTOR_N, sectors)
-        self.write(WaveArray.REG_DMA_FLASH_ADDR_LO, 0)
-        self.write(WaveArray.REG_DMA_FLASH_ADDR_HI, 0)
-        self.write(WaveArray.REG_DMA_SDRAM_ADDR_LO, 0)
-        self.write(WaveArray.REG_DMA_SDRAM_ADDR_HI, 0) 
-        self.write(WaveArray.REG_DMA_START_S2F, 1)
+        self.write(WaveArray.REG_DMA_FLASH_ADDR_LO, flash_address & 0xFFFF)
+        self.write(WaveArray.REG_DMA_FLASH_ADDR_HI, (flash_address >> 16) & 0xFFFF)
+        self.write(WaveArray.REG_DMA_SDRAM_ADDR_LO, sdram_address & 0xFFFF)
+        self.write(WaveArray.REG_DMA_SDRAM_ADDR_HI, (sdram_address >> 16) & 0xFFFF)
+        self.write(WaveArray.REG_DMA_START_F2S, 1)
 
         # Wait for DMA transfer to complete.
         while self.read(WaveArray.REG_DMA_BUSY) != 0:
             logger.debug('DMA F->S busy...')
             sleep(0.1)
 
-
-    def dma_sdram_to_flash(self, sectors):
+    def dma_sdram_to_flash(self, sdram_address, flash_address, sectors):
         """ DMA SDRAM to FLASH. """
 
+        logger.info(f'DMA {sectors} sectors from SDRAM 0x{sdram_address:08X} to FLASH 0x{flash_address:08x}')
+
         self.write(WaveArray.REG_DMA_SECTOR_N, sectors)
-        self.write(WaveArray.REG_DMA_FLASH_ADDR_LO, 0)
-        self.write(WaveArray.REG_DMA_FLASH_ADDR_HI, 0)
-        self.write(WaveArray.REG_DMA_SDRAM_ADDR_LO, 0)
-        self.write(WaveArray.REG_DMA_SDRAM_ADDR_HI, 0)
+        self.write(WaveArray.REG_DMA_FLASH_ADDR_LO, flash_address & 0xFFFF)
+        self.write(WaveArray.REG_DMA_FLASH_ADDR_HI, (flash_address >> 16) & 0xFFFF)
+        self.write(WaveArray.REG_DMA_SDRAM_ADDR_LO, sdram_address & 0xFFFF)
+        self.write(WaveArray.REG_DMA_SDRAM_ADDR_HI, (sdram_address >> 16) & 0xFFFF)
         self.write(WaveArray.REG_DMA_START_S2F, 1)
 
         # Wait for DMA transfer to complete.

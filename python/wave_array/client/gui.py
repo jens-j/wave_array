@@ -845,7 +845,7 @@ class WaveArrayGui(QtWidgets.QMainWindow):
         address = 0x0001_0000 * index
 
         # Write table to sdram.
-        self.client.write_sdram(0, data)
+        self.client.write_sdram_words(0, data)
 
         # Update table registers.
         self.client.write(WaveArray.REG_TABLE_BASE + index * 0x10    , (address >> 16) & 0xFFFF)
