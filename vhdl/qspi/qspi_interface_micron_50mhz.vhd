@@ -35,12 +35,14 @@ architecture arch of qspi_interface_micron_50mhz is
     constant FLASH_CMD_READ_JEDEC           : std_logic_vector(7 downto 0) := x"9F";
     constant FLASH_CMD_READ_STATUS          : std_logic_vector(7 downto 0) := x"05";
     constant FLASH_CMD_READ_NVCONFIG        : std_logic_vector(7 downto 0) := x"B5";
+    constant FLASH_CMD_WRITE_VCONFIG        : std_logic_vector(7 downto 0) := x"81";
     constant FLASH_CMD_WRITE_NVCONFIG       : std_logic_vector(7 downto 0) := x"B1";
     constant FLASH_CMD_WRITE_ENABLE         : std_logic_vector(7 downto 0) := x"06";
     constant FLASH_CMD_4BYTE_PROGRAM        : std_logic_vector(7 downto 0) := x"12";
     constant FLASH_CMD_4BYTE_READ           : std_logic_vector(7 downto 0) := x"13";
     constant FLASH_CMD_4BYTE_QUAD_READ      : std_logic_vector(7 downto 0) := x"6C";
     constant FLASH_CMD_4BYTE_SECTOR_ERASE   : std_logic_vector(7 downto 0) := x"DC";
+    
 
     type t_state is 
         (init_0, init_1, init_2,
@@ -76,6 +78,7 @@ architecture arch of qspi_interface_micron_50mhz is
         tx_busy                 : std_logic;                                        -- TX busy flag.
         tx_counter              : natural range 0 to 39 + FLASH_PAGE_SIZE_BITS;     -- TX bit counter.
         tx_buffer               : std_logic_vector(39 downto 0);                    -- TX output buffer.
+        tx_finalize             : std_logic_vector(1 downto 0);
 
         -- RX registers.
         rx_req                  : std_logic;                                        -- Request RX start.
@@ -112,6 +115,7 @@ architecture arch of qspi_interface_micron_50mhz is
         tx_busy                 => '0',
         tx_counter              => 0,
         tx_buffer               => (others => '0'),
+        tx_finalize             => "00",
         rx_req                  => '0',
         rx_stream               => '0',
         rx_busy                 => '0',
@@ -208,6 +212,9 @@ begin
                 r_in.flash_output.write_req <= '1';
             end if;
         end if;
+
+        -- Shift tx finalize bits.
+        r_in.tx_finalize <= r.tx_finalize(0) & '0';
         
         case r.state is 
 
@@ -362,11 +369,23 @@ begin
 
             if r.tx_counter > 0 then 
                 r_in.tx_counter <= r.tx_counter - 1;
+
             else 
                 r_in.tx_busy <= '0';
                 r_in.tx_stream <= '0';
-                r_in.rx_req <= '1';
+
+                if r.rx_counter = 0 then 
+                    r_in.clock_enable <= '0';
+                    r_in.tx_finalize(0) <= '1';
+                else 
+                    r_in.rx_req <= '1';
+                end if;
             end if;
+        end if;
+
+        if r.tx_finalize(1) = '1' then 
+            r_in.qspi_cs <= '1';
+            r_in.rx_done <= '1';
         end if;
 
         -- Start RX, end transaction if no RX data is expected. 
@@ -374,14 +393,7 @@ begin
             r_in.rx_req <= '0';
             r_in.output_enable <= "0000";
             r_in.rx_buffer <= (others => '0');
-
-            if r.rx_counter = 0 then 
-                r_in.qspi_cs <= '1';
-                r_in.clock_enable <= '0';
-                r_in.rx_done <= '1';
-            else 
-                r_in.rx_busy <= '1';
-            end if;
+            r_in.rx_busy <= '1';
 
         end if; 
 
