@@ -181,9 +181,10 @@ begin
             r_in.dma_busy <= '1';
 
             -- Round addresses to sector boundary.
+            -- Note that the SDRAM uses 16 bit word addresses so the sector size is halved.
             r_in.sdram_address <= 
-                config.flash_dma_input.sdram_address(SDRAM_DEPTH_LOG2 - 1 downto FLASH_SECTOR_SIZE_LOG2) 
-                & (0 to FLASH_SECTOR_SIZE_LOG2 - 1 => '0');
+                config.flash_dma_input.sdram_address(SDRAM_DEPTH_LOG2 - 1 downto FLASH_SECTOR_SIZE_LOG2 - 1) 
+                & (0 to FLASH_SECTOR_SIZE_LOG2 - 2 => '0');
 
             r_in.flash_address_buf <= 
                 config.flash_dma_input.flash_address(FLASH_DEPTH_LOG2 - 1 downto FLASH_SECTOR_SIZE_LOG2) 
