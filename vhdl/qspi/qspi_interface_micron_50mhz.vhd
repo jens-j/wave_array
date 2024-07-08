@@ -35,7 +35,8 @@ architecture arch of qspi_interface_micron_50mhz is
     constant FLASH_CMD_READ_JEDEC           : std_logic_vector(7 downto 0) := x"9F";
     constant FLASH_CMD_READ_STATUS          : std_logic_vector(7 downto 0) := x"05";
     constant FLASH_CMD_READ_NVCONFIG        : std_logic_vector(7 downto 0) := x"B5";
-    constant FLASH_CMD_WRITE_VCONFIG        : std_logic_vector(7 downto 0) := x"81";
+    constant FLASH_CMD_READ_EVCONFIG        : std_logic_vector(7 downto 0) := x"65";
+    constant FLASH_CMD_WRITE_EVCONFIG       : std_logic_vector(7 downto 0) := x"61"; -- Write enhanced volatile config register.
     constant FLASH_CMD_WRITE_NVCONFIG       : std_logic_vector(7 downto 0) := x"B1";
     constant FLASH_CMD_WRITE_ENABLE         : std_logic_vector(7 downto 0) := x"06";
     constant FLASH_CMD_4BYTE_PROGRAM        : std_logic_vector(7 downto 0) := x"12";
@@ -43,9 +44,8 @@ architecture arch of qspi_interface_micron_50mhz is
     constant FLASH_CMD_4BYTE_QUAD_READ      : std_logic_vector(7 downto 0) := x"6C";
     constant FLASH_CMD_4BYTE_SECTOR_ERASE   : std_logic_vector(7 downto 0) := x"DC";
     
-
     type t_state is 
-        (init_0, init_1, init_2,
+        (init_0, init_1, init_2, init_3, init_4,
          idle, tx_stream_start, erase_start, wait_rx_done, poll_wip_0, poll_wip_1, poll_wip_2);
 
     type t_qspi_if_reg is record
@@ -60,7 +60,7 @@ architecture arch of qspi_interface_micron_50mhz is
         qspi_dq                 : std_logic_vector(3 downto 0);
         reg_jedec_vendor        : std_logic_vector(7 downto 0);
         reg_jedec_device        : std_logic_vector(15 downto 0);
-        reg_status            : std_logic_vector(7 downto 0);
+        reg_status              : std_logic_vector(7 downto 0);
         reg_config              : std_logic_vector(15 downto 0);
 
         -- IF control registers.
@@ -226,23 +226,39 @@ begin
             r_in.rx_counter <= 23;
             r_in.state <= init_1;
 
-        -- register JEDEC values, issue read config command.
+        -- register JEDEC values, issue write enable 
         when init_1 => 
             if r.rx_done = '1' then 
                 r_in.reg_jedec_vendor <= r.rx_buffer(23 downto 16);
                 r_in.reg_jedec_device <= r.rx_buffer(15 downto 0);
                 
+                cmd_write_enable(r_in, init_2);
+            end if;
+
+        -- Issue write volatile config register. 
+        when init_2 => 
+            if r.rx_done = '1' then 
                 r_in.tx_req <= '1';
-                r_in.tx_buffer <= FLASH_CMD_READ_NVCONFIG & (0 to 31 => '0');
+                r_in.tx_buffer <= FLASH_CMD_WRITE_EVCONFIG & x"EF" & (0 to 23 => '0'); -- Disable WP & HOLD.
+                r_in.tx_counter <= 15;
+                r_in.rx_counter <= 0;
+                r_in.state <= init_3;
+            end if;
+
+        -- Issue read enhanced volatile config register command.
+        when init_3 =>
+            if r.rx_done = '1' then 
+                r_in.tx_req <= '1';
+                r_in.tx_buffer <= FLASH_CMD_READ_EVCONFIG & (0 to 31 => '0');
                 r_in.tx_counter <= 7;
-                r_in.rx_counter <= 15;
-                r_in.state <= init_2;
+                r_in.rx_counter <= 7;
+                r_in.state <= init_4;
             end if;
 
         -- Register config value.
-        when init_2 => 
+        when init_4 => 
             if r.rx_done = '1' then 
-                r_in.reg_config <= r.rx_buffer(15 downto 0);
+                r_in.reg_config(7 downto 0) <= r.rx_buffer(7 downto 0);
                 r_in.state <= idle;
             end if;
 
