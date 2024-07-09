@@ -1,5 +1,5 @@
 quit -sim
-vsim -L unisims_ver -L unisim -L secureip -voptargs="+acc" -t ps xil_defaultlib.glbl wave.tb_wave_array(arch_no_sdram)
+vsim -L unisims_ver -L unisim -L secureip -voptargs="+acc" -t ps xil_defaultlib.glbl wave.tb_wave_array(arch_with_sdram)
 
 add wave -divider tb:
 add wave tb_wave_array/*
@@ -29,6 +29,8 @@ add wave -divider mixer:
 add wave tb_wave_array/wave_array/synth_subsys/voice_mixer_subsys/*
 add wave -divider envelope:
 add wave tb_wave_array/wave_array/synth_subsys/envelope/*
+add wave -divider frame_dma:
+add wave tb_wave_array/wave_array/synth_subsys/frame_dma/*
 add wave -divider uart_subsys:
 add wave tb_wave_array/wave_array/uart_subsys/*
 add wave -divider packet_engine:
@@ -36,8 +38,6 @@ add wave tb_wave_array/wave_array/uart_subsys/packet_engine/*
 add wave -divider regfile:
 add wave tb_wave_array/wave_array/reg_file/*
 add wave -divider sdram_arbiter:
-add wave tb_wave_array/wave_array/arbiter/*
-add wave -divider sdram_controller:
 add wave tb_wave_array/wave_array/arbiter/*
 add wave -divider flash_interface:
 add wave tb_wave_array/wave_array/qspi_if/*

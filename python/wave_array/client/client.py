@@ -179,7 +179,7 @@ class WaveArray:
     def dma_flash_to_sdram(self, flash_address, sdram_address, sectors):
         """ DMA FLASH to the SDRAM. """
 
-        logger.info(f'DMA {sectors} sectors from FLASH 0x{flash_address:08X} to SDRAM 0x{sdram_address:08x}')
+        logger.info(f'DMA {sectors} sectors from FLASH [0x{flash_address:08X}] to SDRAM [0x{sdram_address:08x}]')
 
         self.write(WaveArray.REG_DMA_SECTOR_N, sectors)
         self.write(WaveArray.REG_DMA_FLASH_ADDR_LO, flash_address & 0xFFFF)
@@ -196,7 +196,7 @@ class WaveArray:
     def dma_sdram_to_flash(self, sdram_address, flash_address, sectors):
         """ DMA SDRAM to FLASH. """
 
-        logger.info(f'DMA {sectors} sectors from SDRAM 0x{sdram_address:08X} to FLASH 0x{flash_address:08x}')
+        logger.info(f'DMA {sectors} sectors from SDRAM [0x{sdram_address:08X}] to FLASH [0x{flash_address:08x}]')
 
         self.write(WaveArray.REG_DMA_SECTOR_N, sectors)
         self.write(WaveArray.REG_DMA_FLASH_ADDR_LO, flash_address & 0xFFFF)
@@ -220,24 +220,36 @@ def main():
     wave_array = WaveArray()
 
 
-    write_data_words = np.int16(list(range(64)))
+    write_data_words = np.int16(list(range(1024)))
+    # write_data_words = np.int16([0x00] * 512)
+    # write_data_words = np.int16(list(range(512)) + [0x00] * 512)
 
     log.info(f'data length = {len(write_data_words)}')
-    wave_array.write_sdram_words(0, write_data_words)
+    wave_array.write_sdram_words(0x8000, write_data_words)
     log.info('sdram write complete')
 
-    read_data_words = wave_array.read_sdram_words(0, len(write_data_words))
+    wave_array.dma_sdram_to_flash(0x8000, 0x10000, 1)
+    wave_array.dma_flash_to_sdram(0x10000, 0x18000, 1)
+
+    read_data_words = wave_array.read_sdram_words(0x18000, len(write_data_words))
     log.info('sdram read complete')
 
     for i, (wdata, rdata) in enumerate(zip(write_data_words, read_data_words)):
         if wdata != rdata:
-            log.info(f'{i:4d} {wdata} != {rdata}') 
+            log.error(f'{i:4d} {wdata} != {rdata}') 
+            exit()
 
-    write_data_bytes = bytes(list(range(16)))
-    print('write_data_bytes:', write_data_bytes)
-    wave_array.write_sdram_bytes(0, write_data_bytes)
-    read_data_bytes = wave_array.read_sdram_bytes(0, 16)
-    print('read_data_bytes:', read_data_bytes)
+
+    # write_data_bytes = bytes(list(range(256)) * 4)
+    # # write_data_bytes = bytes([0] * 1024)
+    # print('write_data_bytes:', write_data_bytes)
+    # wave_array.write_sdram_bytes(0, write_data_bytes)
+
+    # wave_array.dma_sdram_to_flash(0, 0, 1)
+    # wave_array.dma_flash_to_sdram(0, 0, 1)
+
+    # read_data_bytes = wave_array.read_sdram_bytes(0, 1024)
+    # print('read_data_bytes:', read_data_bytes)
     
 
 if __name__ == '__main__':

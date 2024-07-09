@@ -165,7 +165,7 @@ begin
         LEDS(4 + i) <= s_voices(i).enable;
     end generate;
 
-    --I2S_SCLK <= s_i2s_clk;
+    I2S_SCLK <= s_i2s_clk;
 
     s_status.mod_destinations   <= s_mod_destinations;
     s_status.mod_sources        <= s_mod_sources;

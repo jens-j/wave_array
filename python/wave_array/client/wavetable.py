@@ -31,7 +31,7 @@ class WaveTable:
 
         self.descriptor = descriptor
         self.data = data
-        self.frames = [] # List of L0 frames for client side stuff.
+        self.frames = [] # List of L0 frames for client-side visualization.
         
         for i in range(2**self.descriptor.n_frames_log2):
             self.frames.append(data[i * 4096:i * 4096 + 2048])
@@ -91,6 +91,8 @@ class WaveTable:
     def from_sdram(cls, descriptor, client):
         """ Read a wavetable from the SDRAM based on a descriptor. """
 
+        logger.info(f'Read wavetable {descriptor.name} from [0x{descriptor.base_address:08x}]')
+
         data = client.read_sdram_words(descriptor.base_address, 4096 * 2**descriptor.n_frames_log2)
 
         return WaveTable(descriptor, data)
@@ -130,16 +132,16 @@ class TableManager:
     def __init__(self, client):
 
         self.client = client
-        self.descriptors = []
-        self.tables = []
+        self.descriptors = {}
+        self.tables = {}
         self.base_address = self.FLASH_TABLE_START
 
 
     def add_table(self, table):
         """ Add a single WaveTable object to the manager. """
 
-        self.tables.append(table)
-        self.descriptors.append(table.descriptor)
+        self.tables[table.descriptor.name] = table
+        self.descriptors[table.descriptor.name] = table.descriptor
 
     
     def read_from_directory(self, directory_path):
@@ -173,9 +175,8 @@ class TableManager:
 
         self.read_table_descriptors()
 
-        for desc in self.descriptors:
-            logger.info(f'read table {desc.name} from SDRAM')
-            self.tables.append(WaveTable.from_sdram(desc, self.client))
+        for desc in self.descriptors.values():
+            self.tables[desc.name] = WaveTable.from_sdram(desc, self.client)
 
     
     def read_table_descriptors(self):
@@ -183,19 +184,20 @@ class TableManager:
 
         data = b''
 
-        logger.info('read_table_descriptors')
-
         # Read table descriptors from SDRAM 
         data = self.client.read_sdram_bytes(
             self.FLASH_DESCRIPTOR_START, self.FLASH_DESCRIPTOR_END - self.FLASH_DESCRIPTOR_START)
 
         while len(data) >= 106:
             valid, frames_log2, base_address, raw_name = struct.unpack('>BBI100s', data[:106])
-            print(valid, frames_log2, base_address, raw_name)
-            name = raw_name.decode('ascii')
+            name = raw_name.decode('ascii').rstrip('\0')
             if valid:
-                self.descriptors.append(TableDescriptor(name, frames_log2, base_address))
-                self.descriptors[-1].print()
+                self.descriptors[name] = TableDescriptor(name, frames_log2, base_address)
+                self.tables[name] = None
+                logger.info(f'read table descriptor {name} [0x{base_address:08X}]')
+            else:
+                break
+
             data = data[106:] 
 
         
@@ -205,10 +207,7 @@ class TableManager:
         data = b''
         address = 0
 
-        # for d in self.descriptors:
-        #     d.print()
-  
-        for desc in self.descriptors:
+        for desc in self.descriptors.values():
             data += struct.pack('>BBI100s', 0x01, desc.n_frames_log2, desc.base_address, bytes(desc.name, 'ascii'))
 
         # Fill rest of descriptor section with zero's.
@@ -220,7 +219,7 @@ class TableManager:
 
     def write_tables(self):
 
-        for table in self.tables:
+        for table in self.tables.values():
             table.write_to_flash(self.client)
 
     
@@ -232,27 +231,37 @@ class TableManager:
 
 def main():
 
+    import matplotlib.pyplot as plt
+
     logging.basicConfig(level=logging.INFO)
 
     client = WaveArray()
     tm = TableManager(client)
 
-    # Read wavetables from directory.
-    module_path = os.path.dirname(os.path.abspath(__file__))
-    table_path = os.path.join(module_path, '../../../data/wavetables/')
-    tm.read_from_directory(table_path)
+    # # Read wavetables from directory.
+    # module_path = os.path.dirname(os.path.abspath(__file__))
+    # table_path = os.path.join(module_path, '../../../data/wavetables/')
+    # tm.read_from_directory(table_path)
 
-    # Write descriptor and tables to FLASH.
-    tm.write_table_descriptors()
-    tm.write_tables()
+    # # Write descriptor and tables to FLASH.
+    # tm.write_table_descriptors()
+    # tm.write_tables()
 
     # Load FLASH and read descriptors and tables from SDRAM.
+    # tm.descriptors = {}
+    # tm.tables = {}
     tm.load_from_flash()
     tm.read_from_sdram()
 
     print(tm.descriptors)
-    print(tm.tables)
-    print(tm.tables[0].data)
+    # print(tm.tables)
+    name = list(tm.descriptors.keys())[12]
+    print(tm.descriptors[name].print())
+    # print(tm.tables[0].data)
+
+    plt.figure()
+    plt.plot(tm.tables[name].data)
+    plt.show()
 
 
 if __name__ == '__main__':

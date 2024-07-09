@@ -18,6 +18,7 @@ from PyQt5.QtGui              import QIntValidator
 
 
 from wave_array.client.client import WaveArray
+from wave_array.client.wavetable import TableManager
 from wave_array.client.modmap import ModMap, MapException
 from wave_array.client.status import Status
 from wave_array.client.wavetable import WaveTable
@@ -54,12 +55,15 @@ class WaveArrayGui(QtWidgets.QMainWindow):
         self.hk_signal = auto_offload_signal()
         self.wave_signal = auto_offload_signal()
         self.client = WaveArray(self.hk_signal, self.wave_signal)
+
+        # Create table manager 
+        self.table_manager = TableManager(self.client)
         
         self.mod_source = None 
         self.mod_destination = None
         self.mod_button = None
         self.modmap = ModMap(self.client)
-        self.wavetables = [WaveTable(), WaveTable()]
+        self.wavetables = [None, None]
         self.status = Status(self.client)
         self.oscilloscope_samples = np.zeros(100, dtype=np.int16)
         self.voice_enabled_buttons = []
@@ -314,28 +318,26 @@ class WaveArrayGui(QtWidgets.QMainWindow):
             for j in range(2):
 
                 wavetable = self.wavetables[j]
-                dest = ModMap.MODD_OSC_0_FRAME if j == 0 else ModMap.MODD_OSC_1_FRAME
+                n_frames_log2 = wavetable.descriptor.n_frames_log2
 
-                # Skip uninitialized wavetables.
-                if wavetable.n_frames == 0:
-                    continue
+                dest = ModMap.MODD_OSC_0_FRAME if j == 0 else ModMap.MODD_OSC_1_FRAME
             
                 # Set waveform plot data.
-                if wavetable.n_frames_log2 == 0:
+                if n_frames_log2 == 0:
                     self.curves_waveforms[j][i].setData(wavetable.frames[0])
 
                 # Interpolate between frames 0 and 1.
-                elif wavetable.n_frames_log2 == 1: 
+                elif n_frames_log2 == 1: 
                     self.curves_waveforms[j][i].setData(wavetable.frames[0] + np.int16(
                         self.status.mod_destinations[dest][i] 
                         * np.int32(wavetable.frames[1]) - np.int32(wavetable.frames[0]) // 2**15))
 
                 # interpolate between frames a and b.
                 else:
-                    index_a = 2**wavetable.n_frames_log2 * max(0, self.status.mod_destinations[dest][i]) // 2**15 
-                    index_b = min(index_a + 1, 2**wavetable.n_frames_log2 - 1)
-                    d = max(0, self.status.mod_destinations[dest][i]) % 2**(15 - wavetable.n_frames_log2)
-                    d_max = 2**(15 - wavetable.n_frames_log2) - 1
+                    index_a = 2**n_frames_log2 * max(0, self.status.mod_destinations[dest][i]) // 2**15 
+                    index_b = min(index_a + 1, 2**n_frames_log2 - 1)
+                    d = max(0, self.status.mod_destinations[dest][i]) % 2**(15 - n_frames_log2)
+                    d_max = 2**(15 - n_frames_log2) - 1
                     
                     self.curves_waveforms[j][i].setData(wavetable.frames[index_a] 
                         + np.int16(np.int32(d) * (np.int32(wavetable.frames[index_b]) 
@@ -571,8 +573,8 @@ class WaveArrayGui(QtWidgets.QMainWindow):
         bg_color = (0x3a, 0x3a, 0x3a)
 
         # Add callback to wavetable write when a table is dropped on the oscillator plots.
-        self.ui.plot_waveform_0.addDropCallback(self.write_wavetable)
-        self.ui.plot_waveform_1.addDropCallback(self.write_wavetable)
+        self.ui.plot_waveform_0.addDropCallback(self.change_wavetable)
+        self.ui.plot_waveform_1.addDropCallback(self.change_wavetable)
         
         self.plot_cutoff = DropPlotWidget(parent=self.ui.group_modd)
         self.plot_cutoff.setBackground(bg_color)
@@ -793,22 +795,33 @@ class WaveArrayGui(QtWidgets.QMainWindow):
     
     def load_wavetables(self):
 
-        module_path = os.path.dirname(os.path.abspath(__file__))
-        table_path  = os.path.join(module_path, '../../../data/wavetables')
+        # module_path = os.path.dirname(os.path.abspath(__file__))
+        # table_path  = os.path.join(module_path, '../../../data/wavetables')
 
-        for filename in os.listdir(self.table_dir):
+        # for filename in os.listdir(self.table_dir):
 
-            parts = filename.split('.')
+        #     parts = filename.split('.')
 
-            if len(parts) > 2:
-                self.logger.warning(f'Illegal wavetable file name {filename}')
+        #     if len(parts) > 2:
+        #         self.logger.warning(f'Illegal wavetable file name {filename}')
 
-            elif parts[1] != 'table':
-                self.logger.warning(f'Wavetable file name has wrong extension {filename}')
+        #     elif parts[1] != 'table':
+        #         self.logger.warning(f'Wavetable file name has wrong extension {filename}')
 
-            else:
-                label = QListWidgetItem(parts[0])
-                self.ui.list_tables.addItem(label)
+        #     else:
+        #         label = QListWidgetItem(parts[0])
+        #         self.ui.list_tables.addItem(label)
+
+        self.table_manager.load_from_flash()
+        self.table_manager.read_table_descriptors()
+
+        for descriptor in self.table_manager.descriptors.values():
+            label = QListWidgetItem(descriptor.name)
+            self.ui.list_tables.addItem(label)
+
+        # Load first wavetable from list.
+        self.change_wavetable(list(self.table_manager.descriptors.keys())[0], 0)
+        self.change_wavetable(list(self.table_manager.descriptors.keys())[0], 1)
 
     
     # Load available stylesheet names from directory and add a menu item for each.
@@ -827,39 +840,62 @@ class WaveArrayGui(QtWidgets.QMainWindow):
 
             self.ui.menuAppearance.addAction(parts[0], self.appearanceActionClicked)
 
+    
+    def change_wavetable(self, table_name, index):
 
-    # Write a wavetable to the SDRAM. Currently only one wavetable is stored in SDRAM per oscillator.
-    def write_wavetable(self, table_name, index):
+        descriptor = self.table_manager.descriptors[table_name]
 
-        self.logger.info(f'Write table [{index}] <= \"{table_name}\"')
+        # Load wavetable from SDRAM if not already loaded
+        if self.table_manager.tables[descriptor.name] == None:
+            table = WaveTable.from_sdram(descriptor, self.client)
+            self.table_manager.add_table(table)
 
-        filepath = self.table_dir + table_name + '.table'
-
-        with open(filepath, 'r') as f:
-            raw_data = f.read().split('\n')
-
-        raw_data = list(filter(lambda x: x != '', raw_data))
-        data = np.array([int(x, 16) for x in raw_data]).astype('int16')
-        frames = len(data) // 4096
-        frames_log2 = np.uint16(np.log2(frames))
-        address = 0x0001_0000 * index
-
-        # Write table to sdram.
-        self.client.write_sdram_words(0, data)
-
-        # Update table registers.
-        self.client.write(WaveArray.REG_TABLE_BASE + index * 0x10    , (address >> 16) & 0xFFFF)
-        self.client.write(WaveArray.REG_TABLE_BASE + index * 0x10 + 1, address & 0xFFFF)
-        self.client.write(WaveArray.REG_TABLE_BASE + index * 0x10 + 2, frames_log2)
-        self.client.write(WaveArray.REG_TABLE_BASE + index * 0x10 + 3, 0x0001)
-
-        # Update Wavetable object
-        self.wavetables[index].initialize(data)
+        self.wavetables[index] = self.table_manager.tables[descriptor.name]
 
         # Update plot title.
         plot = self.ui.plot_waveform_0 if index == 0 else self.ui.plot_waveform_1
-        name = 'A' if index == 0 else 'B'
-        plot.setTitle(f'{name}: {table_name} [{frames}]')
+        osc_id = 'A' if index == 0 else 'B'
+        plot.setTitle(f'{osc_id}: {descriptor.name} [{descriptor.n_frames_log2}]')
+
+        # Update table registers.
+        self.client.write(WaveArray.REG_TABLE_BASE + index * 0x10    , descriptor.base_address & 0xFFFF)
+        self.client.write(WaveArray.REG_TABLE_BASE + index * 0x10 + 1, (descriptor.base_address >> 16) & 0xFFFF)
+        self.client.write(WaveArray.REG_TABLE_BASE + index * 0x10 + 2, descriptor.n_frames_log2)
+        self.client.write(WaveArray.REG_TABLE_BASE + index * 0x10 + 3, 0x0001)
+
+
+    # # Write a wavetable to the SDRAM. Currently only one wavetable is stored in SDRAM per oscillator.
+    # def write_wavetable(self, table_name, index):
+
+    #     self.logger.info(f'Write table [{index}] <= \"{table_name}\"')
+
+    #     filepath = self.table_dir + table_name + '.table'
+
+    #     with open(filepath, 'r') as f:
+    #         raw_data = f.read().split('\n')
+
+    #     raw_data = list(filter(lambda x: x != '', raw_data))
+    #     data = np.array([int(x, 16) for x in raw_data]).astype('int16')
+    #     frames = len(data) // 4096
+    #     frames_log2 = np.uint16(np.log2(frames))
+    #     address = 0x0001_0000 * index
+
+    #     # Write table to sdram.
+    #     self.client.write_sdram_words(0, data)
+
+    #     # Update table registers.
+    #     self.client.write(WaveArray.REG_TABLE_BASE + index * 0x10    , (address >> 16) & 0xFFFF)
+    #     self.client.write(WaveArray.REG_TABLE_BASE + index * 0x10 + 1, address & 0xFFFF)
+    #     self.client.write(WaveArray.REG_TABLE_BASE + index * 0x10 + 2, frames_log2)
+    #     self.client.write(WaveArray.REG_TABLE_BASE + index * 0x10 + 3, 0x0001)
+
+    #     # Update Wavetable object
+    #     self.wavetables[index].initialize(data)
+
+    #     # Update plot title.
+    #     plot = self.ui.plot_waveform_0 if index == 0 else self.ui.plot_waveform_1
+    #     name = 'A' if index == 0 else 'B'
+    #     plot.setTitle(f'{name}: {table_name} [{frames}]')
 
 
     def mod_button_clicked(self, button, destination, source, state):
@@ -1135,22 +1171,26 @@ def main():
     with open(style_dir + 'Combinear.qss') as f:
         application.setStyleSheet(f.read())
 
-    try:
-        gui = WaveArrayGui(application)
-        gui.show()
-        application.exec_()
+    gui = WaveArrayGui(application)
+    gui.show()
+    application.exec_()
 
-    except Exception as e:
-        logger.error(e)
-        if gui:
-            gui.client.stop()
-        os._exit(1)
-        raise e
+    # try:
+    #     gui = WaveArrayGui(application)
+    #     gui.show()
+    #     application.exec_()
 
-    else:
-        if gui:
-            gui.client.stop()
-        os._exit(1)
+    # except Exception as e:
+    #     logger.error(e)
+    #     if gui:
+    #         gui.client.stop()
+    #     os._exit(1)
+    #     raise e
+
+    # else:
+    #     if gui:
+    #         gui.client.stop()
+    #     os._exit(1)
 
 
 if __name__ == "__main__":

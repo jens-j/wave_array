@@ -99,7 +99,7 @@ begin
 
         if sdram_output.ack = '1' then
             r_in.wavetable_address <= (others => '0');
-            r_in.state <= transfer ;
+            r_in.state <= transfer;
         else
             r_in.sdram_input.read_enable <= '1';
         end if;
@@ -115,7 +115,8 @@ begin
             -- Filter out X signals to avoid issues with simulating IIR filters downstream.
             if SIMULATION then 
                 for i in 0 to SDRAM_WIDTH - 1 loop 
-                    r_in.dma2table(r.table_index).write_data(i) <= '0' when sdram_output.read_data(i) = 'X' else sdram_output.read_data(i);
+                    r_in.dma2table(r.table_index).write_data(i) <= 
+                        '0' when sdram_output.read_data(i) = 'X' else sdram_output.read_data(i);
                 end loop;
             else 
                 r_in.dma2table(r.table_index).write_data <= sdram_output.read_data;
