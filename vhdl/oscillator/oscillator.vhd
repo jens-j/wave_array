@@ -29,8 +29,6 @@ architecture arch of oscillator is
 
     signal s_intermediate_samples   : t_stereo_sample_array(0 to N_VOICES - 1);
     signal s_addrgen2table          : t_addrgen2table_array(0 to N_VOICES - 1);
-    signal s_overflow               : std_logic;
-    signal s_timeout                : std_logic;
 
 begin
 
@@ -58,9 +56,7 @@ begin
         frame_ctrl_index        => frame_ctrl_index,
         frame_control           => frame_control,
         addrgen_input           => s_addrgen2table,
-        output_samples          => s_intermediate_samples,
-        overflow                => s_overflow,
-        timeout                 => s_timeout
+        output_samples          => s_intermediate_samples
     );
 
     halfband : entity osc.halfband_filter

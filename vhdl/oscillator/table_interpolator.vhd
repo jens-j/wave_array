@@ -35,11 +35,7 @@ entity table_interpolator is
         frame_ctrl_index        : in  t_frame_ctrl_index; -- Voice index for each oscillator used to select the correct frame control value. 
         frame_control           : in  t_ctrl_value_array(0 to POLYPHONY_MAX - 1);
         addrgen_input           : in  t_addrgen2table_array(0 to N_VOICES - 1);
-        output_samples          : out t_stereo_sample_array(0 to N_VOICES - 1); -- Two samples are needed for the downsampling.
-
-        -- Debug ports.
-        overflow                : out std_logic; -- Flag numeric overflow.
-        timeout                 : out std_logic -- Flag that the oscillator could not keep up.
+        output_samples          : out t_stereo_sample_array(0 to N_VOICES - 1) -- Two samples are needed for the downsampling.
     );
 end entity;
 
@@ -95,10 +91,6 @@ architecture arch of table_interpolator is
 
         zero_coeff              : std_logic_vector(PIPE_SUM_INTP downto 0);
 
-        -- Sticky error bits.
-        overflow                : std_logic;
-        timeout                 : std_logic;
-
         -- Counters used to select frame control value for each oscillator.
         unison_counter          : integer range 0 to UNISON_MAX - 1;
         voice_counter           : integer range 0 to POLYPHONY_MAX - 1;
@@ -132,8 +124,6 @@ architecture arch of table_interpolator is
         odd_phase               => (others => '0'),
         phase_position          => (others => '0'),
         zero_coeff              => (others => '0'),
-        overflow                => '0',
-        timeout                 => '0',
         unison_counter          => 0,
         voice_counter           => 0
     );
@@ -266,8 +256,6 @@ begin
 
     -- Output connections.
     output_samples  <= r.output_samples;
-    overflow        <= r.overflow;
-    timeout         <= r.timeout;
     table2dma       <= r.table2dma;
 
     combinatorial : process (r, config, status, osc_inputs, frame_ctrl_index, addrgen_input, next_sample, dma2table, 
@@ -443,14 +431,13 @@ begin
 
             elsif r.frames_log2 = 1 then -- Special case: always interpolate between frames 0 & 1.
 
-                -- Use MSBs of frame_control as frame_position (msb is always 0)..
+                -- Use MSBs of frame_control as frame_position (msb is always 0).
                 r_in.frame_position_buffer <= unsigned(
                     r.frame_control(r.voice_counter)(CTRL_SIZE - 2 downto CTRL_SIZE - OSC_SAMPLE_FRAC - 1));
             else 
                 r_in.frame_position_buffer <= unsigned(
                     r.frame_control(r.voice_counter)(r.frame_index_lsb - 1 downto r.frame_index_lsb - OSC_SAMPLE_FRAC));
             end if;  
-
 
             -- Pipeline stage 1: Pipeline register inputs.
             if r.sample_counter(PIPE_LEN_SPLIT) < 2 then
@@ -475,7 +462,7 @@ begin
 
                 -- Edge case where interpolation wraps around.
                 -- Solve by shifting the coefficient forward one position and append with a zero.
-                -- but since the coefficients are stored in reversed order. zero the first coeff
+                -- But since the coefficients are stored in reversed order, zero the first coeff
                 -- and shift the rest back one position.
                 if r.coeff_base_address = POLY_M / 2 - 1 then
 
@@ -586,7 +573,6 @@ begin
         if rising_edge(clk) then
             if reset = '1' then
                 r <= REG_INIT;
-                -- r.state <= idle;
             else
                 r <= r_in;
             end if;
