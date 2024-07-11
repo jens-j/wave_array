@@ -79,8 +79,12 @@ class WaveArrayGui(QtWidgets.QMainWindow):
         self.curves_waveforms = [[None] * self.client.n_voices, [None] * self.client.n_voices]
         self.curves_lfo_0 = [None] * self.client.n_voices
         self.curves_lfo_1 = [None] * self.client.n_voices
+        self.curves_lfo_2 = [None] * self.client.n_voices
+        self.curves_lfo_3 = [None] * self.client.n_voices
         self.curves_envelope_0 = [None] * self.client.n_voices
         self.curves_envelope_1 = [None] * self.client.n_voices
+        self.curves_envelope_2 = [None] * self.client.n_voices
+        self.curves_envelope_3 = [None] * self.client.n_voices
         self.curves_velocity = [None] * self.client.n_voices
         self.curves_cutoff = [None] * self.client.n_voices
         self.curves_resonance = [None] * self.client.n_voices
@@ -129,6 +133,7 @@ class WaveArrayGui(QtWidgets.QMainWindow):
         self.ui.btn_enable_lfo_trigger.clicked.connect(self.btn_enable_lfo_trigger_clicked)
         self.ui.btn_enable_binaural.clicked.connect(self.btn_enable_binaural_clicked)
         self.ui.btn_mod_disable.clicked.connect(self.btn_mod_disable_clicked)
+        self.ui.btn_mod_zero.clicked.connect(self.btn_mod_zero_clicked)
 
         for btn in self.lfo_select_buttons:
             btn.clicked.connect(self.btn_lfo_index_changed)
@@ -250,12 +255,24 @@ class WaveArrayGui(QtWidgets.QMainWindow):
             
             self.curves_envelope_1[i].setData(self.curve_x, np.concatenate(
                 (self.curves_envelope_1[i].getData()[1][1:], [self.status.mod_sources[ModMap.MODS_ENVELOPE_1][i]])))
+            
+            self.curves_envelope_2[i].setData(self.curve_x, np.concatenate(
+                (self.curves_envelope_2[i].getData()[1][1:], [self.status.mod_sources[ModMap.MODS_ENVELOPE_2][i]])))
+            
+            self.curves_envelope_3[i].setData(self.curve_x, np.concatenate(
+                (self.curves_envelope_3[i].getData()[1][1:], [self.status.mod_sources[ModMap.MODS_ENVELOPE_3][i]])))
 
             self.curves_lfo_0[i].setData(self.curve_x, np.concatenate(
                 (self.curves_lfo_0[i].getData()[1][1:], [self.status.mod_sources[ModMap.MODS_LFO_0][i]])))
 
             self.curves_lfo_1[i].setData(self.curve_x, np.concatenate(
                 (self.curves_lfo_1[i].getData()[1][1:], [self.status.mod_sources[ModMap.MODS_LFO_1][i]])))
+            
+            self.curves_lfo_2[i].setData(self.curve_x, np.concatenate(
+                (self.curves_lfo_2[i].getData()[1][1:], [self.status.mod_sources[ModMap.MODS_LFO_2][i]])))
+            
+            self.curves_lfo_3[i].setData(self.curve_x, np.concatenate(
+                (self.curves_lfo_3[i].getData()[1][1:], [self.status.mod_sources[ModMap.MODS_LFO_3][i]])))
             
             self.curves_velocity[i].setData(self.curve_x, np.concatenate(
                 (self.curves_velocity[i].getData()[1][1:], [self.status.mod_sources[ModMap.MODS_VELOCITY][i]])))
@@ -676,6 +693,18 @@ class WaveArrayGui(QtWidgets.QMainWindow):
         self.ui.plot_envelope_1.hideAxis('left')
         self.ui.plot_envelope_1.hideAxis('bottom')
 
+        self.ui.plot_envelope_2.setBackground(bg_color)
+        self.ui.plot_envelope_2.setTitle('envelope 2')
+        self.ui.plot_envelope_2.setYRange(-1, 2**15, padding=0)
+        self.ui.plot_envelope_2.hideAxis('left')
+        self.ui.plot_envelope_2.hideAxis('bottom')
+
+        self.ui.plot_envelope_3.setBackground(bg_color)
+        self.ui.plot_envelope_3.setTitle('envelope 3')
+        self.ui.plot_envelope_3.setYRange(-1, 2**15, padding=0)
+        self.ui.plot_envelope_3.hideAxis('left')
+        self.ui.plot_envelope_3.hideAxis('bottom')
+
         self.ui.plot_lfo_0.setBackground(bg_color)
         self.ui.plot_lfo_0.setTitle('LFO 0')
         self.ui.plot_lfo_0.setYRange(-2**15, 2**15, padding=0)
@@ -687,6 +716,18 @@ class WaveArrayGui(QtWidgets.QMainWindow):
         self.ui.plot_lfo_1.setYRange(-2**15, 2**15, padding=0)
         self.ui.plot_lfo_1.hideAxis('left')
         self.ui.plot_lfo_1.hideAxis('bottom')
+
+        self.ui.plot_lfo_2.setBackground(bg_color)
+        self.ui.plot_lfo_2.setTitle('LFO 2')
+        self.ui.plot_lfo_2.setYRange(-2**15, 2**15, padding=0)
+        self.ui.plot_lfo_2.hideAxis('left')
+        self.ui.plot_lfo_2.hideAxis('bottom')
+
+        self.ui.plot_lfo_3.setBackground(bg_color)
+        self.ui.plot_lfo_3.setTitle('LFO 3')
+        self.ui.plot_lfo_3.setYRange(-2**15, 2**15, padding=0)
+        self.ui.plot_lfo_3.hideAxis('left')
+        self.ui.plot_lfo_3.hideAxis('bottom')
 
         self.ui.plot_velocity.setBackground(bg_color)
         self.ui.plot_velocity.setTitle('midi velocity')
@@ -715,7 +756,8 @@ class WaveArrayGui(QtWidgets.QMainWindow):
         self.plot_widgets = [self.plot_cutoff, self.plot_resonance, self.plot_frame_0, 
                              self.plot_frame_1, self.plot_mix_0, self.plot_mix_1, self.plot_mix_noise, self.plot_volume, 
                              self.plot_frequency_0, self.plot_frequency_1,
-                             self.ui.plot_envelope_0, self.ui.plot_envelope_1, self.ui.plot_lfo_0, self.ui.plot_lfo_1,
+                             self.ui.plot_envelope_0, self.ui.plot_envelope_1, self.ui.plot_envelope_2, self.ui.plot_envelope_3, 
+                             self.ui.plot_lfo_0, self.ui.plot_lfo_1, self.ui.plot_lfo_2, self.ui.plot_lfo_3,
                              self.ui.plot_waveform_0, self.ui.plot_waveform_1, self.ui.plot_oscilloscope]
 
         color_map = pg.colormap.get('CET-C6')
@@ -736,11 +778,23 @@ class WaveArrayGui(QtWidgets.QMainWindow):
             
             self.curves_envelope_1[i] = self.ui.plot_envelope_1.plot(
                 self.curve_x, np.zeros(self.PLOT_SAMPLES), name=f'voice {i}', pen=pen)
-
+            
+            self.curves_envelope_2[i] = self.ui.plot_envelope_2.plot(
+                self.curve_x, np.zeros(self.PLOT_SAMPLES), name=f'voice {i}', pen=pen)
+            
+            self.curves_envelope_3[i] = self.ui.plot_envelope_3.plot(
+                self.curve_x, np.zeros(self.PLOT_SAMPLES), name=f'voice {i}', pen=pen)
+            
             self.curves_lfo_0[i] = self.ui.plot_lfo_0.plot(
                 self.curve_x, np.zeros(self.PLOT_SAMPLES), name=f'voice {i}', pen=pen)
 
             self.curves_lfo_1[i] = self.ui.plot_lfo_1.plot(
+                self.curve_x, np.zeros(self.PLOT_SAMPLES), name=f'voice {i}', pen=pen)
+            
+            self.curves_lfo_2[i] = self.ui.plot_lfo_2.plot(
+                self.curve_x, np.zeros(self.PLOT_SAMPLES), name=f'voice {i}', pen=pen)
+
+            self.curves_lfo_3[i] = self.ui.plot_lfo_3.plot(
                 self.curve_x, np.zeros(self.PLOT_SAMPLES), name=f'voice {i}', pen=pen)
             
             self.curves_velocity[i] = self.ui.plot_velocity.plot(
@@ -782,7 +836,8 @@ class WaveArrayGui(QtWidgets.QMainWindow):
             self.curves_waveforms[0][i] = self.ui.plot_waveform_0.plot(np.zeros(2048), name=f'voice {i}', pen=pen)
             self.curves_waveforms[1][i] = self.ui.plot_waveform_1.plot(np.zeros(2048), name=f'voice {i}', pen=pen)
 
-        self.modd_curves = [self.curves_envelope_0, self.curves_envelope_1, self.curves_lfo_0, self.curves_lfo_1, 
+        self.modd_curves = [self.curves_envelope_0, self.curves_envelope_1, self.curves_envelope_2, self.curves_envelope_3, 
+                            self.curves_lfo_0, self.curves_lfo_1, self.curves_lfo_2, self.curves_lfo_3, 
                             self.curves_velocity, self.curves_cutoff, self.curves_frequency_0, self.curves_frequency_1, 
                             self.curves_resonance, self.curves_frame_0, self.curves_frame_1, self.curves_mix_0, 
                             self.curves_mix_1, self.curves_mix_noise, self.curves_volume, self.curves_spread]
@@ -794,23 +849,6 @@ class WaveArrayGui(QtWidgets.QMainWindow):
 
     
     def load_wavetables(self):
-
-        # module_path = os.path.dirname(os.path.abspath(__file__))
-        # table_path  = os.path.join(module_path, '../../../data/wavetables')
-
-        # for filename in os.listdir(self.table_dir):
-
-        #     parts = filename.split('.')
-
-        #     if len(parts) > 2:
-        #         self.logger.warning(f'Illegal wavetable file name {filename}')
-
-        #     elif parts[1] != 'table':
-        #         self.logger.warning(f'Wavetable file name has wrong extension {filename}')
-
-        #     else:
-        #         label = QListWidgetItem(parts[0])
-        #         self.ui.list_tables.addItem(label)
 
         self.table_manager.load_from_flash()
         self.table_manager.read_table_descriptors()
@@ -864,40 +902,6 @@ class WaveArrayGui(QtWidgets.QMainWindow):
         self.client.write(WaveArray.REG_TABLE_BASE + index * 0x10 + 3, 0x0001)
 
 
-    # # Write a wavetable to the SDRAM. Currently only one wavetable is stored in SDRAM per oscillator.
-    # def write_wavetable(self, table_name, index):
-
-    #     self.logger.info(f'Write table [{index}] <= \"{table_name}\"')
-
-    #     filepath = self.table_dir + table_name + '.table'
-
-    #     with open(filepath, 'r') as f:
-    #         raw_data = f.read().split('\n')
-
-    #     raw_data = list(filter(lambda x: x != '', raw_data))
-    #     data = np.array([int(x, 16) for x in raw_data]).astype('int16')
-    #     frames = len(data) // 4096
-    #     frames_log2 = np.uint16(np.log2(frames))
-    #     address = 0x0001_0000 * index
-
-    #     # Write table to sdram.
-    #     self.client.write_sdram_words(0, data)
-
-    #     # Update table registers.
-    #     self.client.write(WaveArray.REG_TABLE_BASE + index * 0x10    , (address >> 16) & 0xFFFF)
-    #     self.client.write(WaveArray.REG_TABLE_BASE + index * 0x10 + 1, address & 0xFFFF)
-    #     self.client.write(WaveArray.REG_TABLE_BASE + index * 0x10 + 2, frames_log2)
-    #     self.client.write(WaveArray.REG_TABLE_BASE + index * 0x10 + 3, 0x0001)
-
-    #     # Update Wavetable object
-    #     self.wavetables[index].initialize(data)
-
-    #     # Update plot title.
-    #     plot = self.ui.plot_waveform_0 if index == 0 else self.ui.plot_waveform_1
-    #     name = 'A' if index == 0 else 'B'
-    #     plot.setTitle(f'{name}: {table_name} [{frames}]')
-
-
     def mod_button_clicked(self, button, destination, source, state):
 
         self.logger.info(f'mod_button_clicked {state}')
@@ -932,6 +936,12 @@ class WaveArrayGui(QtWidgets.QMainWindow):
         self.mod_button.setChecked(False)
 
 
+    def btn_mod_zero_clicked(self):
+        
+        self.logger.info(f'btn_mod_zero_clicked {self.mod_button}')
+        self.ui.slider_mod_amount.setValue(0)  
+
+
     def pitch_changed(self, index):
 
         box_oct = getattr(self.ui, f'box_octaves_{index}')
@@ -952,6 +962,7 @@ class WaveArrayGui(QtWidgets.QMainWindow):
     def btn_enable_hk_clicked(self, checked):
         self.client.write(WaveArray.REG_HK_ENABLE, int(checked))
 
+
     def btn_envelope_index_changed(self):
 
         # Find active envelope
@@ -960,8 +971,8 @@ class WaveArrayGui(QtWidgets.QMainWindow):
                 self.envelope_index = i 
                 break 
 
-        attack = self.client.read(WaveArray.REG_ENVELOPE_CTRL_BASE + self.envelope_index * 0x10)
-        decay = self.client.read(WaveArray.REG_ENVELOPE_CTRL_BASE + self.envelope_index * 0x10 + 1)
+        attack  = self.client.read(WaveArray.REG_ENVELOPE_CTRL_BASE + self.envelope_index * 0x10)
+        decay   = self.client.read(WaveArray.REG_ENVELOPE_CTRL_BASE + self.envelope_index * 0x10 + 1)
         sustain = self.client.read(WaveArray.REG_ENVELOPE_CTRL_BASE + self.envelope_index * 0x10 + 2)
         release = self.client.read(WaveArray.REG_ENVELOPE_CTRL_BASE + self.envelope_index * 0x10 + 3)
 

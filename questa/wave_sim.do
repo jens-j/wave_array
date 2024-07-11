@@ -29,6 +29,10 @@ add wave -divider mixer:
 add wave tb_wave_array/wave_array/synth_subsys/voice_mixer_subsys/*
 add wave -divider envelope:
 add wave tb_wave_array/wave_array/synth_subsys/envelope/*
+add wave -divider lfo:
+add wave tb_wave_array/wave_array/synth_subsys/lfo/*
+add wave -divider mod_matrix:
+add wave tb_wave_array/wave_array/synth_subsys/mod_matrix/*
 add wave -divider frame_dma:
 add wave tb_wave_array/wave_array/synth_subsys/frame_dma/*
 add wave -divider uart_subsys:

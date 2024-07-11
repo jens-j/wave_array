@@ -93,7 +93,7 @@ package wave_array_pkg is
     constant CTRL_SIZE              : integer := 16;
 
     -- LFO contants.
-    constant LFO_N                  : integer := 2;  -- Number of LFOs.
+    constant LFO_N                  : integer := 4;  -- Number of LFOs.
     constant LFO_N_LOG2             : integer := integer(ceil(log2(real(LFO_N))));
     constant LFO_PHASE_SIZE         : integer := 48; -- Phase accumulator bit width.
     constant LFO_PHASE_INT          : integer := 3;  -- Integer bit width of phase.
@@ -117,7 +117,7 @@ package wave_array_pkg is
     --pragma synthesis_on
                                      , 25);
 
-    constant ENV_N                  : integer := 2; -- Number of envelopes.
+    constant ENV_N                  : integer := 4; -- Number of envelopes.
     constant ENV_N_LOG2             : integer := integer(ceil(log2(real(ENV_N))));
     constant ENV_MIN_ATTACK_T       : real := 1.0 / real(2**10); -- In seconds.
     constant ENV_MAX_ATTACK_T       : real := real(2**3);   
@@ -188,13 +188,17 @@ package wave_array_pkg is
     constant MODS_NONE              : natural := 0;
     constant MODS_ENVELOPE_0        : natural := 1;
     constant MODS_ENVELOPE_1        : natural := 2;
-    constant MODS_LFO_0             : natural := 3;
-    constant MODS_LFO_1             : natural := 4;
-    constant MODS_VELOCITY          : natural := 5;
-    constant MODS_TABLE_0           : natural := 6;
-    constant MODS_TABLE_1           : natural := 7;
+    constant MODS_ENVELOPE_2        : natural := 3;
+    constant MODS_ENVELOPE_3        : natural := 4;
+    constant MODS_LFO_0             : natural := 5;
+    constant MODS_LFO_1             : natural := 6;
+    constant MODS_LFO_2             : natural := 7;
+    constant MODS_LFO_3             : natural := 8;
+    constant MODS_VELOCITY          : natural := 9;
+    constant MODS_TABLE_0           : natural := 10;
+    constant MODS_TABLE_1           : natural := 11;
 
-    constant MODS_LEN               : natural := 8;
+    constant MODS_LEN               : natural := 12;
     constant MODD_LEN               : natural := 11;
     constant MODS_LEN_LOG2          : natural := integer(ceil(log2(real(MODS_LEN))));
     constant MODD_LEN_LOG2          : natural := integer(ceil(log2(real(MODD_LEN))));
@@ -350,27 +354,6 @@ package wave_array_pkg is
     type t_active_oscillators_array is array (1 to UNISON_MAX) of integer range 1 to N_VOICES;
 
     type t_polyphony_array is array (1 to UNISON_MAX) of integer range 1 to POLYPHONY_MAX;
-
-    -- type MOD_DEST_ENUM is (
-    --     MODD_FILTER_CUTOFF,     -- 0
-    --     MODD_FILTER_RESONANCE,  -- 1
-    --     MODD_OSC_FRAME,         -- 2
-    --     MODD_VOLUME              -- 3
-    --     -- MODD_OSC_FREQUENCY,     -- 3 (has no base control value but is controlled by midi)
-    -- );
-
-    -- type MOD_SOURCE_ENUM is (
-    --     MODS_NONE,              -- 0
-    --     MODS_POT,               -- 1
-    --     MODS_ENVELOPE,          -- 2
-    --     MODS_LFO                -- 3
-    -- );
-
-    -- type t_mod_source_enum_array is array (natural range <>) of MOD_SOURCE_ENUM;
-
-    -- constant MODS_LEN           : integer := MOD_SOURCE_ENUM'pos(MOD_SOURCE_ENUM'high) + 1;
-    -- constant MODD_LEN           : integer := MOD_DEST_ENUM'pos(MOD_DEST_ENUM'high) + 1;
-
 
     -- Record holding modulation mapping of all sources enabled for one destination.
     type t_mod_mapping is record 

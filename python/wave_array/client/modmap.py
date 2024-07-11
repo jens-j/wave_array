@@ -43,13 +43,17 @@ class ModMap:
     MODS_NONE               = 0
     MODS_ENVELOPE_0         = 1
     MODS_ENVELOPE_1         = 2
-    MODS_LFO_0              = 3
-    MODS_LFO_1              = 4
-    MODS_VELOCITY           = 5
-    MODS_TABLE_0            = 6
-    MODS_TABLE_1            = 7
+    MODS_ENVELOPE_2         = 3
+    MODS_ENVELOPE_3         = 4
+    MODS_LFO_0              = 5
+    MODS_LFO_1              = 6
+    MODS_LFO_2              = 7
+    MODS_LFO_3              = 8
+    MODS_VELOCITY           = 9
+    MODS_TABLE_0            = 10
+    MODS_TABLE_1            = 11
 
-    MODS_LEN                = 8
+    MODS_LEN                = 12
     MODD_LEN                = 11
     MODS_LEN_LOG2           = int(np.ceil(np.log2(MODS_LEN)))
     MODD_LEN_LOG2           = int(np.ceil(np.log2(MODD_LEN)))
@@ -73,9 +77,13 @@ class ModMap:
     MODS = {
         MODS_NONE           : 'none',                
         MODS_ENVELOPE_0     : 'envelope_0',                
-        MODS_ENVELOPE_1     : 'envelope_1',    
+        MODS_ENVELOPE_1     : 'envelope_1',  
+        MODS_ENVELOPE_2     : 'envelope_2',                
+        MODS_ENVELOPE_3     : 'envelope_3', 
         MODS_LFO_0          : 'lfo_0',
         MODS_LFO_1          : 'lfo_1',
+        MODS_LFO_2          : 'lfo_2',
+        MODS_LFO_3          : 'lfo_3',
         MODS_VELOCITY       : 'velocity',
         MODS_TABLE_0        : 'table_0',
         MODS_TABLE_1        : 'table_1'

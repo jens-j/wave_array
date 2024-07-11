@@ -70,8 +70,12 @@ begin
         s_mod_sources(MODS_NONE)(i)       <= (others => '0');
         s_mod_sources(MODS_ENVELOPE_0)(i) <= s_envelope_out(0)(i);
         s_mod_sources(MODS_ENVELOPE_1)(i) <= s_envelope_out(1)(i);
+        s_mod_sources(MODS_ENVELOPE_2)(i) <= s_envelope_out(2)(i);
+        s_mod_sources(MODS_ENVELOPE_3)(i) <= s_envelope_out(3)(i);
         s_mod_sources(MODS_LFO_0)(i)      <= s_lfo_out(0)(i);
         s_mod_sources(MODS_LFO_1)(i)      <= s_lfo_out(1)(i);
+        s_mod_sources(MODS_LFO_2)(i)      <= s_lfo_out(2)(i);
+        s_mod_sources(MODS_LFO_3)(i)      <= s_lfo_out(3)(i);
         s_mod_sources(MODS_VELOCITY)(i)   <= '0' & signed(voices(i).midi_velocity) & (0 to 7 => '0'); -- Extend 7 bit midi velocity to signed 16 bit control value.
         s_mod_sources(MODS_TABLE_0)(i)    <= s_unison_mixer_output(0)(i);
         s_mod_sources(MODS_TABLE_1)(i)    <= s_unison_mixer_output(1)(i);

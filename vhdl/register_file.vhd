@@ -72,6 +72,8 @@ begin
         variable v_modd_destination : integer range 0 to MODD_LEN - 1;
         variable v_modd_voice : integer range 0 to POLYPHONY_MAX - 1;
         variable v_table_index : integer range 0 to N_TABLES - 1;
+        variable v_lfo_index : integer range 0 to LFO_N - 1;
+        variable v_env_index : integer range 0 to ENV_N - 1;
         variable v_table_mix_index : integer range 0 to N_TABLES;
         variable v_voice_index : integer range 0 to POLYPHONY_MAX - 1;
         variable v_unison_n : integer range 1 to UNISON_MAX;
@@ -299,23 +301,23 @@ begin
                     and register_input.address < REG_ENVELOPE_CTRL_BASE + ENV_N * x"10" + 5 then
 
                 v_rel_address := register_input.address  and x"0000_0FFF";
-                v_table_index := to_integer(unsigned(v_rel_address(ENV_N_LOG2 + 4 downto 4))); -- Index slice is 1 bit wider than necessary to accomodate ENV_N_LOG2 = 0.
+                v_env_index := to_integer(unsigned(v_rel_address(ENV_N_LOG2 + 4 downto 4))); -- Index slice is 1 bit wider than necessary to accomodate ENV_N_LOG2 = 0.
 
                 case v_rel_address(3 downto 0) is 
                 when x"0" =>
-                    r_in.register_output.read_data <= std_logic_vector(r.config.envelope_input(v_table_index).attack);
+                    r_in.register_output.read_data <= std_logic_vector(r.config.envelope_input(v_env_index).attack);
                 
                 when x"1" => 
-                    r_in.register_output.read_data <= std_logic_vector(r.config.envelope_input(v_table_index).decay);
+                    r_in.register_output.read_data <= std_logic_vector(r.config.envelope_input(v_env_index).decay);
 
                 when x"2" => 
-                    r_in.register_output.read_data <= std_logic_vector(r.config.envelope_input(v_table_index).sustain);
+                    r_in.register_output.read_data <= std_logic_vector(r.config.envelope_input(v_env_index).sustain);
 
                 when x"3" => 
-                    r_in.register_output.read_data <= std_logic_vector(r.config.envelope_input(v_table_index).release_value);
+                    r_in.register_output.read_data <= std_logic_vector(r.config.envelope_input(v_env_index).release_value);
 
                 when x"4" => 
-                    r_in.register_output.read_data(0) <= r.config.envelope_input(v_table_index).loop_envelope;
+                    r_in.register_output.read_data(0) <= r.config.envelope_input(v_env_index).loop_envelope;
 
                 when others => 
                     r_in.register_output.valid <= '0';
@@ -327,24 +329,24 @@ begin
                     and register_input.address < REG_LFO_CTRL_BASE + LFO_N * x"10" + 5 then
 
                 v_rel_address := register_input.address and x"0000_0FFF";
-                v_table_index := to_integer(unsigned(v_rel_address(LFO_N_LOG2 + 4 downto 4))); -- Index slice is 1 bit wider than necessary to accomodate LFO_N_LOG2 = 0.
+                v_lfo_index := to_integer(unsigned(v_rel_address(LFO_N_LOG2 + 4 downto 4))); -- Index slice is 1 bit wider than necessary to accomodate LFO_N_LOG2 = 0.
 
                 case v_rel_address(3 downto 0) is 
                 when x"0" => 
-                    r_in.register_output.read_data <= std_logic_vector(r.config.lfo_input(v_table_index).velocity);
+                    r_in.register_output.read_data <= std_logic_vector(r.config.lfo_input(v_lfo_index).velocity);
 
                 when x"1" =>
                     r_in.register_output.read_data <= 
-                        std_logic_vector(to_unsigned(r.config.lfo_input(v_table_index).wave_select, REGISTER_WIDTH));
+                        std_logic_vector(to_unsigned(r.config.lfo_input(v_lfo_index).wave_select, REGISTER_WIDTH));
 
                 when x"2" => 
-                    r_in.register_output.read_data(0) <= r.config.lfo_input(v_table_index).trigger;
+                    r_in.register_output.read_data(0) <= r.config.lfo_input(v_lfo_index).trigger;
 
                 when x"3" => 
-                    r_in.register_output.read_data <= std_logic_vector(r.config.lfo_input(v_table_index).phase_shift);    
+                    r_in.register_output.read_data <= std_logic_vector(r.config.lfo_input(v_lfo_index).phase_shift);    
 
                 when x"4" => 
-                    r_in.register_output.read_data(0) <= r.config.lfo_input(v_table_index).oneshot;
+                    r_in.register_output.read_data(0) <= r.config.lfo_input(v_lfo_index).oneshot;
                 
                 -- LFO reset register is not readable.
                 when others => 
@@ -541,23 +543,23 @@ begin
                     and register_input.address < REG_ENVELOPE_CTRL_BASE + ENV_N * x"10" + 5 then
 
                 v_rel_address := register_input.address and x"0000_0FFF";
-                v_table_index := to_integer(unsigned(v_rel_address(ENV_N_LOG2 + 4 downto 4)));
+                v_env_index := to_integer(unsigned(v_rel_address(ENV_N_LOG2 + 4 downto 4)));
 
                 case v_rel_address(3 downto 0) is 
                 when x"0" =>
-                    r_in.config_buffer.envelope_input(v_table_index).attack <= signed(register_input.write_data);
+                    r_in.config_buffer.envelope_input(v_env_index).attack <= signed(register_input.write_data);
                 
                 when x"1" => 
-                    r_in.config_buffer.envelope_input(v_table_index).decay <= signed(register_input.write_data);
+                    r_in.config_buffer.envelope_input(v_env_index).decay <= signed(register_input.write_data);
 
                 when x"2" => 
-                    r_in.config_buffer.envelope_input(v_table_index).sustain <= signed(register_input.write_data);
+                    r_in.config_buffer.envelope_input(v_env_index).sustain <= signed(register_input.write_data);
 
                 when x"3" => 
-                    r_in.config_buffer.envelope_input(v_table_index).release_value <= signed(register_input.write_data);
+                    r_in.config_buffer.envelope_input(v_env_index).release_value <= signed(register_input.write_data);
 
                 when x"4" => 
-                    r_in.config_buffer.envelope_input(v_table_index).loop_envelope <= register_input.write_data(0);
+                    r_in.config_buffer.envelope_input(v_env_index).loop_envelope <= register_input.write_data(0);
                 
                 when others => 
                     r_in.register_output.valid <= '0';
@@ -570,27 +572,27 @@ begin
                     and register_input.address < REG_LFO_CTRL_BASE + LFO_N * x"10" + 6 then
 
                 v_rel_address := register_input.address and x"0000_0FFF";
-                v_table_index := to_integer(unsigned(v_rel_address(LFO_N_LOG2 + 4 downto 4)));
+                v_lfo_index := to_integer(unsigned(v_rel_address(LFO_N_LOG2 + 4 downto 4)));
 
                 case v_rel_address(3 downto 0) is 
                 when x"0" => 
-                    r_in.config_buffer.lfo_input(v_table_index).velocity <= signed(register_input.write_data);
+                    r_in.config_buffer.lfo_input(v_lfo_index).velocity <= signed(register_input.write_data);
 
                 when x"1" =>
-                    r_in.config_buffer.lfo_input(v_table_index).wave_select <= 
+                    r_in.config_buffer.lfo_input(v_lfo_index).wave_select <= 
                         minimum(LFO_N_WAVEFORMS - 1, to_integer(unsigned(register_input.write_data)));                
 
                 when x"2" => 
-                    r_in.config_buffer.lfo_input(v_table_index).trigger <= register_input.write_data(0);
+                    r_in.config_buffer.lfo_input(v_lfo_index).trigger <= register_input.write_data(0);
 
                 when x"3" => 
-                    r_in.config_buffer.lfo_input(v_table_index).phase_shift <= signed(register_input.write_data);
+                    r_in.config_buffer.lfo_input(v_lfo_index).phase_shift <= signed(register_input.write_data);
 
                 when x"4" => 
-                    r_in.config_buffer.lfo_input(v_table_index).oneshot <= register_input.write_data(0);
+                    r_in.config_buffer.lfo_input(v_lfo_index).oneshot <= register_input.write_data(0);
 
                 when x"5" => 
-                    r_in.config_buffer.lfo_input(v_table_index).reset <= '1';
+                    r_in.config_buffer.lfo_input(v_lfo_index).reset <= '1';
                 
                 when others => 
                     r_in.register_output.valid <= '0';
