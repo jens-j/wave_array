@@ -1,5 +1,5 @@
 quit -sim
-vsim -L unisims_ver -L unisim -L secureip -voptargs="+acc" -t ps xil_defaultlib.glbl wave.tb_wave_array(arch_with_sdram)
+vsim -L unisims_ver -L unisim -L secureip -voptargs="+acc" -t ps xil_defaultlib.glbl wave.tb_wave_array(arch_no_sdram)
 
 add wave -divider tb:
 add wave tb_wave_array/*

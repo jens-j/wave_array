@@ -420,7 +420,8 @@ begin
             if r.frames_log2 < 2 then
                 v_frame_index := 0;
             else 
-                v_frame_index := to_integer(unsigned(r.frame_control(r.voice_counter)(CTRL_SIZE - 2 downto r.frame_index_lsb)));
+                v_frame_index := 
+                    to_integer(unsigned(r.frame_control(r.voice_counter)(CTRL_SIZE - 2 downto r.frame_index_lsb)));
             end if;
 
             r_in.frame_index_a <= v_frame_index;

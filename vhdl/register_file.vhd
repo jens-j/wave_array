@@ -270,7 +270,6 @@ begin
                     r.config.base_ctrl(MODD_OSC_0_FRAME + v_table_index));
                
             -- Wavetable registers.
-            -- Each wavetable has 4 registers.
             elsif register_input.address >= REG_TABLE_BASE 
                     and register_input.address < REG_TABLE_BASE + N_TABLES * x"10" + 4 then
 
@@ -296,7 +295,6 @@ begin
                 end case;
 
             -- Envelope registers.
-            -- Each wavetable has 4 registers.
             elsif register_input.address >= REG_ENVELOPE_CTRL_BASE 
                     and register_input.address < REG_ENVELOPE_CTRL_BASE + ENV_N * x"10" + 5 then
 
@@ -324,7 +322,6 @@ begin
                 end case;
 
             -- LFO registers.
-            -- Each wavetable has 4 registers.
             elsif register_input.address >= REG_LFO_CTRL_BASE 
                     and register_input.address < REG_LFO_CTRL_BASE + LFO_N * x"10" + 5 then
 
@@ -347,6 +344,10 @@ begin
 
                 when x"4" => 
                     r_in.register_output.read_data(0) <= r.config.lfo_input(v_lfo_index).oneshot;
+
+                when x"6" => 
+                    r_in.register_output.read_data <= std_logic_vector(
+                        r.config.base_ctrl(MODD_LFO_0_AMPLITUDE + v_lfo_index));
                 
                 -- LFO reset register is not readable.
                 when others => 
@@ -593,6 +594,10 @@ begin
 
                 when x"5" => 
                     r_in.config_buffer.lfo_input(v_lfo_index).reset <= '1';
+
+                when x"6" => 
+                    r_in.config_buffer.base_ctrl(MODD_LFO_0_AMPLITUDE + v_lfo_index) <= 
+                        signed(register_input.write_data);
                 
                 when others => 
                     r_in.register_output.valid <= '0';

@@ -144,6 +144,7 @@ begin
         clk                     => clk,
         reset                   => reset,
         config                  => config,
+        status                  => status,
         lfo_input               => config.lfo_input,
         next_sample             => next_sample,
         osc_inputs              => s_osc_inputs,

@@ -184,7 +184,11 @@ package wave_array_pkg is
     constant MODD_OSC_0_FREQ        : natural := 8;
     constant MODD_OSC_1_FREQ        : natural := 9;
     constant MODD_UNISON            : natural := 10;
-
+    constant MODD_LFO_0_AMPLITUDE   : natural := 11;
+    constant MODD_LFO_1_AMPLITUDE   : natural := 12;
+    constant MODD_LFO_2_AMPLITUDE   : natural := 13;
+    constant MODD_LFO_3_AMPLITUDE   : natural := 14;
+    
     constant MODS_NONE              : natural := 0;
     constant MODS_ENVELOPE_0        : natural := 1;
     constant MODS_ENVELOPE_1        : natural := 2;
@@ -199,7 +203,7 @@ package wave_array_pkg is
     constant MODS_TABLE_1           : natural := 11;
 
     constant MODS_LEN               : natural := 12;
-    constant MODD_LEN               : natural := 11;
+    constant MODD_LEN               : natural := 15;
     constant MODS_LEN_LOG2          : natural := integer(ceil(log2(real(MODS_LEN))));
     constant MODD_LEN_LOG2          : natural := integer(ceil(log2(real(MODD_LEN))));
 
@@ -291,6 +295,7 @@ package wave_array_pkg is
                                                -- x"0008XX3"; -- rw 15 bit unsigned | Binaural LFO phase difference, [-180 - 180] degrees.
                                                -- x"0008XX4"; -- rw  1 bit          | One-shot mode to turn the LFO into an envelope.
                                                -- x"0008XX5"; -- wo  1 bit          | Reset LFO phase.
+                                               -- x"0008XX6"; -- rw 15 bit unsigned | LFO ampitude (base value).
 
      -- fault register (sticky-)bit indices.
     constant FAULT_UART_TIMEOUT     : integer := 0; -- UART packet engine timout.
@@ -714,8 +719,11 @@ package body wave_array_pkg is
                                         7 => x"0000",
                                         8 => x"0000",
                                         9 => x"0000",
-                                        10 => x"0000"),
-
+                                        10 => x"0000",
+                                        11 => x"3FFF",
+                                        12 => x"3FFF",
+                                        13 => x"3FFF",
+                                        14 => x"3FFF"),
             mod_mapping             => mapping, 
             hk_enable               => '0',
             hk_period               => x"07A1", -- 50 Hz (lsb is 1024 cycles).

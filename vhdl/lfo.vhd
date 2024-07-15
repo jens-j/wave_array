@@ -17,6 +17,7 @@ entity lfo is
         clk                     : in  std_logic;
         reset                   : in  std_logic;
         config                  : in  t_config;
+        status                  : in  t_status;
         lfo_input               : in  t_lfo_input_array(0 to N_INSTANCES - 1);
         next_sample             : in  std_logic;
         osc_inputs              : in  t_osc_input_array(0 to N_OUTPUTS - 1);
@@ -33,6 +34,9 @@ architecture arch of lfo is
     constant PIPE_LEN_CLIP      : integer := 1;
     constant PIPE_LEN_MUX       : integer := 1;
     constant PIPE_LEN_CORDIC    : integer := 1;
+    constant PIPE_LEN_PROCESS   : integer := 21;
+    constant PIPE_LEN_SCALE     : integer := 1;
+    constant PIPE_LEN_WRITEBACK : integer := 1;
 
     constant PIPE_SUM_ADD       : integer := PIPE_LEN_MULT + PIPE_LEN_ADD;
     constant PIPE_SUM_ACC       : integer := PIPE_SUM_ADD + PIPE_LEN_ACC;
@@ -40,6 +44,10 @@ architecture arch of lfo is
     constant PIPE_SUM_CLIP      : integer := PIPE_SUM_PHASE + PIPE_LEN_CLIP;
     constant PIPE_SUM_MUX       : integer := PIPE_SUM_CLIP + PIPE_LEN_MUX;
     constant PIPE_SUM_CORDIC    : integer := PIPE_SUM_MUX + PIPE_LEN_CORDIC;
+    constant PIPE_SUM_PROCESS   : integer := PIPE_SUM_CORDIC + PIPE_LEN_PROCESS;
+    constant PIPE_SUM_SCALE     : integer := PIPE_SUM_PROCESS + PIPE_LEN_SCALE;
+    constant PIPE_SUM_WRITEBACK : integer := PIPE_SUM_SCALE + PIPE_LEN_WRITEBACK;
+    
 
     type t_state is (idle, square_velocity, running);
     type t_lfo_phase_array is array (0 to N_OUTPUTS - 1) of signed(LFO_PHASE_SIZE - 1 downto 0);
@@ -55,7 +63,10 @@ architecture arch of lfo is
         lfo_velocity_clipped    : t_ctrl_value_array(0 to N_INSTANCES - 1);
         lfo_out                 : t_lfo_out(0 to N_INSTANCES - 1);
         lfo_buffer              : t_lfo_out(0 to N_INSTANCES - 1);
-        valid_shift             : std_logic_vector(PIPE_SUM_CORDIC - 1 downto 0); -- Pipeline valid shift register.
+        raw_buffer              : t_ctrl_value;
+        scaled_buffer           : t_ctrl_value;
+        scale_buffer            : t_ctrl_value;
+        valid_shift             : std_logic_vector(PIPE_SUM_WRITEBACK - 1 downto 0); -- Pipeline valid shift register.
         index_shift             : t_index_shift_array; -- Output index shift register.
         instance_shift          : t_instance_shift_array;
         phase                   : t_lfo_phase_2d_array; -- Separate phases for all LFO instances.
@@ -65,8 +76,10 @@ architecture arch of lfo is
         phase_offset            : signed(LFO_PHASE_SIZE - 1 downto 0);
         sync                    : t_sync;
         osc_enable              : std_logic_vector(N_OUTPUTS - 1 downto 0);
-        instance_read           : integer range 0 to N_INSTANCES - 1;
-        index_read              : integer range 0 to N_OUTPUTS - 1;
+        instance_wb             : integer range 0 to N_INSTANCES - 1;
+        index_wb                : integer range 0 to N_OUTPUTS - 1;
+        instance_cordic         : integer range 0 to N_INSTANCES - 1;
+        index_cordic            : integer range 0 to N_OUTPUTS - 1;
         pipeline_done           : std_logic;
         prev_phase_raw          : signed(LFO_PHASE_SIZE - 1 downto 0);
         phase_shift_array       : t_phase_shift_array;
@@ -79,6 +92,9 @@ architecture arch of lfo is
         lfo_velocity_clipped    => (others => (others => '0')),
         lfo_out                 => (others => (others => (others => '0'))),
         lfo_buffer              => (others => (others => (others => '0'))),
+        raw_buffer              => (others => '0'),
+        scaled_buffer           => (others => '0'),
+        scale_buffer            => (others => '0'),
         valid_shift             => (others => '0'),
         index_shift             => (others => 0),
         instance_shift          => (others => 0),
@@ -89,8 +105,10 @@ architecture arch of lfo is
         phase_offset            => (others => '0'),
         sync                    => (others => (others => '0')),
         osc_enable              => (others => '0'),
-        instance_read           => 0,
-        index_read              => N_OUTPUTS - 1,
+        instance_wb             => 0,
+        index_wb                => 0,
+        instance_cordic         => 0,
+        index_cordic            => 0,
         pipeline_done           => '0',
         prev_phase_raw          => (others => '0'),
         phase_shift_array       => (others => (others => '0')),
@@ -129,9 +147,10 @@ begin
         m_axis_dout_tdata       => s_dout_tdata
     );
 
-    combinatorial : process (r, config, next_sample, lfo_input, osc_inputs, s_dout_tvalid, s_dout_tdata)
+    combinatorial : process (r, config, status, next_sample, lfo_input, osc_inputs, s_dout_tvalid, s_dout_tdata)
         variable v_lfo_velocity_squared : signed(2 * CTRL_SIZE - 1 downto 0);
         variable v_index_unsigned : unsigned(15 downto 0);
+        variable v_amp_mult : signed(2 * CTRL_SIZE - 1 downto 0);
     begin
 
         r_in <= r;
@@ -144,8 +163,9 @@ begin
 
         -- Update shift registers.
         r_in.valid_shift(0) <= '0';
-        r_in.valid_shift(PIPE_SUM_CORDIC - 1 downto 1) <= r.valid_shift(PIPE_SUM_CORDIC - 2 downto 0);
+        r_in.valid_shift(PIPE_SUM_WRITEBACK - 1 downto 1) <= r.valid_shift(PIPE_SUM_WRITEBACK - 2 downto 0);
 
+        -- Index and instance shift registers are only used at the first part of the pipeline. 
         r_in.index_shift(1 to PIPE_SUM_CORDIC - 1) <= r.index_shift(0 to PIPE_SUM_CORDIC - 2);
         r_in.instance_shift(1 to PIPE_SUM_CORDIC - 1) <= r.instance_shift(0 to PIPE_SUM_CORDIC - 2);
 
@@ -184,11 +204,13 @@ begin
 
                 r_in.index_shift(0) <= 0;
                 r_in.instance_shift(0) <= 0; 
-                r_in.instance_read <= 0;
+                r_in.instance_wb <= 0;
+                r_in.instance_cordic <= 0;
                 r_in.pipeline_done <= '0';
             end if;
 
-            r_in.index_read <= 0;
+            r_in.index_wb <= 0;
+            r_in.index_cordic <= 0;
             r_in.state <= square_velocity;
 
         elsif r.state = square_velocity then 
@@ -285,35 +307,60 @@ begin
                 (r.index_shift(PIPE_SUM_CORDIC - 1))(LFO_PHASE_SIZE - 1 downto 0));
         end if;
 
-        -- Pipeline state 23: read cordic ouput and process.
-        -- This pipeline does not use the pipeline shift registers because the cordic delay is quite long.
-        if s_dout_tvalid = '1' then
+        -- Pipeline stage 27: read cordic ouput and process.
+        if r.valid_shift(PIPE_SUM_PROCESS - 1) = '1' then
 
             -- Take sine and cosine sample from the cordic output.
-            if lfo_input(r.instance_read).wave_select = 0 then 
+            if lfo_input(r.instance_cordic).wave_select = 0 then 
 
-                r_in.lfo_buffer(r.instance_read)(r.index_read) <= clip_sine(s_dout_tdata(40 downto 24));
+                r_in.raw_buffer <= clip_sine(s_dout_tdata(40 downto 24));
 
             -- Trunctate the phase to get the saw output.
-            elsif lfo_input(r.instance_read).wave_select = 1 then 
+            elsif lfo_input(r.instance_cordic).wave_select = 1 then 
 
-                r_in.lfo_buffer(r.instance_read)(r.index_read) <=
-                    r.phase(r.instance_read)(r.index_read)(LFO_PHASE_FRAC downto LFO_PHASE_FRAC - CTRL_SIZE + 1);
+                r_in.raw_buffer <=
+                    r.phase(r.instance_cordic)(r.index_cordic)(LFO_PHASE_FRAC downto LFO_PHASE_FRAC - CTRL_SIZE + 1);
 
             -- Generate square output.
             else  
-                r_in.lfo_buffer(r.instance_read)(r.index_read) <= 
-                    (CTRL_SIZE - 1 => '0', CTRL_SIZE - 2 downto 0 => '1') when r.phase(r.instance_read)(r.index_read) >= 0 
+                r_in.raw_buffer <= 
+                    (CTRL_SIZE - 1 => '0', CTRL_SIZE - 2 downto 0 => '1') when r.phase(r.instance_cordic)(r.index_cordic) >= 0 
                     else (CTRL_SIZE - 1 => '1', CTRL_SIZE - 2 downto 0 => '0');
             end if;
 
-            if r.index_read < N_OUTPUTS - 1 then
-                r_in.index_read <= r.index_read + 1;
-            else 
-                r_in.index_read <= 0;
+            -- Mux scale value.
+            r_in.scale_buffer <= status.mod_destinations(MODD_LFO_0_AMPLITUDE + r.instance_cordic)(r.index_cordic);
 
-                if r.instance_read < N_INSTANCES - 1 then 
-                    r_in.instance_read <= r.instance_read + 1;
+            -- Inrement counters
+            if r.index_cordic < N_OUTPUTS - 1 then
+                r_in.index_cordic <= r.index_cordic + 1;
+            else 
+                r_in.index_cordic <= 0;
+
+                if r.instance_cordic < N_INSTANCES - 1 then 
+                    r_in.instance_cordic <= r.instance_cordic + 1;
+                end if;
+            end if;
+        end if;
+
+        -- Pipeline stage 28: scale lfo output with amplitude
+        if r.valid_shift(PIPE_SUM_SCALE - 1) = '1' then
+            v_amp_mult := r.raw_buffer * r.scale_buffer;
+            r_in.scaled_buffer <= v_amp_mult(2 * CTRL_SIZE - 2 downto CTRL_SIZE - 1);
+        end if;
+
+        -- Pipeline stage 29: write scaled LFO value to buffer
+        if r.valid_shift(PIPE_SUM_WRITEBACK - 1) = '1' then
+            r_in.lfo_buffer(r.instance_wb)(r.index_wb) <= r.scaled_buffer;
+
+            -- Inrement counters
+            if r.index_wb < N_OUTPUTS - 1 then
+                r_in.index_wb <= r.index_wb + 1;
+            else 
+                r_in.index_wb <= 0;
+
+                if r.instance_wb < N_INSTANCES - 1 then 
+                    r_in.instance_wb <= r.instance_wb + 1;
                 end if;
             end if;
         end if;
