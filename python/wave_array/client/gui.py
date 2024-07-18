@@ -1036,6 +1036,10 @@ class WaveArrayGui(QtWidgets.QMainWindow):
     def btn_enable_lfo_trigger_clicked(self, checked):
         self.client.write(WaveArray.REG_LFO_CTRL_BASE + self.lfo_index * 0x10 + 2, int(checked))   
 
+        # Reset phases when trigger is deselected
+        if not checked:
+            self.client.write(WaveArray.REG_LFO_CTRL_BASE + self.lfo_index * 0x10 + 5, 1)
+
     def btn_reset_pitch_clicked(self, index):
         self.client.write(WaveArray.REG_FREQ_CTRL_BASE + index, 0)
         getattr(self.ui, f'box_octaves_{index}').setValue(0)
