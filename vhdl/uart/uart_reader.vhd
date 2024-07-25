@@ -149,7 +149,7 @@ begin
         variable v_wait_time        : integer;
         variable v_hread_success    : boolean;
         variable v_read_data        : std_logic_vector(31 downto 0);
-        variable v_hexfile          : string(1 to 28);
+        variable v_hexfile          : string(1 to 30);
         variable v_string_length    : natural;
 
     begin
@@ -290,7 +290,7 @@ begin
                 -- file_open(data_file, SIM_FILE_PATH & "wavetables/MB Saw.table",  read_mode);
 
                 -- Create and send request.
-                v_hexfile := SIM_FILE_PATH & "wavetables/saw.table";
+                v_hexfile := SIM_FILE_PATH & "wavetables/basic.table";
                 v_serial_length := 9;
                 v_serial_packet := 
                     (2119 downto 8 * v_serial_length => '0') & UART_WRITE_BLOCK_REQ & v_address & v_burst_length;
