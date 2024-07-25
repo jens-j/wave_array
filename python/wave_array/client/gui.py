@@ -13,7 +13,7 @@ import numpy                  as np
 from PyQt5                    import QtWidgets, uic
 from PyQt5.QtCore             import QObject, QSize, QSettings, Qt, QTimer, pyqtSignal
 from PyQt5.QtWidgets          import QLabel, QApplication, QFileDialog, QVBoxLayout, QRadioButton, QSpacerItem, \
-                                     QSizePolicy, QListWidgetItem, QCheckBox, QHBoxLayout
+                                     QSizePolicy, QListWidgetItem, QCheckBox, QHBoxLayout, QFrame
 from PyQt5.QtGui              import QIntValidator
 
 
@@ -70,33 +70,18 @@ class WaveArrayGui(QtWidgets.QMainWindow):
         self.voice_active_buttons = []
         self.voice_labels = []
         self.lfo_select_buttons = []
+        self.mods_plot_buttons = []
+        self.modd_plot_buttons = []
         self.lfo_index = 0
         self.envelope_select_buttons = [] 
         self.envelope_index = 0
-        self.mod_layout = None
 
         self.curve_oscilloscope = None
         self.curves_waveforms = [[None] * self.client.n_voices, [None] * self.client.n_voices]
-        self.curves_lfo_0 = [None] * self.client.n_voices
-        self.curves_lfo_1 = [None] * self.client.n_voices
-        self.curves_lfo_2 = [None] * self.client.n_voices
-        self.curves_lfo_3 = [None] * self.client.n_voices
-        self.curves_envelope_0 = [None] * self.client.n_voices
-        self.curves_envelope_1 = [None] * self.client.n_voices
-        self.curves_envelope_2 = [None] * self.client.n_voices
-        self.curves_envelope_3 = [None] * self.client.n_voices
-        self.curves_velocity = [None] * self.client.n_voices
-        self.curves_cutoff = [None] * self.client.n_voices
-        self.curves_resonance = [None] * self.client.n_voices
-        self.curves_frame_0 = [None] * self.client.n_voices
-        self.curves_frame_1 = [None] * self.client.n_voices
-        self.curves_mix_0 = [None] * self.client.n_voices
-        self.curves_mix_1 = [None] * self.client.n_voices
-        self.curves_mix_noise = [None] * self.client.n_voices
-        self.curves_frequency_0 = [None] * self.client.n_voices
-        self.curves_frequency_1 = [None] * self.client.n_voices
-        self.curves_volume = [None] * self.client.n_voices
-        self.curves_spread = [None] * self.client.n_voices
+        self.plots_mods = []
+        self.plots_modd = []
+        self.curves_mods = [[] for i in range(len(ModMap.MODS_STRING) - 1)]
+        self.curves_modd = [[] for i in range(len(ModMap.MODD_STRING))]
         self.curve_x = np.arange(0, self.PLOT_T, self.PLOT_T / self.PLOT_SAMPLES)[::-1] # Constant used for plotting.
 
         module_path = os.path.dirname(os.path.abspath(__file__))
@@ -110,10 +95,17 @@ class WaveArrayGui(QtWidgets.QMainWindow):
         ui_path     = os.path.join(module_path, '../../../qt')
         self.ui     = uic.loadUi(os.path.join(ui_path, 'wavearray.ui'))
 
+        self.mods_plots_layout = self.ui.group_mods.layout() 
+        self.modd_plots_layout = self.ui.group_modd.layout()
+        self.matrix_layout = self.ui.group_mod_matrix.layout().children()[1].children()[-1] 
+        self.mods_labels_layout = self.ui.group_mod_matrix.layout().children()[1].children()[0] 
+        self.modd_labels_layout = self.ui.group_mod_matrix.layout().children()[0].children()[0].children()[0]
+
         self.generate_voice_ui()
         self.generate_mod_matrix()
         self.generate_lfo_ui()
         self.generate_envelope_ui()
+        self.generate_plot_select()
         self.initialize_plots()
         self.load_stylesheets()
         self.load_wavetables()
@@ -173,6 +165,7 @@ class WaveArrayGui(QtWidgets.QMainWindow):
         self.ui.slider_unison_spread.sliderMoved.connect(self.unison_spread_changed)
         self.ui.slider_lfo_velocity.sliderMoved.connect(self.lfo_velocity_changed)
         self.ui.slider_lfo_phase.sliderMoved.connect(self.lfo_phase_changed)
+        self.ui.slider_lfo_amplitude.sliderMoved.connect(self.lfo_amplitude_changed)
         self.ui.slider_filter_cutoff.sliderMoved.connect(self.filter_cutoff_changed)
         self.ui.slider_filter_resonance.sliderMoved.connect(self.filter_resonance_changed)
         self.ui.slider_envelope_attack.sliderMoved.connect(self.envelope_attack_changed)
@@ -184,7 +177,7 @@ class WaveArrayGui(QtWidgets.QMainWindow):
         # Connect mod matrix signals.
         for destination in range(ModMap.MODD_LEN):
             for source in range(ModMap.MODS_LEN - 1): 
-                button = self.mod_layout.itemAtPosition(destination, source).widget()
+                button = self.matrix_layout.itemAtPosition(destination, source).widget()
                 button.clicked.connect(partial(self.mod_button_clicked, button, destination, source + 1)) # Skip MODS_NONE.
 
         # Status refresh timer.
@@ -247,89 +240,26 @@ class WaveArrayGui(QtWidgets.QMainWindow):
                 self.voice_active_buttons[i].hide()
 
         self.curve_oscilloscope.setData(self.oscilloscope_samples)
-        
+
         for i in range(self.client.n_voices):
 
-            self.curves_envelope_0[i].setData(self.curve_x, np.concatenate(
-                (self.curves_envelope_0[i].getData()[1][1:], [self.status.mod_sources[ModMap.MODS_ENVELOPE_0][i]])))
-            
-            self.curves_envelope_1[i].setData(self.curve_x, np.concatenate(
-                (self.curves_envelope_1[i].getData()[1][1:], [self.status.mod_sources[ModMap.MODS_ENVELOPE_1][i]])))
-            
-            self.curves_envelope_2[i].setData(self.curve_x, np.concatenate(
-                (self.curves_envelope_2[i].getData()[1][1:], [self.status.mod_sources[ModMap.MODS_ENVELOPE_2][i]])))
-            
-            self.curves_envelope_3[i].setData(self.curve_x, np.concatenate(
-                (self.curves_envelope_3[i].getData()[1][1:], [self.status.mod_sources[ModMap.MODS_ENVELOPE_3][i]])))
-
-            self.curves_lfo_0[i].setData(self.curve_x, np.concatenate(
-                (self.curves_lfo_0[i].getData()[1][1:], [self.status.mod_sources[ModMap.MODS_LFO_0][i]])))
-
-            self.curves_lfo_1[i].setData(self.curve_x, np.concatenate(
-                (self.curves_lfo_1[i].getData()[1][1:], [self.status.mod_sources[ModMap.MODS_LFO_1][i]])))
-            
-            self.curves_lfo_2[i].setData(self.curve_x, np.concatenate(
-                (self.curves_lfo_2[i].getData()[1][1:], [self.status.mod_sources[ModMap.MODS_LFO_2][i]])))
-            
-            self.curves_lfo_3[i].setData(self.curve_x, np.concatenate(
-                (self.curves_lfo_3[i].getData()[1][1:], [self.status.mod_sources[ModMap.MODS_LFO_3][i]])))
-            
-            self.curves_velocity[i].setData(self.curve_x, np.concatenate(
-                (self.curves_velocity[i].getData()[1][1:], [self.status.mod_sources[ModMap.MODS_VELOCITY][i]])))
-            
-            self.curves_cutoff[i].setData(self.curve_x, np.concatenate(
-                (self.curves_cutoff[i].getData()[1][1:], [self.status.mod_destinations[ModMap.MODD_CUTOFF][i]])))
-
-            self.curves_resonance[i].setData(self.curve_x, np.concatenate(
-                (self.curves_resonance[i].getData()[1][1:], [self.status.mod_destinations[ModMap.MODD_RESONANCE][i]])))
-
-            self.curves_frame_0[i].setData(self.curve_x, np.concatenate(
-                (self.curves_frame_0[i].getData()[1][1:], [self.status.mod_destinations[ModMap.MODD_OSC_0_FRAME][i]])))
-
-            self.curves_frame_1[i].setData(self.curve_x, np.concatenate(
-                (self.curves_frame_1[i].getData()[1][1:], [self.status.mod_destinations[ModMap.MODD_OSC_1_FRAME][i]])))
-
-            self.curves_mix_0[i].setData(self.curve_x, np.concatenate(
-                (self.curves_mix_0[i].getData()[1][1:], [self.status.mod_destinations[ModMap.MODD_OSC_0_MIX][i]])))
-
-            self.curves_mix_1[i].setData(self.curve_x, np.concatenate(
-                (self.curves_mix_1[i].getData()[1][1:], [self.status.mod_destinations[ModMap.MODD_OSC_1_MIX][i]])))
-
-            self.curves_mix_noise[i].setData(self.curve_x, np.concatenate(
-                (self.curves_mix_noise[i].getData()[1][1:], [self.status.mod_destinations[ModMap.MODD_NOISE_MIX][i]])))
-
-            self.curves_frequency_0[i].setData(self.curve_x, np.concatenate(
-                (self.curves_frequency_0[i].getData()[1][1:], [self.status.mod_destinations[ModMap.MODD_OSC_0_FREQ][i]])))
-
-            self.curves_frequency_1[i].setData(self.curve_x, np.concatenate(
-                (self.curves_frequency_1[i].getData()[1][1:], [self.status.mod_destinations[ModMap.MODD_OSC_1_FREQ][i]])))    
-
-            self.curves_volume[i].setData(self.curve_x, np.concatenate(
-                (self.curves_volume[i].getData()[1][1:], [self.status.mod_destinations[ModMap.MODD_VOLUME][i]])))
-            
-            self.curves_spread[i].setData(self.curve_x, np.concatenate(
-                (self.curves_spread[i].getData()[1][1:], [self.status.mod_destinations[ModMap.MODD_UNISON][i]])))
+            # Update mod source plots.
+            for j in range(len(ModMap.MODS_STRING) - 1):
+                self.curves_mods[j][i].setData(self.curve_x, np.concatenate((
+                    self.curves_mods[j][i].getData()[1][1:], [self.status.mod_sources[j + 1][i]]))) # Skip MODS_NONE
+                
+            # Update mod destination plots.
+            for j in range(len(ModMap.MODD_STRING)):
+                self.curves_modd[j][i].setData(self.curve_x, np.concatenate((
+                    self.curves_modd[j][i].getData()[1][1:], [self.status.mod_destinations[j][i]])))
             
             # Don't show curves for unused polyphonic voices.
-            for curves in self.modd_curves:
+            for curves in self.curves_modd + self.curves_mods:
                 
                 if i < self.status.polyphony * (2 if self.ui.btn_enable_binaural.isChecked() else 1):
                     curves[i].show()
                 else:
                     curves[i].hide()
-
-            # Hide un-enabled mod destination plots.
-            self.show_hide_plot(self.ui.btn_enable_plot_cutoff, self.plot_cutoff)
-            self.show_hide_plot(self.ui.btn_enable_plot_resonance, self.plot_resonance)
-            self.show_hide_plot(self.ui.btn_enable_plot_frame_0, self.plot_frame_0)
-            self.show_hide_plot(self.ui.btn_enable_plot_mix_0, self.plot_mix_0)
-            self.show_hide_plot(self.ui.btn_enable_plot_frequency_0, self.plot_frequency_0)
-            self.show_hide_plot(self.ui.btn_enable_plot_frame_1, self.plot_frame_1)
-            self.show_hide_plot(self.ui.btn_enable_plot_mix_1, self.plot_mix_1)
-            self.show_hide_plot(self.ui.btn_enable_plot_mix_noise, self.plot_mix_noise)
-            self.show_hide_plot(self.ui.btn_enable_plot_frequency_1, self.plot_frequency_1)
-            self.show_hide_plot(self.ui.btn_enable_plot_spread, self.plot_spread)
-            self.show_hide_plot(self.ui.btn_enable_plot_volume, self.plot_volume)
                             
             # Update both wavetable plots.
             for j in range(2):
@@ -345,16 +275,16 @@ class WaveArrayGui(QtWidgets.QMainWindow):
 
                 # Interpolate between frames 0 and 1.
                 elif n_frames_log2 == 1: 
-                    self.curves_waveforms[j][i].setData(wavetable.frames[0] + np.int16(
-                        self.status.mod_destinations[dest][i] 
-                        * np.int32(wavetable.frames[1]) - np.int32(wavetable.frames[0]) // 2**15))
+                    self.curves_waveforms[j][i].setData(wavetable.frames[0] 
+                        + np.int16(np.int32(self.status.mod_destinations[dest][i]) 
+                            * (np.int32(wavetable.frames[1]) - np.int32(wavetable.frames[0])) // 2**15))
 
                 # interpolate between frames a and b.
                 else:
                     index_a = 2**n_frames_log2 * max(0, self.status.mod_destinations[dest][i]) // 2**15 
                     index_b = min(index_a + 1, 2**n_frames_log2 - 1)
                     d = max(0, self.status.mod_destinations[dest][i]) % 2**(15 - n_frames_log2)
-                    d_max = 2**(15 - n_frames_log2) - 1
+                    d_max = 2**(15 - n_frames_log2)
                     
                     self.curves_waveforms[j][i].setData(wavetable.frames[index_a] 
                         + np.int16(np.int32(d) * (np.int32(wavetable.frames[index_b]) 
@@ -364,6 +294,13 @@ class WaveArrayGui(QtWidgets.QMainWindow):
                     self.curves_waveforms[j][i].show()
                 else:
                     self.curves_waveforms[j][i].hide()
+
+        # Hide un-enabled mod destination plots.
+        for i in range(len(ModMap.MODS_STRING) - 1):
+            self.show_hide_plot(self.mods_plot_buttons[i], self.plots_mods[i])
+
+        for i in range(len(ModMap.MODD_STRING)):
+            self.show_hide_plot(self.modd_plot_buttons[i], self.plots_modd[i])
 
 
     # Perform a software reset on the fpga and reload the gui.
@@ -457,6 +394,10 @@ class WaveArrayGui(QtWidgets.QMainWindow):
         self.ui.slider_lfo_phase.setValue(phase)
         self.lfo_phase_changed(phase)
 
+        amplitude = self.client.read(WaveArray.REG_LFO_CTRL_BASE + 6)
+        self.ui.slider_lfo_amplitude.setValue(amplitude)
+        self.lfo_amplitude_changed(amplitude)
+
         cutoff = self.client.read(WaveArray.REG_FILTER_CUTOFF)
         self.ui.slider_filter_cutoff.setValue(cutoff)
         self.filter_cutoff_changed(cutoff)
@@ -500,7 +441,7 @@ class WaveArrayGui(QtWidgets.QMainWindow):
         # Initialize mod matrix.
         for destination in range(ModMap.MODD_LEN):
             for source in range(1, ModMap.MODS_LEN):
-                box = self.mod_layout.itemAtPosition(destination, source - 1).widget()
+                box = self.matrix_layout.itemAtPosition(destination, source - 1).widget()
                 enable, amount = self.modmap.get_mapping(destination, source)
                 box.setChecked(enable)
 
@@ -535,17 +476,55 @@ class WaveArrayGui(QtWidgets.QMainWindow):
 
 
     def generate_mod_matrix(self):
+        
+        # Generate mod source labels.
+        for name in list(ModMap.MODS_STRING_SHORT.values())[1:]:
+            self.mods_labels_layout.addWidget(QLabel(name))
 
-        self.mod_layout = self.ui.group_mod_matrix.layout().children()[1].children()[-1] # .layout_matrix_col.layout_mod_matrix
+            # if name == list(ModMap.MODS_STRING_SHORT.values())[-1]:
+            #     line = QFrame()
+            #     line.setFrameShape(QFrame.VLine)
+            #     self.mods_labels_layout.addWidget(line)
 
+        # Generate mod destination labels 
+        for name in ModMap.MODD_STRING_SHORT.values():
+            label = QLabel(name)
+            label.setMinimumHeight(15)
+            self.modd_labels_layout.addWidget(label)
+
+        # Generate checkboxes.
         for destination in range(ModMap.MODD_LEN):
             for source in range(ModMap.MODS_LEN - 1):
                 box = QCheckBox('')
-                # box.setTristate()
                 box.setMinimumSize(35, 15)
                 box.setMaximumSize(35, 15)
-                self.mod_layout.addWidget(box, destination, source)
+                self.matrix_layout.addWidget(box, destination, source)
 
+
+    def generate_plot_select(self): 
+
+        for name in list(ModMap.MODS_STRING.values())[1:]:
+            layout = QHBoxLayout()
+            layout.addWidget(QLabel(name))
+            layout.addItem(QSpacerItem(40, 20, hPolicy=QSizePolicy.Expanding))
+            button = QCheckBox()
+            layout.addWidget(button)
+            self.mods_plot_buttons.append(button)
+            self.mods_plots_layout.addLayout(layout)
+
+        self.mods_plots_layout.addItem(QSpacerItem(40, 20, vPolicy=QSizePolicy.Expanding))
+
+        for name in ModMap.MODD_STRING.values():
+            layout = QHBoxLayout()
+            layout.addWidget(QLabel(name))
+            layout.addItem(QSpacerItem(40, 20, hPolicy=QSizePolicy.Expanding))
+            button = QCheckBox()
+            layout.addWidget(button)
+            self.modd_plot_buttons.append(button)
+            self.modd_plots_layout.addLayout(layout)
+
+        self.modd_plots_layout.addItem(QSpacerItem(40, 20, vPolicy=QSizePolicy.Expanding))
+        
 
     # Create layout with radiobutton for each lfo. 
     # This is then placed in a layout which is the first element of the lfo_group groupbox.
@@ -592,148 +571,6 @@ class WaveArrayGui(QtWidgets.QMainWindow):
         # Add callback to wavetable write when a table is dropped on the oscillator plots.
         self.ui.plot_waveform_0.addDropCallback(self.change_wavetable)
         self.ui.plot_waveform_1.addDropCallback(self.change_wavetable)
-        
-        self.plot_cutoff = DropPlotWidget(parent=self.ui.group_modd)
-        self.plot_cutoff.setBackground(bg_color)
-        self.plot_cutoff.setTitle('filter cutoff')
-        self.plot_cutoff.setYRange(-1, 2**15, padding=0)
-        self.plot_cutoff.hideAxis('left')
-        self.plot_cutoff.hideAxis('bottom')
-        self.ui.group_modd.layout().addWidget(self.plot_cutoff, stretch=1)
-
-        self.plot_resonance = DropPlotWidget(parent=self.ui.group_modd)
-        self.plot_resonance.setBackground(bg_color)
-        self.plot_resonance.setTitle('filter resonance')
-        self.plot_resonance.setYRange(-1, 2**15, padding=0)
-        self.plot_resonance.hideAxis('left')
-        self.plot_resonance.hideAxis('bottom')
-        self.ui.group_modd.layout().addWidget(self.plot_resonance, stretch=1)
-
-        self.plot_frame_0 = DropPlotWidget(parent=self.ui.group_modd)
-        self.plot_frame_0.setBackground(bg_color)
-        self.plot_frame_0.setTitle('wavetable A frame')
-        self.plot_frame_0.setYRange(-1, 2**15, padding=0)
-        self.plot_frame_0.hideAxis('left')
-        self.plot_frame_0.hideAxis('bottom')
-        self.ui.group_modd.layout().addWidget(self.plot_frame_0, stretch=1)
-
-        self.plot_frame_1 = DropPlotWidget(parent=self.ui.group_modd)
-        self.plot_frame_1.setBackground(bg_color)
-        self.plot_frame_1.setTitle('wavetable B frame')
-        self.plot_frame_1.setYRange(-1, 2**15, padding=0)
-        self.plot_frame_1.hideAxis('left')
-        self.plot_frame_1.hideAxis('bottom')
-        self.ui.group_modd.layout().addWidget(self.plot_frame_1, stretch=1)
-
-        self.plot_mix_0 = DropPlotWidget(parent=self.ui.group_modd)
-        self.plot_mix_0.setBackground(bg_color)
-        self.plot_mix_0.setTitle('wavetable A mix')
-        self.plot_mix_0.setYRange(-1, 2**15, padding=0)
-        self.plot_mix_0.hideAxis('left')
-        self.plot_mix_0.hideAxis('bottom')
-        self.ui.group_modd.layout().addWidget(self.plot_mix_0, stretch=1)
-
-        self.plot_mix_1 = DropPlotWidget(parent=self.ui.group_modd)
-        self.plot_mix_1.setBackground(bg_color)
-        self.plot_mix_1.setTitle('wavetable B mix')
-        self.plot_mix_1.setYRange(-1, 2**15, padding=0)
-        self.plot_mix_1.hideAxis('left')
-        self.plot_mix_1.hideAxis('bottom')
-        self.ui.group_modd.layout().addWidget(self.plot_mix_1, stretch=1)
-
-        self.plot_mix_noise = DropPlotWidget(parent=self.ui.group_modd)
-        self.plot_mix_noise.setBackground(bg_color)
-        self.plot_mix_noise.setTitle('noise mix')
-        self.plot_mix_noise.setYRange(-1, 2**15, padding=0)
-        self.plot_mix_noise.hideAxis('left')
-        self.plot_mix_noise.hideAxis('bottom')
-        self.ui.group_modd.layout().addWidget(self.plot_mix_noise, stretch=1)
-    
-        self.plot_frequency_0 = DropPlotWidget(parent=self.ui.group_modd)
-        self.plot_frequency_0.setBackground(bg_color)
-        self.plot_frequency_0.setTitle('wavetable A frequency')
-        self.plot_frequency_0.setYRange(-2**15, 2**15, padding=0)
-        self.plot_frequency_0.hideAxis('left')
-        self.plot_frequency_0.hideAxis('bottom')
-        self.ui.group_modd.layout().addWidget(self.plot_frequency_0, stretch=1)
-
-        self.plot_frequency_1 = DropPlotWidget(parent=self.ui.group_modd)
-        self.plot_frequency_1.setBackground(bg_color)
-        self.plot_frequency_1.setTitle('wavetable B frequency')
-        self.plot_frequency_1.setYRange(-2**15, 2**15, padding=0)
-        self.plot_frequency_1.hideAxis('left')
-        self.plot_frequency_1.hideAxis('bottom')
-        self.ui.group_modd.layout().addWidget(self.plot_frequency_1, stretch=1)
-
-        self.plot_volume = DropPlotWidget(parent=self.ui.group_modd)
-        self.plot_volume.setBackground(bg_color)
-        self.plot_volume.setTitle('mixer volume')
-        self.plot_volume.setYRange(-1, 2**15, padding=0)
-        self.plot_volume.hideAxis('left')
-        self.plot_volume.hideAxis('bottom')
-        self.ui.group_modd.layout().addWidget(self.plot_volume, stretch=1)
-        
-        self.plot_spread = DropPlotWidget(parent=self.ui.group_modd)
-        self.plot_spread.setBackground(bg_color)
-        self.plot_spread.setTitle('unison spread')
-        self.plot_spread.setYRange(-1, 2**15, padding=0)
-        self.plot_spread.hideAxis('left')
-        self.plot_spread.hideAxis('bottom')
-        self.ui.group_modd.layout().addWidget(self.plot_spread, stretch=1)
-
-        self.ui.plot_envelope_0.setBackground(bg_color)
-        self.ui.plot_envelope_0.setTitle('envelope 0')
-        self.ui.plot_envelope_0.setYRange(-1, 2**15, padding=0)
-        self.ui.plot_envelope_0.hideAxis('left')
-        self.ui.plot_envelope_0.hideAxis('bottom')
-
-        self.ui.plot_envelope_1.setBackground(bg_color)
-        self.ui.plot_envelope_1.setTitle('envelope 1')
-        self.ui.plot_envelope_1.setYRange(-1, 2**15, padding=0)
-        self.ui.plot_envelope_1.hideAxis('left')
-        self.ui.plot_envelope_1.hideAxis('bottom')
-
-        self.ui.plot_envelope_2.setBackground(bg_color)
-        self.ui.plot_envelope_2.setTitle('envelope 2')
-        self.ui.plot_envelope_2.setYRange(-1, 2**15, padding=0)
-        self.ui.plot_envelope_2.hideAxis('left')
-        self.ui.plot_envelope_2.hideAxis('bottom')
-
-        self.ui.plot_envelope_3.setBackground(bg_color)
-        self.ui.plot_envelope_3.setTitle('envelope 3')
-        self.ui.plot_envelope_3.setYRange(-1, 2**15, padding=0)
-        self.ui.plot_envelope_3.hideAxis('left')
-        self.ui.plot_envelope_3.hideAxis('bottom')
-
-        self.ui.plot_lfo_0.setBackground(bg_color)
-        self.ui.plot_lfo_0.setTitle('LFO 0')
-        self.ui.plot_lfo_0.setYRange(-2**15, 2**15, padding=0)
-        self.ui.plot_lfo_0.hideAxis('left')
-        self.ui.plot_lfo_0.hideAxis('bottom')
-
-        self.ui.plot_lfo_1.setBackground(bg_color)
-        self.ui.plot_lfo_1.setTitle('LFO 1')
-        self.ui.plot_lfo_1.setYRange(-2**15, 2**15, padding=0)
-        self.ui.plot_lfo_1.hideAxis('left')
-        self.ui.plot_lfo_1.hideAxis('bottom')
-
-        self.ui.plot_lfo_2.setBackground(bg_color)
-        self.ui.plot_lfo_2.setTitle('LFO 2')
-        self.ui.plot_lfo_2.setYRange(-2**15, 2**15, padding=0)
-        self.ui.plot_lfo_2.hideAxis('left')
-        self.ui.plot_lfo_2.hideAxis('bottom')
-
-        self.ui.plot_lfo_3.setBackground(bg_color)
-        self.ui.plot_lfo_3.setTitle('LFO 3')
-        self.ui.plot_lfo_3.setYRange(-2**15, 2**15, padding=0)
-        self.ui.plot_lfo_3.hideAxis('left')
-        self.ui.plot_lfo_3.hideAxis('bottom')
-
-        self.ui.plot_velocity.setBackground(bg_color)
-        self.ui.plot_velocity.setTitle('midi velocity')
-        self.ui.plot_velocity.setYRange(-2**15, 2**15, padding=0)
-        self.ui.plot_velocity.hideAxis('left')
-        self.ui.plot_velocity.hideAxis('bottom')
 
         self.ui.plot_waveform_0.setBackground(bg_color)
         self.ui.plot_waveform_0.setTitle('wavetable A')
@@ -751,20 +588,36 @@ class WaveArrayGui(QtWidgets.QMainWindow):
         self.ui.plot_oscilloscope.setTitle('oscilloscope')
         self.ui.plot_oscilloscope.hideAxis('left')
         self.ui.plot_oscilloscope.hideAxis('bottom')
-        # self.ui.plot_oscilloscope.setYRange(-2**15, 2**15, padding=0)
 
-        self.plot_widgets = [self.plot_cutoff, self.plot_resonance, self.plot_frame_0, 
-                             self.plot_frame_1, self.plot_mix_0, self.plot_mix_1, self.plot_mix_noise, self.plot_volume, 
-                             self.plot_frequency_0, self.plot_frequency_1,
-                             self.ui.plot_envelope_0, self.ui.plot_envelope_1, self.ui.plot_envelope_2, self.ui.plot_envelope_3, 
-                             self.ui.plot_lfo_0, self.ui.plot_lfo_1, self.ui.plot_lfo_2, self.ui.plot_lfo_3,
-                             self.ui.plot_waveform_0, self.ui.plot_waveform_1, self.ui.plot_oscilloscope]
+        # Generate mod destination plots.
+        for name in ModMap.MODD_STRING.values():
+            plot = DropPlotWidget(parent=self.ui.group_modd)
+            plot.setBackground(bg_color)
+            plot.setTitle(name)
+            plot.setYRange(-2**15 - 1, 2**15, padding=0)
+            plot.hideAxis('left')
+            plot.hideAxis('bottom')
+            self.ui.group_modd.layout().addWidget(plot, stretch=1)
+            self.plots_modd.append(plot)
+        
+        # Generate mod source plots (skip MODS_NONE).
+        for name in list(ModMap.MODS_STRING.values())[1:]:
+            plot = DropPlotWidget(parent=self.ui.group_mods)
+            plot.setBackground(bg_color)
+            plot.setTitle(name)
+            plot.setYRange(-2**15 - 1, 2**15, padding=0)
+            plot.hideAxis('left')
+            plot.hideAxis('bottom')
+            self.ui.group_mods.layout().addWidget(plot, stretch=1)
+            self.plots_mods.append(plot)
+
+        self.plot_widgets = self.plots_modd + self.plots_mods
 
         color_map = pg.colormap.get('CET-C6')
         lut = color_map.getLookupTable(nPts=self.client.n_voices)
         # hue = random()
 
-        # Plot curves and store PlotDataItem.     
+        # Generate curves and store PlotDataItem.     
         for i in range(self.client.n_voices):
 
             pen = pg.mkPen(color=lut[i])
@@ -773,74 +626,16 @@ class WaveArrayGui(QtWidgets.QMainWindow):
             if i == self.client.n_voices - 1:
                 self.curve_oscilloscope = self.ui.plot_oscilloscope.plot(np.zeros(100), pen=pen)
 
-            self.curves_envelope_0[i] = self.ui.plot_envelope_0.plot(
-                self.curve_x, np.zeros(self.PLOT_SAMPLES), name=f'voice {i}', pen=pen)
-            
-            self.curves_envelope_1[i] = self.ui.plot_envelope_1.plot(
-                self.curve_x, np.zeros(self.PLOT_SAMPLES), name=f'voice {i}', pen=pen)
-            
-            self.curves_envelope_2[i] = self.ui.plot_envelope_2.plot(
-                self.curve_x, np.zeros(self.PLOT_SAMPLES), name=f'voice {i}', pen=pen)
-            
-            self.curves_envelope_3[i] = self.ui.plot_envelope_3.plot(
-                self.curve_x, np.zeros(self.PLOT_SAMPLES), name=f'voice {i}', pen=pen)
-            
-            self.curves_lfo_0[i] = self.ui.plot_lfo_0.plot(
-                self.curve_x, np.zeros(self.PLOT_SAMPLES), name=f'voice {i}', pen=pen)
-
-            self.curves_lfo_1[i] = self.ui.plot_lfo_1.plot(
-                self.curve_x, np.zeros(self.PLOT_SAMPLES), name=f'voice {i}', pen=pen)
-            
-            self.curves_lfo_2[i] = self.ui.plot_lfo_2.plot(
-                self.curve_x, np.zeros(self.PLOT_SAMPLES), name=f'voice {i}', pen=pen)
-
-            self.curves_lfo_3[i] = self.ui.plot_lfo_3.plot(
-                self.curve_x, np.zeros(self.PLOT_SAMPLES), name=f'voice {i}', pen=pen)
-            
-            self.curves_velocity[i] = self.ui.plot_velocity.plot(
-                self.curve_x, np.zeros(self.PLOT_SAMPLES), name=f'voice {i}', pen=pen)
-
-            self.curves_cutoff[i] = self.plot_cutoff.plot(
-                self.curve_x, np.zeros(self.PLOT_SAMPLES), name=f'voice {i}', pen=pen)
-
-            self.curves_resonance[i] = self.plot_resonance.plot(
-                self.curve_x, np.zeros(self.PLOT_SAMPLES), name=f'voice {i}', pen=pen)
-
-            self.curves_frame_0[i] = self.plot_frame_0.plot(
-                self.curve_x, np.zeros(self.PLOT_SAMPLES), name=f'voice {i}', pen=pen)
-
-            self.curves_frame_1[i] = self.plot_frame_1.plot(
-                self.curve_x, np.zeros(self.PLOT_SAMPLES), name=f'voice {i}', pen=pen)
-
-            self.curves_mix_0[i] = self.plot_mix_0.plot(
-                self.curve_x, np.zeros(self.PLOT_SAMPLES), name=f'voice {i}', pen=pen)
-
-            self.curves_mix_1[i] = self.plot_mix_1.plot(
-                self.curve_x, np.zeros(self.PLOT_SAMPLES), name=f'voice {i}', pen=pen)
-            
-            self.curves_mix_noise[i] = self.plot_mix_noise.plot(
-                self.curve_x, np.zeros(self.PLOT_SAMPLES), name=f'voice {i}', pen=pen)
-
-            self.curves_frequency_0[i] = self.plot_frequency_0.plot(
-                self.curve_x, np.zeros(self.PLOT_SAMPLES), name=f'voice {i}', pen=pen)
-
-            self.curves_frequency_1[i] = self.plot_frequency_1.plot(
-                self.curve_x, np.zeros(self.PLOT_SAMPLES), name=f'voice {i}', pen=pen)
-
-            self.curves_volume[i] = self.plot_volume.plot(
-                self.curve_x, np.zeros(self.PLOT_SAMPLES), name=f'voice {i}', pen=pen)
-            
-            self.curves_spread[i] = self.plot_spread.plot(
-                self.curve_x, np.zeros(self.PLOT_SAMPLES), name=f'voice {i}', pen=pen)
-
             self.curves_waveforms[0][i] = self.ui.plot_waveform_0.plot(np.zeros(2048), name=f'voice {i}', pen=pen)
             self.curves_waveforms[1][i] = self.ui.plot_waveform_1.plot(np.zeros(2048), name=f'voice {i}', pen=pen)
 
-        self.modd_curves = [self.curves_envelope_0, self.curves_envelope_1, self.curves_envelope_2, self.curves_envelope_3, 
-                            self.curves_lfo_0, self.curves_lfo_1, self.curves_lfo_2, self.curves_lfo_3, 
-                            self.curves_velocity, self.curves_cutoff, self.curves_frequency_0, self.curves_frequency_1, 
-                            self.curves_resonance, self.curves_frame_0, self.curves_frame_1, self.curves_mix_0, 
-                            self.curves_mix_1, self.curves_mix_noise, self.curves_volume, self.curves_spread]
+            for j in range(len(ModMap.MODD_STRING)):
+                self.curves_modd[j].append(self.plots_modd[j].plot(
+                    self.curve_x, np.zeros(self.PLOT_SAMPLES), name=f'voice {i}', pen=pen))
+                
+            for j in range(len(ModMap.MODS_STRING) - 1):
+                self.curves_mods[j].append(self.plots_mods[j].plot(
+                    self.curve_x, np.zeros(self.PLOT_SAMPLES), name=f'voice {i}', pen=pen))
     
 
     def show(self):
@@ -917,7 +712,7 @@ class WaveArrayGui(QtWidgets.QMainWindow):
 
         self.ui.slider_mod_amount.setValue(int(amount))  
         self.ui.lbl_mod_select.setText(
-            f'{ModMap.MODS[source]}\n⇓\n{ModMap.MODD[destination]}')       
+            f'{ModMap.MODS_STRING[source]}\n⇓\n{ModMap.MODD_STRING[destination]}')       
 
         # Add new mod mapping.
         if state:
@@ -1005,13 +800,17 @@ class WaveArrayGui(QtWidgets.QMainWindow):
 
         velocity = self.client.read(WaveArray.REG_LFO_CTRL_BASE + self.lfo_index * 0x10)
         phase = self.client.read(WaveArray.REG_LFO_CTRL_BASE + self.lfo_index * 0x10 + 3)
+        amplitude = self.client.read(WaveArray.REG_LFO_CTRL_BASE + self.lfo_index * 0x10 + 6) 
 
         self.ui.slider_lfo_velocity.setValue(velocity)
-        self.ui.slider_lfo_phase.setValue(phase)       
+        self.ui.slider_lfo_phase.setValue(phase)  
+        self.ui.slider_lfo_amplitude.setValue(amplitude)       
 
         # Call slots to update labels as well.
         self.lfo_velocity_changed(velocity)   
-        self.lfo_phase_changed(phase)            
+        self.lfo_phase_changed(phase)    
+        self.lfo_amplitude_changed(amplitude)    
+
 
     def noise_select_changed(self, index):
         self.client.write(WaveArray.REG_NOISE_SELECT, np.uint16(index));                               
@@ -1089,6 +888,10 @@ class WaveArrayGui(QtWidgets.QMainWindow):
     def lfo_phase_changed(self, control_value):
         self.client.write(WaveArray.REG_LFO_CTRL_BASE + self.lfo_index * 0x10 + 3, control_value)
         self.ui.lbl_phase.setText(f'{int(100 * control_value / (2**15 - 1)):3d}%')
+
+    def lfo_amplitude_changed(self, control_value):
+        self.client.write(WaveArray.REG_LFO_CTRL_BASE + self.lfo_index * 0x10 + 6, control_value)
+        self.ui.lbl_amplitude.setText(f'{int(100 * control_value / (2**15 - 1)):3d}%')
 
     def mix_amount_changed(self, index, control_value):
         self.client.write(WaveArray.REG_MIX_CTRL_BASE + index, control_value)
