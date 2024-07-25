@@ -60,7 +60,7 @@ architecture arch of table_interpolator is
     type t_oscillator_reg is record
         state                   : t_state;
         coeff_counter           : t_coeff_counter_array; -- Count coeffients/input samples (inner loop).
-        osc_counter_next        : integer range 0 to N_VOICES; -- The value of the next oscillator (osc_counter + 1).
+        osc_counter_next        : integer range 0 to N_VOICES - 1; -- The value of the next oscillator (osc_counter + 1).
         sample_counter_next     : integer range 0 to 2;
         output_samples          : t_stereo_sample_array(0 to N_VOICES - 1);
         sample_buffers          : t_stereo_sample_array(0 to N_VOICES - 1);
@@ -89,7 +89,7 @@ architecture arch of table_interpolator is
         odd_phase               : std_logic_vector(PIPE_SUM_MEM downto 0); -- '1' when bank coefficient m is odd (changes coefficient memory access).
         phase_position          : t_osc_phase_position; -- Interpolation coefficient for phase interpolation.
 
-        zero_coeff              : std_logic_vector(PIPE_SUM_INTP downto 0);
+        zero_coeff              : std_logic_vector(PIPE_SUM_INTP downto PIPE_LEN_SPLIT);
 
         -- Counters used to select frame control value for each oscillator.
         unison_counter          : integer range 0 to UNISON_MAX - 1;
@@ -165,20 +165,6 @@ architecture arch of table_interpolator is
     signal s_coeff_odd_douta    : std_logic_vector(POLY_COEFF_SIZE - 1 downto 0);
 
 begin
-
-    -- wave_mem : entity osc.osc_wave_memory
-    -- generic map (
-    --     init_file               => GET_INPUT_FILE_PATH & "osc_wave_memory_basic.hex"
-    -- )
-    -- port map (
-    --     clk                     => clk,
-    --     address_a               => s_wave_address_a,
-    --     address_b               => s_wave_address_b,
-    --     read_data_a             => s_wave_read_data_a,
-    --     read_data_b             => s_wave_read_data_b,
-    --     write_enable_a          => dma2table.write_enable,
-    --     write_data_a            => dma2table.write_data
-    -- );
 
     s_wave_write_enable_a(0) <= dma2table.write_enable;
 
@@ -264,17 +250,15 @@ begin
                              s_wave_read_data_a, s_wave_read_data_b, s_coeff_even_douta, s_coeff_odd_douta)
 
         variable v_level : t_mipmap_level;
-        variable v_odd_phase_0 : std_logic;
-        variable v_frame_index_lsb : natural;
         variable v_frame_index : integer range 0 to FRAMES_MAX - 1;
-
+        variable v_frame_position : unsigned(2 * OSC_SAMPLE_FRAC - 1 downto 0);
     begin
 
         r_in <= r;
 
         r_in.table2dma.ack <= '0';
         r_in.writeback(0)  <= '0';
-        r_in.zero_coeff(0) <= '0';
+        r_in.zero_coeff(PIPE_LEN_SPLIT) <= '0';
         r_in.frames_log2 <= dma2table.frames_log2;
         r_in.frame_index_max <= 2**dma2table.frames_log2 - 1;
         r_in.frame_position <= r.frame_position_buffer;
@@ -302,7 +286,7 @@ begin
 
         -- Pre-calculate the lowest bit of the index part of the control value.
         -- Note that since the control value is signed, bit 15 is the msb.
-        r_in.frame_index_lsb <= CTRL_SIZE - dma2table.frames_log2 - 1;
+        r_in.frame_index_lsb <= CTRL_SIZE - r.frames_log2 - 1;
 
         v_level := addrgen_input(r.osc_counter(0)).mipmap_level;
         r_in.level <= v_level;
@@ -346,7 +330,6 @@ begin
         -- Start new cycle
         elsif r.state = init then 
 
-            r_in.odd_phase(0) <= v_odd_phase_0;
             r_in.mipmap_address_buffer <= addrgen_input(0).mipmap_address(0);
             r_in.coeff_base_address_buffer <= shift_right(addrgen_input(0).phase(0), addrgen_input(0).mipmap_level)
                 (t_osc_phase_frac'length - 1 downto OSC_COEFF_FRAC + 1);
@@ -417,17 +400,16 @@ begin
             end if;
 
             -- Pipeline stage 0: Split control value into frame index and position.
-            if r.frames_log2 < 2 then
+            if r.frames_log2 < 2 then 
                 v_frame_index := 0;
             else 
-                v_frame_index := 
-                    to_integer(unsigned(r.frame_control(r.voice_counter)(CTRL_SIZE - 2 downto r.frame_index_lsb)));
+                v_frame_index := to_integer(shift_right(r.frame_control(r.voice_counter), r.frame_index_lsb));
             end if;
 
             r_in.frame_index_a <= v_frame_index;
             r_in.frame_index_b <= minimum(r.frame_index_max, v_frame_index + 1);
 
-            if r.frames_log2 = 0 then -- Special case: dont do any frame interpolation.
+            if r.frames_log2 = 0 then -- Special case: don't do any frame interpolation.
                 r_in.frame_position_buffer <= (others => '0');
 
             elsif r.frames_log2 = 1 then -- Special case: always interpolate between frames 0 & 1.
@@ -483,6 +465,22 @@ begin
                     & std_logic_vector(to_unsigned(r.coeff_counter(PIPE_LEN_SPLIT), POLY_N_LOG2));
             end if;
 
+            -- Pipeline stage 1: Map frame_position to smaller range to void dead zone at end of ctrl_value.
+            -- Because the number of intervals between frames is not a power of two the last 1/4, 1/8 or 1/16 of the
+            -- range would otherwise interpolate between the last frame and itself. 
+            if r.frames_log2 = 2 then 
+                v_frame_position := r.frame_position_buffer * to_unsigned(2**(OSC_SAMPLE_FRAC) * 3 / 4, OSC_SAMPLE_FRAC); 
+                r_in.frame_position <= v_frame_position(2 * OSC_SAMPLE_FRAC - 1 downto OSC_SAMPLE_FRAC);
+            elsif r.frames_log2 = 3 then 
+                v_frame_position := r.frame_position_buffer * to_unsigned(2**(OSC_SAMPLE_FRAC) * 7 / 8, OSC_SAMPLE_FRAC); 
+                r_in.frame_position <= v_frame_position(2 * OSC_SAMPLE_FRAC - 1 downto OSC_SAMPLE_FRAC);
+            elsif r.frames_log2 = 4 then 
+                v_frame_position := r.frame_position_buffer * to_unsigned(2**(OSC_SAMPLE_FRAC) * 15 / 16, OSC_SAMPLE_FRAC); 
+                r_in.frame_position <= v_frame_position(2 * OSC_SAMPLE_FRAC - 1 downto OSC_SAMPLE_FRAC);
+            else 
+                r_in.frame_position <= r.frame_position_buffer;
+            end if;
+
             -- Pipeline stage 2: Read wave memory (mux by active buffer indices) and send to frame
             -- interpolator. Interpolation is performed in a single DSP slice (4 stage pipeline).
             -- (D - A) * B + C = (sampleB - sampleA) * frac(position) + sampleA.
@@ -522,7 +520,7 @@ begin
             s_macc_sel <= "1" when r.coeff_counter(PIPE_SUM_INTP) = 0 else "0";
 
             -- Pipeline stage 0-6: Zero coefficient pipeline registers.
-            for i in PIPE_SUM_INTP downto 1 loop
+            for i in PIPE_SUM_INTP downto PIPE_LEN_SPLIT + 1 loop
                 r_in.zero_coeff(i) <= r.zero_coeff(i - 1);
             end loop;
 
@@ -547,7 +545,7 @@ begin
             end loop;
 
             -- Pipeline stage 0 - 2: shift pipeline registers.
-            for i in PIPE_LEN_MEM downto 1 loop
+            for i in PIPE_SUM_MEM downto 1 loop
                 r_in.odd_phase(i) <= r.odd_phase(i - 1);
             end loop;
 
