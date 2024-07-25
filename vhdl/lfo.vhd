@@ -55,7 +55,7 @@ architecture arch of lfo is
     type t_index_shift_array is array (0 to PIPE_SUM_CORDIC - 1) of integer range 0 to N_OUTPUTS - 1;
     type t_instance_shift_array is array (0 to PIPE_SUM_CORDIC - 1) of integer range 0 to N_INSTANCES - 1;
     type t_sync is array (0 to N_INSTANCES - 1) of std_logic_vector(N_OUTPUTS - 1 downto 0);
-    type t_phase_shift_array is array (0 to N_INSTANCES - 1) of signed(LFO_PHASE_SIZE - 1 downto 0);
+    type t_phase_shift_array is array (0 to N_INSTANCES - 1) of signed(CTRL_SIZE + LFO_PHASE_INT - 2 downto 0);
 
     type t_mixer_reg is record
         state                   : t_state;
@@ -171,9 +171,7 @@ begin
 
         -- Register and extend phase shift for each LFO instance.
         for i in 0 to N_INSTANCES - 1 loop 
-            r_in.phase_shift_array(i) <= 
-                (resize(config.lfo_input(i).phase_shift, CTRL_SIZE + LFO_PHASE_INT - 1)
-                 & (0 to LFO_PHASE_FRAC - CTRL_SIZE => '0'));
+            r_in.phase_shift_array(i) <= resize(config.lfo_input(i).phase_shift, CTRL_SIZE + LFO_PHASE_INT - 1);
         end loop;
 
         -- Clip ctrl value to positive only.
@@ -264,7 +262,8 @@ begin
         v_index_unsigned := to_unsigned(r.index_shift(PIPE_SUM_PHASE - 1), 16);
         if config.binaural_enable = '1' and v_index_unsigned(0) = '1' then 
 
-            r_in.phase_offset <= r.prev_phase_raw + r.phase_shift_array(r.instance_shift(PIPE_SUM_PHASE - 1));
+            r_in.phase_offset <= r.prev_phase_raw 
+                + (r.phase_shift_array(r.instance_shift(PIPE_SUM_PHASE - 1)) & (0 to LFO_PHASE_FRAC - CTRL_SIZE => '0'));
                 
         else 
             r_in.phase_offset <= r.phase_raw;
@@ -282,7 +281,8 @@ begin
 
                 -- Reset to zero of the phase offset if in binaural mode and voice is odd.
                 if config.binaural_enable = '1' and v_index_unsigned(0) = '1' then 
-                    r_in.phase_clipped <= r.phase_shift_array(r.instance_shift(PIPE_SUM_CLIP - 1));
+                    r_in.phase_clipped <= r.phase_shift_array(r.instance_shift(PIPE_SUM_CLIP - 1)) 
+                        & (0 to LFO_PHASE_FRAC - CTRL_SIZE => '0');
                 else 
                     r_in.phase_clipped <= (others => '0');
                 end if;
