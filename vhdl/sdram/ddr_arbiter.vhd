@@ -164,6 +164,11 @@ begin
     no_mig_gen : if NO_MIG generate 
         s_mig_ui_clk <= mig_ctrl_clk;
         s_mig_ui_reset <= mig_reset;
+        s_app_rd_data <= (others => '0');
+        s_app_rdy <= '1';
+        s_app_wdf_rdy <= '1';
+        s_app_rd_data_valid <= '1';
+        s_init_calib_complete <= '1';
     end generate;
 
     do_mig_gen : if not NO_MIG generate
@@ -218,7 +223,7 @@ begin
     sdram_outputs <= r.sdram_outputs;
 
     comb_process : process (r, sdram_inputs, s_mig_ui_clk, s_mig_ui_reset,
-        s_app_rd_data, s_app_rd_data_end, s_app_rd_data_valid, s_app_rdy, s_app_wdf_rdy,
+        s_app_rd_data, s_app_rd_data_valid, s_app_rdy, s_app_wdf_rdy,
         s_fifo_dout, s_fifo_full, s_fifo_empty, s_fifo_data_count, s_init_calib_complete)
 
     begin
