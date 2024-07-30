@@ -11,17 +11,16 @@ library xil_defaultlib;
 
 entity envelope is
     generic (
-        N_INSTANCES             : natural; -- Number of LFOs this entity implements.
-        N_OUTPUTS               : positive
+        N_INSTANCES             : natural; -- Number of envelopes this entity implements.
     );
     port (
         clk                     : in  std_logic;
         reset                   : in  std_logic;
         next_sample             : in  std_logic;
         envelope_input          : in  t_envelope_input_array(0 to N_INSTANCES - 1);
-        osc_inputs              : in  t_osc_input_array(0 to N_OUTPUTS - 1);
+        osc_inputs              : in  t_osc_input_array(0 to POLYPHONY_MAX - 1);
         envelope_out            : out t_envelope_out;
-        envelope_active         : out std_logic_vector(N_OUTPUTS - 1 downto 0) -- Array of envelope active OR-ed per voice.
+        envelope_active         : out std_logic_vector(POLYPHONY_MAX - 1 downto 0) -- Array of envelope active OR-ed per voice.
     );
 end entity;
 
@@ -64,11 +63,11 @@ architecture arch of envelope is
 
     type t_state is (idle, wait_valid, map_attack, map_decay, map_release, running);
     type t_adsr_state is (attack, decay, sustain, state_release, closed);
-    type t_adsr_state_array is array (0 to N_OUTPUTS - 1) of t_adsr_state;
+    type t_adsr_state_array is array (0 to POLYPHONY_MAX - 1) of t_adsr_state;
     type t_adsr_state_2d_array is array (0 to N_INSTANCES - 1) of t_adsr_state_array;
-    type t_envelope_phase_array is array (0 to N_OUTPUTS - 1) of unsigned(31 downto 0);
+    type t_envelope_phase_array is array (0 to POLYPHONY_MAX - 1) of unsigned(31 downto 0);
     type t_envelope_phase_2d_array is array (0 to N_INSTANCES - 1) of t_envelope_phase_array;
-    type t_index_array is array (0 to PIPE_SUM_MULT) of integer range 0 to N_OUTPUTS - 1;
+    type t_index_array is array (0 to PIPE_SUM_MULT) of integer range 0 to POLYPHONY_MAX - 1;
 
     type t_envelope_reg is record
         state                   : t_state;
@@ -86,7 +85,7 @@ architecture arch of envelope is
         release_amp             : t_envelope_out(0 to N_INSTANCES - 1); -- Amplitude at start of release. Normally equal to sustain except when the note is released early.
         instance_counter        : integer range 0 to N_INSTANCES - 1;
         pipeline_done           : std_logic;
-        envelope_active         : std_logic_vector(N_OUTPUTS - 1 downto 0);
+        envelope_active         : std_logic_vector(POLYPHONY_MAX - 1 downto 0);
     end record;
 
     constant REG_INIT : t_envelope_reg := (
@@ -155,7 +154,7 @@ architecture arch of envelope is
     -- Check if the voice is still enabled and go to release state if not (pipeline stage 1).
     procedure check_release(signal r          : in  t_envelope_reg;
                             signal r_in       : out t_envelope_reg;
-                            signal osc_inputs : in  t_osc_input_array(0 to N_OUTPUTS - 1)) is
+                            signal osc_inputs : in  t_osc_input_array(0 to POLYPHONY_MAX - 1)) is
     begin
         if osc_inputs(r.index_array(PIPE_LEN_MUX)).enable = '0' then 
             r_in.phase(r.instance_counter)(r.index_array(PIPE_LEN_MUX)) <= (others => '0');
@@ -199,7 +198,7 @@ begin
     combinatorial : process (r, next_sample, envelope_input, osc_inputs, s_mult_p, s_dout_tvalid, s_dout_tdata, 
             s_cordic_cos, s_cordic_sin, s_data_out_valid, s_data_out)
 
-        variable v_envelope_active : std_logic_vector(N_OUTPUTS - 1 downto 0);
+        variable v_envelope_active : std_logic_vector(POLYPHONY_MAX - 1 downto 0);
     begin
 
         -- Default register input.
@@ -212,7 +211,7 @@ begin
         -- OR all adsr states into single array.
         v_envelope_active := (others => '0');
         for i in 0 to N_INSTANCES - 1 loop 
-            for j in 0 to N_OUTPUTS - 1 loop 
+            for j in 0 to POLYPHONY_MAX - 1 loop 
                 v_envelope_active(j) := v_envelope_active(j) when r.adsr_state(i)(j) = closed else '1';
             end loop;
         end loop;
@@ -293,7 +292,7 @@ begin
         when running => 
 
             -- Increment index counter and set valid shift register input.
-            if r.index_array(0) < N_OUTPUTS - 1 then 
+            if r.index_array(0) < POLYPHONY_MAX - 1 then 
                 r_in.valid_array(0) <= '1';
                 r_in.index_array(0) <= r.index_array(0) + 1;
             else 
@@ -394,7 +393,7 @@ begin
             r_in.index_array(1 to PIPE_SUM_MULT) <= r.index_array(0 to PIPE_SUM_MULT - 1);
 
             -- End of pipeline.
-            if r.valid_array(PIPE_SUM_MULT) = '1' and r.index_array(PIPE_SUM_MULT) = N_OUTPUTS - 1 then 
+            if r.valid_array(PIPE_SUM_MULT) = '1' and r.index_array(PIPE_SUM_MULT) = POLYPHONY_MAX - 1 then 
 
                 r_in.state <= idle;
 

@@ -11,7 +11,6 @@ library xil_defaultlib;
 entity lfo is
     generic (
         N_INSTANCES             : natural; -- Number of LFOs this entity implements.
-        N_OUTPUTS               : natural  -- Number of outputs per LFO.
     );
     port (
         clk                     : in  std_logic;
@@ -20,7 +19,7 @@ entity lfo is
         status                  : in  t_status;
         lfo_input               : in  t_lfo_input_array(0 to N_INSTANCES - 1);
         next_sample             : in  std_logic;
-        osc_inputs              : in  t_osc_input_array(0 to N_OUTPUTS - 1);
+        osc_inputs              : in  t_osc_input_array(0 to POLYPHONY_MAX - 1);
         lfo_out                 : out t_lfo_out
     );
 end entity;
@@ -50,11 +49,11 @@ architecture arch of lfo is
     
 
     type t_state is (idle, square_velocity, running);
-    type t_lfo_phase_array is array (0 to N_OUTPUTS - 1) of signed(LFO_PHASE_SIZE - 1 downto 0);
+    type t_lfo_phase_array is array (0 to POLYPHONY_MAX - 1) of signed(LFO_PHASE_SIZE - 1 downto 0);
     type t_lfo_phase_2d_array is array (0 to N_INSTANCES - 1) of t_lfo_phase_array;
-    type t_index_shift_array is array (0 to PIPE_SUM_CORDIC - 1) of integer range 0 to N_OUTPUTS - 1;
+    type t_index_shift_array is array (0 to PIPE_SUM_CORDIC - 1) of integer range 0 to POLYPHONY_MAX - 1;
     type t_instance_shift_array is array (0 to PIPE_SUM_CORDIC - 1) of integer range 0 to N_INSTANCES - 1;
-    type t_sync is array (0 to N_INSTANCES - 1) of std_logic_vector(N_OUTPUTS - 1 downto 0);
+    type t_sync is array (0 to N_INSTANCES - 1) of std_logic_vector(POLYPHONY_MAX - 1 downto 0);
     type t_phase_shift_array is array (0 to N_INSTANCES - 1) of signed(CTRL_SIZE + LFO_PHASE_INT - 2 downto 0);
 
     type t_mixer_reg is record
@@ -75,11 +74,11 @@ architecture arch of lfo is
         phase_raw               : signed(LFO_PHASE_SIZE - 1 downto 0);
         phase_offset            : signed(LFO_PHASE_SIZE - 1 downto 0);
         sync                    : t_sync;
-        osc_enable              : std_logic_vector(N_OUTPUTS - 1 downto 0);
+        osc_enable              : std_logic_vector(POLYPHONY_MAX - 1 downto 0);
         instance_wb             : integer range 0 to N_INSTANCES - 1;
-        index_wb                : integer range 0 to N_OUTPUTS - 1;
+        index_wb                : integer range 0 to POLYPHONY_MAX - 1;
         instance_cordic         : integer range 0 to N_INSTANCES - 1;
-        index_cordic            : integer range 0 to N_OUTPUTS - 1;
+        index_cordic            : integer range 0 to POLYPHONY_MAX - 1;
         pipeline_done           : std_logic;
         prev_phase_raw          : signed(LFO_PHASE_SIZE - 1 downto 0);
         phase_shift_array       : t_phase_shift_array;
@@ -181,7 +180,7 @@ begin
         end loop;
 
         -- Detect edge of voice enable to use as sync pulse.
-        for j in 0 to N_OUTPUTS - 1 loop 
+        for j in 0 to POLYPHONY_MAX - 1 loop 
 
             r_in.osc_enable(j) <= osc_inputs(j).enable;
 
@@ -228,7 +227,7 @@ begin
             -- Pipeline stage 0: multiply LFO velocity control value with constant. 
             r_in.phase_mul <= unsigned(r.lfo_velocity_squared) * LFO_VELOCITY_STEP;
 
-            if r.index_shift(0) < N_OUTPUTS - 1 then
+            if r.index_shift(0) < POLYPHONY_MAX - 1 then
                 r_in.valid_shift(0) <= '1';
                 r_in.index_shift(0) <= r.index_shift(0) + 1;
             else 
@@ -332,7 +331,7 @@ begin
             r_in.scale_buffer <= status.mod_destinations(MODD_LFO_0_AMPLITUDE + r.instance_cordic)(r.index_cordic);
 
             -- Inrement counters
-            if r.index_cordic < N_OUTPUTS - 1 then
+            if r.index_cordic < POLYPHONY_MAX - 1 then
                 r_in.index_cordic <= r.index_cordic + 1;
             else 
                 r_in.index_cordic <= 0;
@@ -354,7 +353,7 @@ begin
             r_in.lfo_buffer(r.instance_wb)(r.index_wb) <= r.scaled_buffer;
 
             -- Inrement counters
-            if r.index_wb < N_OUTPUTS - 1 then
+            if r.index_wb < POLYPHONY_MAX - 1 then
                 r_in.index_wb <= r.index_wb + 1;
             else 
                 r_in.index_wb <= 0;

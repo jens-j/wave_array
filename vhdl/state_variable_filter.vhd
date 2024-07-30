@@ -21,9 +21,6 @@ library xil_defaultlib;
 -- The input sample is shifted right by one bit to create some headroom for resonance peaks.
 -- The MACC output is checked for overflow and saturated.  
 entity state_variable_filter is 
-    generic (
-        N_INPUTS                : integer
-        );
     port (
         clk                     : in  std_logic; -- System clock.
         reset                   : in  std_logic;
@@ -31,8 +28,8 @@ entity state_variable_filter is
         next_sample             : in  std_logic;
         cutoff_control          : in  t_ctrl_value_array(0 to POLYPHONY_MAX - 1);
         resonance_control       : in  t_ctrl_value_array(0 to POLYPHONY_MAX - 1);
-        sample_in               : in  t_mono_sample_array(0 to N_INPUTS - 1);
-        sample_out              : out t_mono_sample_array(0 to N_INPUTS - 1) -- FIlter type is selected in config.
+        sample_in               : in  t_mono_sample_array(0 to POLYPHONY_MAX - 1);
+        sample_out              : out t_mono_sample_array(0 to POLYPHONY_MAX - 1) -- FIlter type is selected in config.
     );
 end entity;
 
@@ -51,7 +48,7 @@ architecture arch of state_variable_filter is
     constant PIPE_SUM_WB : integer := PIPE_SUM_SAT + PIPE_LEN_WB;
 
     -- Number of empty slots inserted at every stage to avoid RAW hazards.
-    constant EMPTY_SLOTS : integer := maximum(0, PIPE_SUM_WB - N_INPUTS);
+    constant EMPTY_SLOTS : integer := maximum(0, PIPE_SUM_WB - POLYPHONY_MAX);
 
     -- MACC instructions for each pipeline stage
     -- 0 = A * B + C
@@ -63,26 +60,26 @@ architecture arch of state_variable_filter is
 
     type t_index_array is array (natural range <>) of integer;
     type t_state is (idle, map_cutoff, map_resonance, shift, running);
-    type t_coeff_array is array (0 to N_INPUTS - 1) of std_logic_vector(17 downto 0);
+    type t_coeff_array is array (0 to POLYPHONY_MAX - 1) of std_logic_vector(17 downto 0);
 
     type t_svf_reg is record
         state                   : t_state;
-        sample_out              : t_mono_sample_array(0 to N_INPUTS - 1);
-        lowpass_r               : t_mono_sample_array(0 to N_INPUTS - 1);
-        lowpass_r2              : t_mono_sample_array(0 to N_INPUTS - 1);
-        highpass_r              : t_mono_sample_array(0 to N_INPUTS - 1);
-        highpass_r2             : t_mono_sample_array(0 to N_INPUTS - 1);
-        bandpass_r              : t_mono_sample_array(0 to N_INPUTS - 1);
-        bandpass_r2             : t_mono_sample_array(0 to N_INPUTS - 1);
-        notch_r                 : t_mono_sample_array(0 to N_INPUTS - 1);
-        notch_r2                : t_mono_sample_array(0 to N_INPUTS - 1);
-        highpass_temp           : t_mono_sample_array(0 to N_INPUTS - 1);
+        sample_out              : t_mono_sample_array(0 to POLYPHONY_MAX - 1);
+        lowpass_r               : t_mono_sample_array(0 to POLYPHONY_MAX - 1);
+        lowpass_r2              : t_mono_sample_array(0 to POLYPHONY_MAX - 1);
+        highpass_r              : t_mono_sample_array(0 to POLYPHONY_MAX - 1);
+        highpass_r2             : t_mono_sample_array(0 to POLYPHONY_MAX - 1);
+        bandpass_r              : t_mono_sample_array(0 to POLYPHONY_MAX - 1);
+        bandpass_r2             : t_mono_sample_array(0 to POLYPHONY_MAX - 1);
+        notch_r                 : t_mono_sample_array(0 to POLYPHONY_MAX - 1);
+        notch_r2                : t_mono_sample_array(0 to POLYPHONY_MAX - 1);
+        highpass_temp           : t_mono_sample_array(0 to POLYPHONY_MAX - 1);
         cutoff_coeff            : t_coeff_array;
         resonance_coeff         : t_coeff_array;
         stage_count_in          : integer range 0 to N_STAGES - 1; -- Count pipeline stages.
-        sample_count_in         : integer range 0 to N_INPUTS - 1; -- Count input samples to the MACC.
+        sample_count_in         : integer range 0 to POLYPHONY_MAX - 1; -- Count input samples to the MACC.
         empty_count_in          : integer range 0 to EMPTY_SLOTS; -- Insert empty pipeline slots to avoid RAW pipeline hazards. 
-        map_count               : integer range 0 to N_INPUTS + PIPE_LEN_MACC - 1;
+        map_count               : integer range 0 to POLYPHONY_MAX + PIPE_LEN_MACC - 1;
         stage_count_array       : t_index_array(0 to PIPE_SUM_WB - 1);
         sample_count_array      : t_index_array(0 to PIPE_SUM_WB - 1);
         pipeline_valid          : std_logic_vector(PIPE_SUM_WB - 1 downto 0); -- shift signals valid data in pipeline for each stage.
@@ -185,7 +182,7 @@ begin
         -- Map cutoff coeffient to [0 - 0.75].
         elsif r.state = map_cutoff then 
     
-            if r.map_count < N_INPUTS then 
+            if r.map_count < POLYPHONY_MAX then 
                 s_macc_sel <= "00"; 
                 s_macc_b <= 18x"06000";
                 s_macc_a <= 17x"00000" when cutoff_control(r.map_count) < 0 
@@ -198,7 +195,7 @@ begin
                     "00" & s_macc_p(2 * SAMPLE_SIZE - 1 downto SAMPLE_SIZE);  -- 2.16 fixed point in [0 - 1).
             end if;
 
-            if r.map_count < N_INPUTS + PIPE_LEN_MACC - 1 then 
+            if r.map_count < POLYPHONY_MAX + PIPE_LEN_MACC - 1 then 
                 r_in.map_count <= r.map_count + 1;
             else 
                 r_in.map_count <= 0;
@@ -208,7 +205,7 @@ begin
         -- Map resonance coefficient to [2 - 0.25]
         elsif r.state = map_resonance then 
 
-            if r.map_count < N_INPUTS then 
+            if r.map_count < POLYPHONY_MAX then 
                 s_macc_sel <= "01"; 
                 s_macc_b <= 18x"0EFFF";
                 s_macc_c <= x"FFFFFFFF";
@@ -221,7 +218,7 @@ begin
                     "00" & s_macc_p(2 * SAMPLE_SIZE - 1 downto SAMPLE_SIZE);  -- 2.16 fixed point in [0 - 1).
             end if;
 
-            if r.map_count < N_INPUTS + PIPE_LEN_MACC - 1 then 
+            if r.map_count < POLYPHONY_MAX + PIPE_LEN_MACC - 1 then 
                 r_in.map_count <= r.map_count + 1;
             else 
                 r_in.state <= shift;
@@ -266,7 +263,7 @@ begin
             end case;
             
             -- Update input counters and de-assert valid if counting empty cycles.
-            if r.sample_count_in < N_INPUTS - 1 then 
+            if r.sample_count_in < POLYPHONY_MAX - 1 then 
                 r_in.sample_count_in <= r.sample_count_in + 1;
             elsif r.empty_count_in < EMPTY_SLOTS then 
                 r_in.empty_count_in <= r.empty_count_in + 1;

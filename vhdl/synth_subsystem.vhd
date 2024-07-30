@@ -120,9 +120,6 @@ begin
 
 
     filter : entity wave.state_variable_filter
-    generic map (
-        N_INPUTS                => POLYPHONY_MAX
-    )
     port map (
         clk                     => clk,
         reset                   => reset,
@@ -137,7 +134,6 @@ begin
     lfo : entity wave.lfo
     generic map (
         N_INSTANCES             => LFO_N,
-        N_OUTPUTS               => POLYPHONY_MAX
     )
     port map (
         clk                     => clk,
@@ -153,7 +149,6 @@ begin
     envelope : entity wave.envelope 
     generic map(
         N_INSTANCES             => ENV_N,
-        N_OUTPUTS               => POLYPHONY_MAX
     )
     port map (
         clk                     => clk,
