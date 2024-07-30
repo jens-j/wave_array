@@ -596,7 +596,7 @@ package wave_array_pkg is
         write_enable            => '0',
         write_address           => (others => '0'),
         write_data              => (others => '0'),
-        frames_log2             => 2
+        frames_log2             => 1
     );
 
     constant REGISTER_INPUT_INIT : t_register_input := (

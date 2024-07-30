@@ -17,6 +17,8 @@ add wave -divider synth_subsys:
 add wave tb_wave_array/wave_array/synth_subsys/*
 add wave -divider osc_controller:
 add wave tb_wave_array/wave_array/synth_subsys/osc_controller/*
+add wave -divider osc_subsys:
+add wave tb_wave_array/wave_array/synth_subsys/osc_subsys/*
 add wave -divider oscillator:
 add wave tb_wave_array/wave_array/synth_subsys/osc_subsys/osc_gen(0)/osc_n/*
 add wave -divider address_generator:
@@ -31,6 +33,8 @@ add wave -divider envelope:
 add wave tb_wave_array/wave_array/synth_subsys/envelope/*
 add wave -divider lfo:
 add wave tb_wave_array/wave_array/synth_subsys/lfo/*
+add wave -divider pitch_mod:
+add wave tb_wave_array/wave_array/synth_subsys/pitch_mod/*
 add wave -divider mod_matrix:
 add wave tb_wave_array/wave_array/synth_subsys/mod_matrix/*
 add wave -divider frame_dma:
@@ -49,6 +53,8 @@ add wave -divider flash_dma:
 add wave tb_wave_array/wave_array/flash_dma/*
 #add wave -divider sdram:
 #add wave tb_wave_array/sdram/*
+add wave -divider wave_offload:
+add wave tb_wave_array/wave_array/wave_offload/*
 add wave -divider uart_tester:
 add wave tb_wave_array/uart_tester/*
 add wave -divider uart_reader:

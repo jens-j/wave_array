@@ -42,6 +42,7 @@ end entity;
 architecture arch of table_interpolator is
 
     -- Pipeline stage lengths.
+    constant PIPE_LEN_MAP       : integer := 1; -- Map frame position range.
     constant PIPE_LEN_SPLIT     : integer := 1; -- Split frame control into frame index and position based on number of frames in table.
     constant PIPE_LEN_MEM       : integer := 1; -- Sample & coefficient memory access.
     constant PIPE_LEN_INTP      : integer := 4; -- Sample & coefficient linear interpolation.
@@ -49,13 +50,17 @@ architecture arch of table_interpolator is
     constant PIPE_LEN_TOTAL     : integer := PIPE_LEN_MEM + PIPE_LEN_INTP + PIPE_LEN_MACC; -- Total pipeline length.
 
     -- Cumulative pipeline lengths.
-    constant PIPE_SUM_MEM       : integer := PIPE_LEN_SPLIT + PIPE_LEN_MEM;
+    constant PIPE_SUM_SPLIT     : integer := PIPE_LEN_MAP + PIPE_LEN_SPLIT;
+    constant PIPE_SUM_MEM       : integer := PIPE_SUM_SPLIT + PIPE_LEN_MEM;
     constant PIPE_SUM_INTP      : integer := PIPE_SUM_MEM + PIPE_LEN_INTP;
 
     type t_state is (idle, init, running, update_table);
     type t_osc_counter_array is array (0 to PIPE_LEN_TOTAL) of integer range 0 to N_VOICES - 1; -- One extra register to use in the writeback stage which is not really part of the pipeline.
     type t_sample_counter_array is array (0 to PIPE_LEN_TOTAL) of integer range 0 to 2;
     type t_coeff_counter_array is array (0 to PIPE_SUM_INTP) of integer range 0 to POLY_N - 1;
+    type t_mipmap_address_array is array (0 to PIPE_SUM_SPLIT) of t_mipmap_address;
+    type t_coeff_base_address_array is array (0 to PIPE_SUM_SPLIT) of unsigned(POLY_M_LOG2 - 2 downto 0);
+    type t_frame_position_array is array (PIPE_LEN_MAP to PIPE_SUM_MEM) of t_frame_position;
 
     type t_oscillator_reg is record
         state                   : t_state;
@@ -64,10 +69,8 @@ architecture arch of table_interpolator is
         sample_counter_next     : integer range 0 to 2;
         output_samples          : t_stereo_sample_array(0 to N_VOICES - 1);
         sample_buffers          : t_stereo_sample_array(0 to N_VOICES - 1);
-        mipmap_address          : t_mipmap_address; -- Increment to get successive input samples.
-        mipmap_address_buffer   : t_mipmap_address; -- Buffer one cycle because it is calculated in stage 0 and used in stage 1.
-        coeff_base_address      : unsigned(POLY_M_LOG2 - 2 downto 0); -- Concatenated with coeff_counter gives the coeff memory address.
-        coeff_base_address_buffer : unsigned(POLY_M_LOG2 - 2 downto 0); -- Concatenated with coeff_counter gives the coeff memory address.
+        mipmap_address          : t_mipmap_address_array; -- Increment to get successive input samples.
+        coeff_base_address      : t_coeff_base_address_array; -- Concatenated with coeff_counter gives the coeff memory address.
         table2dma               : t_table2dma;
         frame_control           : t_ctrl_value_array(0 to POLYPHONY_MAX - 1);
         frame_index_max         : integer range 0 to FRAMES_MAX - 1;
@@ -75,10 +78,10 @@ architecture arch of table_interpolator is
         frame_index_lsb         : integer range CTRL_SIZE - FRAMES_MAX_LOG2 - 1 to CTRL_SIZE - 1;
         level                   : t_mipmap_level; -- Buffer one cycle to use in pipeline stage 1.
 
+        frame_position_mapped   : t_ctrl_value;
         frame_index_a           : integer range 0 to FRAMES_MAX - 1; 
         frame_index_b           : integer range 0 to FRAMES_MAX - 1; 
-        frame_position          : t_frame_position;
-        frame_position_buffer   : t_frame_position;
+        frame_position          : t_frame_position_array;
 
         -- Writeback pipeline registers (9 cycles).
         sample_counter          : t_sample_counter_array;  -- Count the two output samples plus one for pipeline winddown.
@@ -89,7 +92,7 @@ architecture arch of table_interpolator is
         odd_phase               : std_logic_vector(PIPE_SUM_MEM downto 0); -- '1' when bank coefficient m is odd (changes coefficient memory access).
         phase_position          : t_osc_phase_position; -- Interpolation coefficient for phase interpolation.
 
-        zero_coeff              : std_logic_vector(PIPE_SUM_INTP downto PIPE_LEN_SPLIT);
+        zero_coeff              : std_logic_vector(PIPE_SUM_INTP downto PIPE_SUM_SPLIT);
 
         -- Counters used to select frame control value for each oscillator.
         unison_counter          : integer range 0 to UNISON_MAX - 1;
@@ -104,20 +107,18 @@ architecture arch of table_interpolator is
         sample_counter_next     => 0,
         output_samples          => (others => (others => (others => '0'))),
         sample_buffers  	    => (others => (others => (others => '0'))),
-        mipmap_address          => (others => '0'),
-        mipmap_address_buffer   => (others => '0'),
-        coeff_base_address      => (others => '0'),
-        coeff_base_address_buffer => (others => '0'),
+        mipmap_address          => (others => (others => '0')),
+        coeff_base_address      => (others => (others => '0')),
         table2dma               => (ack => '0'),
         frame_control           => (others => (others => '0')),
         frame_index_max         => 0,
         frames_log2             => 0,
         frame_index_lsb         => CTRL_SIZE - 1,
         level                   => 0,
+        frame_position_mapped   => (others => '0'),
         frame_index_a           => 0,
         frame_index_b           => 0,
-        frame_position          => (others => '0'),
-        frame_position_buffer   => (others => '0'),
+        frame_position          => (others => (others => '0')),
         sample_counter          => (others => 0),
         osc_counter             => (others => 0),
         writeback               => (others => '0'),
@@ -153,7 +154,6 @@ architecture arch of table_interpolator is
     -- Wave array read inteface.
     signal s_wave_address_a     : std_logic_vector(WAVETABLE_SIZE_LOG2 - 1 downto 0);
     signal s_wave_read_data_a   : std_logic_vector(SAMPLE_SIZE - 1 downto 0);
-    signal s_wave_write_data_a  : std_logic_vector(SAMPLE_SIZE - 1 downto 0);
     signal s_wave_address_b     : std_logic_vector(WAVETABLE_SIZE_LOG2 - 1 downto 0);
     signal s_wave_read_data_b   : std_logic_vector(SAMPLE_SIZE - 1 downto 0);
     signal s_wave_write_enable_a: std_logic_vector(0 downto 0);
@@ -251,19 +251,16 @@ begin
 
         variable v_level : t_mipmap_level;
         variable v_frame_index : integer range 0 to FRAMES_MAX - 1;
-        variable v_frame_position : unsigned(2 * OSC_SAMPLE_FRAC - 1 downto 0);
+        variable v_frame_position_mapped : signed(2 * CTRL_SIZE - 1 downto 0);
     begin
 
         r_in <= r;
 
         r_in.table2dma.ack <= '0';
         r_in.writeback(0)  <= '0';
-        r_in.zero_coeff(PIPE_LEN_SPLIT) <= '0';
+        r_in.zero_coeff(PIPE_SUM_SPLIT) <= '0';
         r_in.frames_log2 <= dma2table.frames_log2;
         r_in.frame_index_max <= 2**dma2table.frames_log2 - 1;
-        r_in.frame_position <= r.frame_position_buffer;
-        r_in.mipmap_address <= r.mipmap_address_buffer;
-        r_in.coeff_base_address <= r.coeff_base_address_buffer;
 
         s_frame_interp_a <= (others => '0');
         s_frame_interp_b <= (others => '0');
@@ -330,8 +327,8 @@ begin
         -- Start new cycle
         elsif r.state = init then 
 
-            r_in.mipmap_address_buffer <= addrgen_input(0).mipmap_address(0);
-            r_in.coeff_base_address_buffer <= shift_right(addrgen_input(0).phase(0), addrgen_input(0).mipmap_level)
+            r_in.mipmap_address(0) <= addrgen_input(0).mipmap_address(0);
+            r_in.coeff_base_address(0) <= shift_right(addrgen_input(0).phase(0), addrgen_input(0).mipmap_level)
                 (t_osc_phase_frac'length - 1 downto OSC_COEFF_FRAC + 1);
 
             r_in.state <= running;
@@ -339,10 +336,10 @@ begin
         elsif r.state = running then
 
             -- Increment mipmap address (wrap around based on mipmap level).
-            if r.mipmap_address_buffer = MIPMAP_LEVEL_LIMITS(v_level) then
-                r_in.mipmap_address_buffer <= MIPMAP_LEVEL_OFFSETS(v_level);
+            if r.mipmap_address(0) = MIPMAP_LEVEL_LIMITS(v_level) then
+                r_in.mipmap_address(0) <= MIPMAP_LEVEL_OFFSETS(v_level);
             else
-                r_in.mipmap_address_buffer <= r.mipmap_address_buffer + 1;
+                r_in.mipmap_address(0) <= r.mipmap_address(0) + 1;
             end if;
 
             -- Increment coefficient counter.
@@ -390,98 +387,101 @@ begin
                 -- Load sample and coeffient base addresses for next oscillator.
                 if r.sample_counter_next < 2 then
 
-                    r_in.mipmap_address_buffer <= addrgen_input(r.osc_counter_next).mipmap_address(r.sample_counter_next);
+                    r_in.mipmap_address(0) <= addrgen_input(r.osc_counter_next).mipmap_address(r.sample_counter_next);
 
-                    r_in.coeff_base_address_buffer <= shift_right(
+                    r_in.coeff_base_address(0) <= shift_right(
                         addrgen_input(r.osc_counter_next).phase(r.sample_counter_next),
                         addrgen_input(r.osc_counter_next).mipmap_level)
                             (t_osc_phase_frac'length - 1 downto OSC_COEFF_FRAC + 1);
                 end if;
             end if;
 
-            -- Pipeline stage 0: Split control value into frame index and position.
+            -- Pipeline stage 0: Map frame_position to smaller range to avoid dead zone at end of ctrl_value.
+            -- Because the number of intervals between frames is not a power of two the last 1/4, 1/8 or 1/16 of the
+            -- range would otherwise interpolate between the last frame and itself. 
+            if r.frames_log2 = 2 then 
+                v_frame_position_mapped := r.frame_control(r.voice_counter) 
+                    * to_signed(2**(CTRL_SIZE - 1) * 3 / 4, CTRL_SIZE); 
+                r_in.frame_position_mapped <= v_frame_position_mapped(2 * CTRL_SIZE - 2 downto CTRL_SIZE - 1);
+            elsif r.frames_log2 = 3 then 
+                v_frame_position_mapped := r.frame_control(r.voice_counter) 
+                    * to_signed(2**(CTRL_SIZE - 1) * 7 / 8, CTRL_SIZE); 
+                r_in.frame_position_mapped <= v_frame_position_mapped(2 * CTRL_SIZE - 2 downto CTRL_SIZE - 1);
+            elsif r.frames_log2 = 4 then 
+                v_frame_position_mapped := r.frame_control(r.voice_counter) 
+                    * to_signed(2**(CTRL_SIZE - 1) * 15 / 16, CTRL_SIZE); 
+                r_in.frame_position_mapped <= v_frame_position_mapped(2 * CTRL_SIZE - 2 downto CTRL_SIZE - 1);
+            else 
+                r_in.frame_position_mapped <= r.frame_control(r.voice_counter);
+            end if;
+
+            -- Pipeline stage 1: Split control value into frame index and position.
             if r.frames_log2 < 2 then 
                 v_frame_index := 0;
             else 
-                v_frame_index := to_integer(shift_right(r.frame_control(r.voice_counter), r.frame_index_lsb));
+                v_frame_index := to_integer(shift_right(r.frame_position_mapped, r.frame_index_lsb));
             end if;
 
             r_in.frame_index_a <= v_frame_index;
             r_in.frame_index_b <= minimum(r.frame_index_max, v_frame_index + 1);
 
             if r.frames_log2 = 0 then -- Special case: don't do any frame interpolation.
-                r_in.frame_position_buffer <= (others => '0');
+                r_in.frame_position(PIPE_LEN_MAP) <= (others => '0');
 
             elsif r.frames_log2 = 1 then -- Special case: always interpolate between frames 0 & 1.
 
                 -- Use MSBs of frame_control as frame_position (msb is always 0).
-                r_in.frame_position_buffer <= unsigned(
-                    r.frame_control(r.voice_counter)(CTRL_SIZE - 2 downto CTRL_SIZE - OSC_SAMPLE_FRAC - 1));
+                r_in.frame_position(PIPE_LEN_MAP) <= unsigned(
+                    r.frame_position_mapped(CTRL_SIZE - 2 downto CTRL_SIZE - OSC_SAMPLE_FRAC - 1));
             else 
-                r_in.frame_position_buffer <= unsigned(
-                    r.frame_control(r.voice_counter)(r.frame_index_lsb - 1 downto r.frame_index_lsb - OSC_SAMPLE_FRAC));
+                r_in.frame_position(PIPE_LEN_MAP) <= unsigned(
+                    r.frame_position_mapped(r.frame_index_lsb - 1 downto r.frame_index_lsb - OSC_SAMPLE_FRAC));
             end if;  
 
-            -- Pipeline stage 1: Pipeline register inputs.
-            if r.sample_counter(PIPE_LEN_SPLIT) < 2 then
+            -- Pipeline stage 2: Pipeline register inputs.
+            if r.sample_counter(PIPE_SUM_SPLIT) < 2 then
                 r_in.phase_position <= 
-                    addrgen_input(r.osc_counter(PIPE_LEN_SPLIT)).phase(r.sample_counter(PIPE_LEN_SPLIT))
+                    addrgen_input(r.osc_counter(PIPE_SUM_SPLIT)).phase(r.sample_counter(PIPE_SUM_SPLIT))
                         (OSC_COEFF_FRAC + r.level - 1 downto r.level);
             end if;
 
-            -- Pipeline stage 1: Wave memory access.
+            -- Pipeline stage 2: Wave memory access.
             s_wave_address_a <= std_logic_vector(to_unsigned(r.frame_index_a, FRAMES_MAX_LOG2)) 
-                & std_logic_vector(r.mipmap_address);
+                & std_logic_vector(r.mipmap_address(PIPE_SUM_SPLIT));
 
             s_wave_address_b <= std_logic_vector(to_unsigned(r.frame_index_b, FRAMES_MAX_LOG2)) 
-                & std_logic_vector(r.mipmap_address);
+                & std_logic_vector(r.mipmap_address(PIPE_SUM_SPLIT));
 
-            -- Pipeline stage 1: Coefficient memory access.
+            -- Pipeline stage 2: Coefficient memory access.
             -- Get coefficient for phase m and m+1 from the two coefficient memories.
-            s_coeff_odd_addra <= std_logic_vector(r.coeff_base_address)
-                & std_logic_vector(to_unsigned(r.coeff_counter(PIPE_LEN_SPLIT), POLY_N_LOG2));
+            s_coeff_odd_addra <= std_logic_vector(r.coeff_base_address(PIPE_SUM_SPLIT))
+                & std_logic_vector(to_unsigned(r.coeff_counter(PIPE_SUM_SPLIT), POLY_N_LOG2));
 
-            if r.odd_phase(PIPE_LEN_SPLIT) = '1' then
+            if r.odd_phase(PIPE_SUM_SPLIT) = '1' then
 
                 -- Edge case where interpolation wraps around.
                 -- Solve by shifting the coefficient forward one position and append with a zero.
                 -- But since the coefficients are stored in reversed order, zero the first coeff
                 -- and shift the rest back one position.
-                if r.coeff_base_address = POLY_M / 2 - 1 then
+                if r.coeff_base_address(PIPE_SUM_SPLIT) = POLY_M / 2 - 1 then
 
-                    if r.coeff_counter(PIPE_LEN_SPLIT) = 0 then
-                        r_in.zero_coeff(PIPE_LEN_SPLIT) <= '1';
+                    if r.coeff_counter(PIPE_SUM_SPLIT) = 0 then
+                        r_in.zero_coeff(PIPE_SUM_SPLIT) <= '1';
                     else
-                        s_coeff_even_addra <= std_logic_vector(r.coeff_base_address + 1)
-                            & std_logic_vector(to_unsigned(r.coeff_counter(PIPE_LEN_SPLIT), POLY_N_LOG2) - 1);
+                        s_coeff_even_addra <= std_logic_vector(r.coeff_base_address(PIPE_SUM_SPLIT) + 1)
+                            & std_logic_vector(to_unsigned(r.coeff_counter(PIPE_SUM_SPLIT), POLY_N_LOG2) - 1);
                     end if;
 
                 else
-                    s_coeff_even_addra <= std_logic_vector(r.coeff_base_address + 1)
-                        & std_logic_vector(to_unsigned(r.coeff_counter(PIPE_LEN_SPLIT), POLY_N_LOG2));
+                    s_coeff_even_addra <= std_logic_vector(r.coeff_base_address(PIPE_SUM_SPLIT) + 1)
+                        & std_logic_vector(to_unsigned(r.coeff_counter(PIPE_SUM_SPLIT), POLY_N_LOG2));
                 end if;
             else
-                s_coeff_even_addra <= std_logic_vector(r.coeff_base_address)
-                    & std_logic_vector(to_unsigned(r.coeff_counter(PIPE_LEN_SPLIT), POLY_N_LOG2));
+                s_coeff_even_addra <= std_logic_vector(r.coeff_base_address(PIPE_SUM_SPLIT))
+                    & std_logic_vector(to_unsigned(r.coeff_counter(PIPE_SUM_SPLIT), POLY_N_LOG2));
             end if;
 
-            -- Pipeline stage 1: Map frame_position to smaller range to void dead zone at end of ctrl_value.
-            -- Because the number of intervals between frames is not a power of two the last 1/4, 1/8 or 1/16 of the
-            -- range would otherwise interpolate between the last frame and itself. 
-            if r.frames_log2 = 2 then 
-                v_frame_position := r.frame_position_buffer * to_unsigned(2**(OSC_SAMPLE_FRAC) * 3 / 4, OSC_SAMPLE_FRAC); 
-                r_in.frame_position <= v_frame_position(2 * OSC_SAMPLE_FRAC - 1 downto OSC_SAMPLE_FRAC);
-            elsif r.frames_log2 = 3 then 
-                v_frame_position := r.frame_position_buffer * to_unsigned(2**(OSC_SAMPLE_FRAC) * 7 / 8, OSC_SAMPLE_FRAC); 
-                r_in.frame_position <= v_frame_position(2 * OSC_SAMPLE_FRAC - 1 downto OSC_SAMPLE_FRAC);
-            elsif r.frames_log2 = 4 then 
-                v_frame_position := r.frame_position_buffer * to_unsigned(2**(OSC_SAMPLE_FRAC) * 15 / 16, OSC_SAMPLE_FRAC); 
-                r_in.frame_position <= v_frame_position(2 * OSC_SAMPLE_FRAC - 1 downto OSC_SAMPLE_FRAC);
-            else 
-                r_in.frame_position <= r.frame_position_buffer;
-            end if;
-
-            -- Pipeline stage 2: Read wave memory (mux by active buffer indices) and send to frame
+            -- Pipeline stage 3: Read wave memory (mux by active buffer indices) and send to frame
             -- interpolator. Interpolation is performed in a single DSP slice (4 stage pipeline).
             -- (D - A) * B + C = (sampleB - sampleA) * frac(position) + sampleA.
             -- The input samples are also shifted right by one bit to leave some headroom to
@@ -490,13 +490,13 @@ begin
             
             s_frame_interp_c <= 
                 (0 to 1 => s_wave_read_data_a(SAMPLE_SIZE - 1)) -- sign extention
-                & s_wave_read_data_a                                -- operand
-                & (0 to OSC_SAMPLE_FRAC - 2 => '0');                -- shift
+                & s_wave_read_data_a                            -- operand
+                & (0 to OSC_SAMPLE_FRAC - 2 => '0');            -- shift
 
             s_frame_interp_d <= std_logic_vector(shift_right(signed(s_wave_read_data_b), 1));
-            s_frame_interp_b <= '0' & std_logic_vector(r.frame_position); -- Add zero msb to make B unsigned.
+            s_frame_interp_b <= '0' & std_logic_vector(r.frame_position(PIPE_SUM_MEM)); -- Add zero msb to make B unsigned.
 
-            -- Pipeline stage 2: Read coefficient memory and send to interpolator. The values for the
+            -- Pipeline stage 3: Read coefficient memory and send to interpolator. The values for the
             -- even and odd coefficient memories are swapped if the phase m is odd.
             if r.odd_phase(PIPE_SUM_MEM) = '1' then
                 s_coeff_interp_a <= s_coeff_odd_douta;
@@ -512,25 +512,24 @@ begin
 
             s_coeff_interp_b <= '0' & std_logic_vector(r.phase_position); -- Add zero msb to make B unsigned.
 
-            -- Pipeline stage 6: Connect linear interpolator outputs to the MACC.
+            -- Pipeline stage 7: Connect linear interpolator outputs to the MACC.
             if r.zero_coeff(PIPE_SUM_INTP) = '0' then
                 s_macc_b <= s_coeff_interp_p(POLY_COEFF_SIZE - 1 downto 0);
             end if;
             s_macc_a <= s_frame_interp_p(SAMPLE_SIZE - 1 downto 0);
             s_macc_sel <= "1" when r.coeff_counter(PIPE_SUM_INTP) = 0 else "0";
 
-            -- Pipeline stage 0-6: Zero coefficient pipeline registers.
-            for i in PIPE_SUM_INTP downto PIPE_LEN_SPLIT + 1 loop
+            -- Pipeline stage 0-7: Zero coefficient pipeline registers.
+            for i in PIPE_SUM_INTP downto PIPE_SUM_MEM loop
                 r_in.zero_coeff(i) <= r.zero_coeff(i - 1);
             end loop;
 
-            -- Pipeline stage 10: Store output sample.
+            -- Pipeline stage 11: Store output sample.
             if r.writeback(PIPE_LEN_TOTAL) = '1' then
 
                 -- Shift by 15 because coefficient is 16 bit signed (+2 extra, not sure why necessary).
                 r_in.sample_buffers(r.osc_counter(PIPE_LEN_TOTAL))(r.sample_counter(PIPE_LEN_TOTAL)) 
-                    <= t_mono_sample(
-                        s_macc_p(SAMPLE_SIZE + POLY_COEFF_SIZE - 4 downto POLY_COEFF_SIZE - 3)); 
+                    <= t_mono_sample(s_macc_p(SAMPLE_SIZE + POLY_COEFF_SIZE - 4 downto POLY_COEFF_SIZE - 3)); 
             end if;
 
             -- Pipeline stage 0-10: Shift register writeback parameters.
@@ -538,16 +537,26 @@ begin
                 r_in.osc_counter(i) <= r.osc_counter(i - 1);
                 r_in.sample_counter(i) <= r.sample_counter(i - 1);
                 r_in.writeback(i) <= r.writeback(i - 1);
+            end loop;
 
-                if i <= PIPE_SUM_INTP then 
-                    r_in.coeff_counter(i) <= r.coeff_counter(i - 1);
-                end if;
+            -- Pipeline stage 0-7: coeff counter registers.
+            for i in PIPE_SUM_INTP downto 1 loop
+                r_in.coeff_counter(i) <= r.coeff_counter(i - 1);
+            end loop;
+
+            -- Pipeline stage 1 - 3: shift pipeline registers.
+            for i in PIPE_SUM_MEM downto PIPE_SUM_SPLIT loop
+                r_in.frame_position(i) <= r.frame_position(i - 1);
             end loop;
 
             -- Pipeline stage 0 - 2: shift pipeline registers.
-            for i in PIPE_SUM_MEM downto 1 loop
-                r_in.odd_phase(i) <= r.odd_phase(i - 1);
+            for i in PIPE_SUM_SPLIT downto PIPE_LEN_MAP loop
+                r_in.mipmap_address(i) <= r.mipmap_address(i - 1);
+                r_in.coeff_base_address(i) <= r.coeff_base_address(i - 1);
             end loop;
+
+            -- Pipeline stage 0 - 3: shift pipeline registers.
+            r_in.odd_phase(PIPE_SUM_MEM downto 1) <= r.odd_phase(PIPE_SUM_MEM - 1 downto 0);
 
             -- Check for end of pipeline
             if (r.sample_counter(0) = 2) and (r.coeff_counter(0) = PIPE_LEN_TOTAL) then

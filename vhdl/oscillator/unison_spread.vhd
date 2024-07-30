@@ -133,8 +133,11 @@ begin
                 r_in.spread_osc_inputs <= r.spread_osc_inputs_buffer;
                 r_in.frame_ctrl_index <= r.frame_ctrl_index_buffer;
                 r_in.lowest_velocity <= r.lowest_velocity_buffer;
-                r_in.lowest_velocity_buffer <= (others => '1');
                 r_in.spread_osc_inputs_buffer <= (others => (others => ('0', (others => '0'))));
+                
+                -- Default should be higher than any possible note but allow more than one sample to be sent by the wave_offload. 
+                r_in.lowest_velocity_buffer <= "00" & (OSC_PHASE_SIZE - 3 downto 0 => '1'); 
+                
                 r_in.state <= prepare;
             end if;
 

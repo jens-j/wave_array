@@ -125,7 +125,8 @@ begin
         debug_timer <= v_debug_timer(CTRL_SIZE - 1 downto 0);
 
         if next_sample = '1' then 
-            r_in.lowest_phase <= r.lowest_phase + lowest_velocity;
+            -- Multiply velocity by two because this is the velocity before downsampling by two in the oscillator.
+            r_in.lowest_phase <= r.lowest_phase + shift_left(lowest_velocity(OSC_PHASE_SIZE - 2 downto 0), 1); 
             r_in.lowest_phase_prev <= r.lowest_phase;
         end if;
 
