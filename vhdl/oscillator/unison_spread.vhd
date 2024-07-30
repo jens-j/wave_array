@@ -32,6 +32,7 @@ entity unison_spread is
         next_sample             : in  std_logic;
         spread_ctrl             : in  t_ctrl_value_array(0 to POLYPHONY_MAX - 1);
         pitched_osc_inputs      : in  t_pitched_osc_inputs;
+        envelope_active         : in  std_logic_vector(POLYPHONY_MAX - 1 downto 0);
         spread_osc_inputs       : out t_spread_osc_inputs; -- osc_inputs but spread out for unison.
         frame_ctrl_index        : out t_frame_ctrl_index; -- Correponding frame control index. Avoid doing the osc to voice mapping again in the table interpolator.
         lowest_velocity         : out t_osc_phase
@@ -134,9 +135,9 @@ begin
                 r_in.frame_ctrl_index <= r.frame_ctrl_index_buffer;
                 r_in.lowest_velocity <= r.lowest_velocity_buffer;
                 r_in.spread_osc_inputs_buffer <= (others => (others => ('0', (others => '0'))));
-                
+
                 -- Default should be higher than any possible note but allow more than one sample to be sent by the wave_offload. 
-                r_in.lowest_velocity_buffer <= "00" & (OSC_PHASE_SIZE - 3 downto 0 => '1'); 
+                r_in.lowest_velocity_buffer <= "00" & (0 to OSC_PHASE_SIZE - 3 => '1'); 
                 
                 r_in.state <= prepare;
             end if;
@@ -153,8 +154,8 @@ begin
 
             r_in.mux_enable <= '1'; 
             r_in.mux_index <= 2 * r.voice_count when config.binaural_enable = '1' else r.voice_count;
-            r_in.voice_enable <= pitched_osc_inputs(r.table_count)(2 * r.voice_count).enable 
-                when config.binaural_enable = '1' else pitched_osc_inputs(r.table_count)(r.voice_count).enable;
+            r_in.voice_enable <= envelope_active(2 * r.voice_count) 
+                when config.binaural_enable = '1' else envelope_active(r.voice_count);
 
             if r.group_count = 0 then 
                 r_in.step_value <= s_unison_step(r.table_count)(r.voice_count);

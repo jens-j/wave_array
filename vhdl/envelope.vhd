@@ -21,7 +21,7 @@ entity envelope is
         envelope_input          : in  t_envelope_input_array(0 to N_INSTANCES - 1);
         osc_inputs              : in  t_osc_input_array(0 to N_OUTPUTS - 1);
         envelope_out            : out t_envelope_out;
-        envelope_active         : out std_logic_vector(N_INSTANCES * N_OUTPUTS - 1 downto 0) -- Active bits are output in a 1D array with instance major ordering.
+        envelope_active         : out std_logic_vector(N_OUTPUTS - 1 downto 0) -- Array of envelope active OR-ed per voice.
     );
 end entity;
 
@@ -86,6 +86,7 @@ architecture arch of envelope is
         release_amp             : t_envelope_out(0 to N_INSTANCES - 1); -- Amplitude at start of release. Normally equal to sustain except when the note is released early.
         instance_counter        : integer range 0 to N_INSTANCES - 1;
         pipeline_done           : std_logic;
+        envelope_active         : std_logic_vector(N_OUTPUTS - 1 downto 0);
     end record;
 
     constant REG_INIT : t_envelope_reg := (
@@ -103,7 +104,8 @@ architecture arch of envelope is
         valid_array             => (others => '0'),
         release_amp             => (others => (others => (others => '0'))),
         instance_counter        => 0,
-        pipeline_done           => '0'
+        pipeline_done           => '0',
+        envelope_active         => (others => '0')
     ); 
 
     -- Register.
@@ -196,6 +198,8 @@ begin
 
     combinatorial : process (r, next_sample, envelope_input, osc_inputs, s_mult_p, s_dout_tvalid, s_dout_tdata, 
             s_cordic_cos, s_cordic_sin, s_data_out_valid, s_data_out)
+
+        variable v_envelope_active : std_logic_vector(N_OUTPUTS - 1 downto 0);
     begin
 
         -- Default register input.
@@ -203,12 +207,16 @@ begin
 
         -- Connect outputs.
         envelope_out <= r.envelope_out;
+        envelope_active <= r.envelope_active;
 
+        -- OR all adsr states into single array.
+        v_envelope_active := (others => '0');
         for i in 0 to N_INSTANCES - 1 loop 
             for j in 0 to N_OUTPUTS - 1 loop 
-                envelope_active(i * N_OUTPUTS + j) <= '0' when r.adsr_state(i)(j) = closed else '1';
+                v_envelope_active(j) := v_envelope_active(j) when r.adsr_state(i)(j) = closed else '1';
             end loop;
         end loop;
+        r_in.envelope_active <= v_envelope_active;
 
         -- Default multiplier inputs.
         s_mult_a <= (others => '0');

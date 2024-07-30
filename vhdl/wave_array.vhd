@@ -113,8 +113,6 @@ architecture arch of wave_array is
     signal s_uart_count         : integer;
     signal s_uart_fifo_count    : integer;
 
-    signal s_envelope_0_active  : std_logic_vector(POLYPHONY_MAX - 1 downto 0); 
-    signal s_envelope_1_active  : std_logic_vector(POLYPHONY_MAX - 1 downto 0);
     signal s_envelope_active    : std_logic_vector(POLYPHONY_MAX - 1 downto 0);
 
     signal s_mod_sources        : t_mods_array;
@@ -185,7 +183,6 @@ begin
 
 
     status_gen : for i in 0 to POLYPHONY_MAX - 1 generate 
-        s_envelope_active(i)      <= s_envelope_0_active(i) or s_envelope_1_active(i);
         s_status.voice_enabled(i) <= s_voices(i).enable;
         s_status.voice_active(i)  <= s_envelope_active(i);
     end generate;
@@ -306,8 +303,7 @@ begin
         sample                  => s_sample,
         sdram_input             => s_sdram_inputs(2),
         sdram_output            => s_sdram_outputs(2),
-        envelope_0_active       => s_envelope_0_active,
-        envelope_1_active       => s_envelope_1_active,
+        envelope_active         => s_envelope_active,
         mod_sources             => s_mod_sources,
         mod_destinations        => s_mod_destinations,
         pitched_osc_inputs      => s_pitched_osc_inputs,

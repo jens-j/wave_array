@@ -22,8 +22,7 @@ entity synth_subsystem is
         sample                  : out t_stereo_sample;
         sdram_output            : in  t_sdram_output;
         sdram_input             : out t_sdram_input;
-        envelope_0_active       : out std_logic_vector(POLYPHONY_MAX - 1 downto 0);
-        envelope_1_active       : out std_logic_vector(POLYPHONY_MAX - 1 downto 0);
+        envelope_active         : out std_logic_vector(POLYPHONY_MAX - 1 downto 0);
         mod_sources             : out t_mods_array;
         mod_destinations        : out t_modd_array;
         pitched_osc_inputs      : out t_pitched_osc_inputs;
@@ -48,7 +47,7 @@ architecture arch of synth_subsystem is
     signal s_pitched_osc_inputs     : t_pitched_osc_inputs;
     signal s_lfo_out                : t_lfo_out(0 to LFO_N - 1);
     signal s_envelope_out           : t_envelope_out(0 to ENV_N - 1);
-    signal s_envelope_active        : std_logic_vector(ENV_N * POLYPHONY_MAX - 1 downto 0);
+    signal s_envelope_active        : std_logic_vector(POLYPHONY_MAX - 1 downto 0);
     signal s_unison_mixer_output    : t_unison_mixer_output;
 
 begin
@@ -59,8 +58,7 @@ begin
     pitched_osc_inputs <= s_pitched_osc_inputs;
     osc_samples <= s_osc_samples;
     filter_samples <= s_filter_samples;
-    envelope_0_active <= s_envelope_active(POLYPHONY_MAX - 1 downto 0);
-    envelope_1_active <= s_envelope_active(2 * POLYPHONY_MAX - 1 downto POLYPHONY_MAX);
+    envelope_active <= s_envelope_active;
 
     s_pitch_ctrl(0) <= s_mod_destinations(MODD_OSC_0_FREQ);
     s_pitch_ctrl(1) <= s_mod_destinations(MODD_OSC_1_FREQ);
@@ -112,6 +110,7 @@ begin
         dma2table               => s_dma2table,
         table2dma               => s_table2dma,
         mod_destinations        => s_mod_destinations,
+        envelope_active         => s_envelope_active,
         output_samples          => s_osc_samples,
         spread_osc_inputs       => spread_osc_inputs,
         lowest_velocity         => lowest_velocity,
