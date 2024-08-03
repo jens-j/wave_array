@@ -7,40 +7,39 @@ use wave.wave_array_pkg.all;
 
 
 -- This entity keeps track of the phase of multiple oscillators and generates two addresses into a
--- mipmap table for each oscillator each cycle. Two addresses are needed because the table
+-- mipmap table for each oscillator each sample cycle. Two addresses are needed because the table
 -- interpolator has to generate two samples before downsampling.
 -- Besides the table addresses, this entity also outputs the fractional phase (used for polyphase
 -- coefficient selection) and a mipmap level (used for address increment overflow).
+-- This module performs a valid/read_enable handshake pattern with the table interpolator to output one set of data
+-- at a time. The module loops over all oscillators twice in a row. 
 entity table_address_generator is
     port (
         clk                     : in  std_logic;
         reset                   : in  std_logic;
         next_sample             : in  std_logic; -- Next sample(s) trigger.
         osc_inputs              : in  t_osc_input_array(0 to N_VOICES - 1);
-        addrgen_output          : out t_addrgen2table_array(0 to N_VOICES - 1)
+        table2addrgen           : in  t_table2addrgen;           
+        addrgen2table           : out t_addrgen2table
     );
 end entity;
 
 architecture arch of table_address_generator is
 
-    type t_state is (idle, init, select_level_0, select_level_1, calculate_address_0, calculate_address_1, increment_phase);
+    type t_state is (idle, select_level_0, select_level_1, calculate_address_0, calculate_address_1, increment_phase, 
+        handshake);
 
     type t_tag_reg is record
         state                   : t_state;
         osc_counter             : integer range 0 to N_VOICES - 1;
         sample_counter          : integer range 0 to 1; -- Two samples are needed before downsampling.
-        level_counter           : integer range 1 to MIPMAP_LEVELS;
         table_phases            : t_osc_phase_array(0 to N_VOICES - 1);
         local_address           : t_mipmap_address;
-        mipmap_addresses        : t_mipmap_address_array(0 to 2 * N_VOICES - 1);
-        address_buffers         : t_mipmap_address_array(0 to 2 * N_VOICES - 1);
-        phases                  : t_osc_phase_array(0 to 2 * N_VOICES - 1);
-        phases_buffer           : t_osc_phase_array(0 to 2 * N_VOICES - 1);
-        mipmap_levels           : t_mipmap_level_array(0 to N_VOICES - 1); -- Both output samples always have the same mipmap level
-        mipmap_level_buffers    : t_mipmap_level_array(0 to N_VOICES - 1);
-        enable                  : std_logic_vector(N_VOICES - 1 downto 0);
-        enable_buffer           : std_logic_vector(N_VOICES - 1 downto 0);
-        set_level               : std_logic;
+        valid                   : std_logic;
+        mipmap_address          : t_mipmap_address;
+        phase                   : t_osc_phase;
+        mipmap_level            : t_mipmap_level; -- Both output samples always have the same mipmap level
+        meet_threshold          : std_logic_vector(MIPMAP_LEVELS - 1 downto 1);
     end record;
 
     -- Generate initial phases that are shifted to accommodate binaural stuff.
@@ -54,103 +53,72 @@ architecture arch of table_address_generator is
         return phases;
     end function;
 
+    function GET_MSB_ONE_INDEX (input_vector : in std_logic_vector(MIPMAP_LEVELS - 1 downto 1)) return integer is
+        variable index : integer range 0 to MIPMAP_LEVELS - 1 := 0;
+    begin 
+        for i in 1 to MIPMAP_LEVELS - 1 loop 
+            index := i when input_vector(i) = '1' else index;
+        end loop;
+        return index;
+    end function;
+
     constant REG_INIT : t_tag_reg := (
         state                   => idle,
         osc_counter             => 0,
         sample_counter          => 0,
-        level_counter           => 1,
         table_phases            => GENERATE_PHASES,
         local_address           => (others => '0'),
-        mipmap_addresses        => (others => (others => '0')),
-        address_buffers         => (others => (others => '0')),
-        phases                  => (others => (others => '0')),
-        phases_buffer           => (others => (others => '0')),
-        mipmap_levels           => (others => 0),
-        mipmap_level_buffers    => (others => 0),
-        enable                  => (others => '0'),
-        enable_buffer           => (others => '0'),
-        set_level               => '0'
+        valid                   => '0',
+        mipmap_address          => (others => '0'),
+        phase                   => (others => '0'),
+        mipmap_level            => 0,
+        meet_threshold          => (others => '0')
     );
 
     signal r, r_in              : t_tag_reg;
 
 begin
 
-    combinatorial : process (r, next_sample, osc_inputs)
-        variable v_level : integer range 0 to MIPMAP_LEVELS - 1;
-        variable v_index : integer range 0 to 2 * N_VOICES - 1;
+    combinatorial : process (r, next_sample, osc_inputs, table2addrgen)
     begin
 
-        v_index := 2 * r.osc_counter + r.sample_counter;
-        v_level := r.mipmap_level_buffers(r.osc_counter);
-
         r_in <= r;
+        r_in.valid <= '0';
 
-        for i in 0 to N_VOICES - 1 loop
-            addrgen_output(i).enable <= r.enable(i);
-            addrgen_output(i).mipmap_level <= r.mipmap_levels(i);
-            addrgen_output(i).mipmap_address(0) <= r.mipmap_addresses(2 * i);
-            addrgen_output(i).mipmap_address(1) <= r.mipmap_addresses(2 * i + 1);
-            addrgen_output(i).phase(0) <= r.phases(2 * i);
-            addrgen_output(i).phase(1) <= r.phases(2 * i + 1);
-        end loop;
+        -- Connect outputs
+        addrgen2table.valid <= r.valid;
+        addrgen2table.mipmap_level <= r.mipmap_level;
+        addrgen2table.mipmap_address <= r.mipmap_address;
+        addrgen2table.phase <= r.phase;
 
+        -- Wait for next cycle.
         if r.state = idle and next_sample = '1' then
 
-            r_in.enable <= r.enable_buffer;
-            r_in.mipmap_addresses <= r.address_buffers;
-            r_in.phases <= r.phases_buffer;
-            r_in.mipmap_levels <= r.mipmap_level_buffers;
-            r_in.address_buffers <= (others => (others => '0'));
-            r_in.mipmap_level_buffers <= (others => 0);
-            r_in.phases_buffer <= (others => (others => '0'));
             r_in.osc_counter <= 0;
             r_in.sample_counter <= 0;
-            r_in.level_counter <= 1;
-            r_in.state <= init;
-
-        -- Register signals from the osc_controller.
-        elsif r.state = init then
-
-            for i in 0 to N_VOICES - 1 loop
-                r_in.enable_buffer(i) <= osc_inputs(i).enable;
-            end loop;
-
             r_in.state <= select_level_0;
 
-        -- Compare the velocity with the threshold for each mipmap level.
-        -- Level selection is split in two states to improve timing.
+        -- Compare velocity with all mipmap level thresholds.
         elsif r.state = select_level_0 then
-
-            -- Both samples have the same mipmap level.
-            if osc_inputs(r.osc_counter).velocity > MIPMAP_THRESHOLDS(r.level_counter) then
-                r_in.set_level <= '1';
-            else 
-                r_in.set_level <= '0';
-            end if;
+            
+            for i in 1 to MIPMAP_LEVELS - 1 loop 
+                r_in.meet_threshold(i) <= '1' when osc_inputs(r.osc_counter).velocity > MIPMAP_THRESHOLDS(i) else '0';
+            end loop;
 
             r_in.state <= select_level_1;
 
-        -- Assign level to active oscillator if threshold was met in previous state.
+        -- Select highest mipmap level threshold.
         elsif r.state = select_level_1 then
 
-            if r.set_level = '1' then
-                r_in.mipmap_level_buffers(r.osc_counter) <= r.level_counter;
-            end if;
+            r_in.mipmap_level <= GET_MSB_ONE_INDEX(r.meet_threshold);
 
-            -- This could exit on r.set_level = '0'
-            if r.level_counter < MIPMAP_LEVELS - 1 then
-                r_in.level_counter <= r.level_counter + 1;
-                r_in.state <= select_level_0;
-            else
-                r_in.state <= calculate_address_0;
-            end if;
+            r_in.state <= calculate_address_0;
 
         -- Calculate address in mipmap table based on level.
         elsif r.state = calculate_address_0 then
             
             r_in.local_address <= "0" & shift_right(r.table_phases(r.osc_counter)
-                (t_osc_phase'length - 1 downto t_osc_phase_frac'length), v_level);
+                (t_osc_phase'length - 1 downto t_osc_phase_frac'length), r.mipmap_level);
 
             r_in.state <= calculate_address_1;
 
@@ -159,8 +127,7 @@ begin
         elsif r.state = calculate_address_1 then
 
             -- Add address to level table offset.
-            r_in.address_buffers(v_index) <=
-                MIPMAP_LEVEL_OFFSETS(v_level) + r.local_address;
+            r_in.mipmap_address <= MIPMAP_LEVEL_OFFSETS(r.mipmap_level) + r.local_address;
 
             r_in.state <= increment_phase;
 
@@ -168,24 +135,31 @@ begin
         elsif r.state = increment_phase then
 
             -- Buffer old phase so it can be output to the table interpolator.
-            r_in.phases_buffer(v_index) <= r.table_phases(r.osc_counter);
+            r_in.phase <= r.table_phases(r.osc_counter);
 
-            -- Oscillators run also when not enabled.
+            -- Increment phase
             r_in.table_phases(r.osc_counter) <= r.table_phases(r.osc_counter) + osc_inputs(r.osc_counter).velocity;
 
-            if r.sample_counter = 0 then
-                r_in.sample_counter <= 1;
-                r_in.state <= calculate_address_0;
+            r_in.state <= handshake;
 
-            elsif r.osc_counter < N_VOICES - 1 then
-                r_in.osc_counter <= r.osc_counter + 1;
-                r_in.sample_counter <= 0;
-                r_in.level_counter <= 1;
+        -- Wait for the table interpolator to acknowledge the data. 
+        elsif r.state = handshake then 
+
+            r_in.valid <= '1';
+
+            if table2addrgen.read_enable = '1' then 
+
                 r_in.state <= select_level_0;
-            else
-                r_in.state <= idle;
-            end if;
 
+                if r.osc_counter < N_VOICES - 1 then 
+                    r_in.osc_counter <= r.osc_counter + 1;
+                elsif r.sample_counter = 0 then 
+                    r_in.sample_counter <= 1;
+                    r_in.osc_counter <= 0;
+                else 
+                    r_in.state <= idle;
+                end if;
+            end if;
         end if;
 
     end process;
@@ -195,8 +169,6 @@ begin
         if rising_edge(clk) then
             if reset = '1' then
                 r <= REG_INIT;
-                -- r.state <= idle;
-                -- r.table_phases <= GENERATE_PHASES;
             else
                 r <= r_in;
             end if;

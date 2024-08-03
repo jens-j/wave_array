@@ -29,8 +29,7 @@ entity synth_subsystem is
         spread_osc_inputs       : out t_spread_osc_inputs;
         lowest_velocity         : out t_osc_phase;
         osc_samples             : out t_mono_sample_array(0 to POLYPHONY_MAX - 1);
-        filter_samples          : out t_mono_sample_array(0 to POLYPHONY_MAX - 1);
-        addrgen_outputs         : out t_addrgen_output_array
+        filter_samples          : out t_mono_sample_array(0 to POLYPHONY_MAX - 1)
     );
 end entity;
 
@@ -114,7 +113,6 @@ begin
         output_samples          => s_osc_samples,
         spread_osc_inputs       => spread_osc_inputs,
         lowest_velocity         => lowest_velocity,
-        addrgen_outputs         => addrgen_outputs,
         unison_mixer_output     => s_unison_mixer_output
     );
 
@@ -133,7 +131,7 @@ begin
 
     lfo : entity wave.lfo
     generic map (
-        N_INSTANCES             => LFO_N,
+        N_INSTANCES             => LFO_N
     )
     port map (
         clk                     => clk,
@@ -148,7 +146,7 @@ begin
 
     envelope : entity wave.envelope 
     generic map(
-        N_INSTANCES             => ENV_N,
+        N_INSTANCES             => ENV_N
     )
     port map (
         clk                     => clk,

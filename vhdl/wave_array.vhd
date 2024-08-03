@@ -144,7 +144,6 @@ architecture arch of wave_array is
     signal s_lowest_velocity    : t_osc_phase;
     signal s_osc_samples        : t_mono_sample_array(0 to POLYPHONY_MAX - 1);
     signal s_filter_samples     : t_mono_sample_array(0 to POLYPHONY_MAX - 1);
-    signal s_addrgen_outputs    : t_addrgen_output_array;
 
     signal s_qspi_jedec_vendor   : std_logic_vector(7 downto 0);
     signal s_qspi_jedec_device   : std_logic_vector(15 downto 0);
@@ -310,8 +309,7 @@ begin
         spread_osc_inputs       => s_spread_osc_inputs,
         lowest_velocity         => s_lowest_velocity,
         osc_samples             => s_osc_samples,
-        filter_samples          => s_filter_samples,
-        addrgen_outputs         => s_addrgen_outputs
+        filter_samples          => s_filter_samples
     );
 
     i2s_interface : entity i2s.i2s_interface

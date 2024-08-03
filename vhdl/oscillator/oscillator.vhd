@@ -20,19 +20,17 @@ entity oscillator is
         dma2table               : in  t_dma2table;
         table2dma               : out t_table2dma;
         frame_control           : in  t_ctrl_value_array(0 to POLYPHONY_MAX - 1);
-        output_samples          : out t_mono_sample_array(0 to N_VOICES - 1);
-        addrgen_output          : out t_addrgen2table_array(0 to N_VOICES - 1)
+        output_samples          : out t_mono_sample_array(0 to N_VOICES - 1)
     );
 end entity;
 
 architecture arch of oscillator is
 
     signal s_intermediate_samples   : t_stereo_sample_array(0 to N_VOICES - 1);
-    signal s_addrgen2table          : t_addrgen2table_array(0 to N_VOICES - 1);
+    signal s_addrgen2table          : t_addrgen2table;
+    signal s_table2addrgen          : t_table2addrgen;
 
 begin
-
-    addrgen_output <= s_addrgen2table;
 
     table_addr_gen : entity osc.table_address_generator
     port map (
@@ -40,7 +38,8 @@ begin
         reset                   => reset,
         next_sample             => next_sample,
         osc_inputs              => osc_inputs,
-        addrgen_output          => s_addrgen2table
+        table2addrgen           => s_table2addrgen,
+        addrgen2table           => s_addrgen2table
     );
 
     table_interpolator : entity osc.table_interpolator
@@ -55,7 +54,8 @@ begin
         osc_inputs              => osc_inputs,
         frame_ctrl_index        => frame_ctrl_index,
         frame_control           => frame_control,
-        addrgen_input           => s_addrgen2table,
+        addrgen2table           => s_addrgen2table,
+        table2addrgen           => s_table2addrgen,
         output_samples          => s_intermediate_samples
     );
 

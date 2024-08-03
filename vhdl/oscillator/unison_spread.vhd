@@ -108,7 +108,8 @@ begin
         unison_step             => s_unison_step
     );
 
-    comb_process : process (r, config, status, next_sample, pitched_osc_inputs, s_unison_start, s_unison_step)
+    comb_process : process (r, config, status, next_sample, pitched_osc_inputs, envelope_active, 
+        s_unison_start, s_unison_step)
     begin
 
         r_in <= r;
