@@ -10,7 +10,7 @@ library xil_defaultlib;
 
 entity lfo is
     generic (
-        N_INSTANCES             : natural; -- Number of LFOs this entity implements.
+        N_INSTANCES             : natural -- Number of LFOs this entity implements.
     );
     port (
         clk                     : in  std_logic;
@@ -158,6 +158,7 @@ begin
         s_phase_tvalid <= '0';
         s_phase_tdata <= (others => '0');
 
+        -- Connect outputs. 
         lfo_out <= r.lfo_out;
 
         -- Update shift registers.
