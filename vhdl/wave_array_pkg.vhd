@@ -116,20 +116,13 @@ package wave_array_pkg is
                                      & x"0"   -- 256 Hz
     --pragma synthesis_on
                                      , 25);
-
+    -- Envelope constants.
     constant ENV_N                  : integer := 4; -- Number of envelopes.
     constant ENV_N_LOG2             : integer := integer(ceil(log2(real(ENV_N))));
-    constant ENV_MIN_ATTACK_T       : real := 1.0 / real(2**10); -- In seconds.
-    constant ENV_MAX_ATTACK_T       : real := real(2**3);   
-    constant ENV_MIN_DECAY_T        : real := 1.0 / real(2**10); 
-    constant ENV_MAX_DECAY_T        : real := real(2**3);   
-    constant ENV_MIN_RELEASE_T      : real := 1.0 / real(2**10);
-    constant ENV_MAX_RELEASE_T      : real := real(2**3);   
 
     -- Sample and hold constants.
-    constant SAMPLE_HOLD_N          : integer := 2;
-    constant SAMPLE_HOLD_MIN_T      : real := 1.0 / real(2**10); -- In seconds
-    constant SAMPLE_HOLD_MAX_T      : real := 4.0;
+    constant SAMPLE_HOLD_N          : integer := 1;
+    constant SAMPLE_HOLD_N_LOG2     : integer := integer(ceil(log2(real(SAMPLE_HOLD_N))));
 
     -- Oscillator downsample halfband filter constants.
     -- The odd phase (m = 1) is all zeroes except c(0) = 1.
@@ -193,6 +186,8 @@ package wave_array_pkg is
     constant MODD_LFO_1_AMPLITUDE   : natural := 12;
     constant MODD_LFO_2_AMPLITUDE   : natural := 13;
     constant MODD_LFO_3_AMPLITUDE   : natural := 14;
+    constant MODD_SH_VELOCITY       : natural := 15;
+    constant MODD_SH_AMPLITUDE      : natural := 16;
     
     constant MODS_NONE              : natural := 0;
     constant MODS_ENVELOPE_0        : natural := 1;
@@ -203,14 +198,16 @@ package wave_array_pkg is
     constant MODS_LFO_1             : natural := 6;
     constant MODS_LFO_2             : natural := 7;
     constant MODS_LFO_3             : natural := 8;
-    constant MODS_VELOCITY          : natural := 9;
-    constant MODS_TABLE_0           : natural := 10;
-    constant MODS_TABLE_1           : natural := 11;
-
-    constant MODS_LEN               : natural := 12;
-    constant MODD_LEN               : natural := 15;
-    constant MODS_LEN_LOG2          : natural := integer(ceil(log2(real(MODS_LEN))));
+    constant MODS_SH                : natural := 9;
+    constant MODS_KEY_VELOCITY      : natural := 10;
+    constant MODS_TABLE_0           : natural := 11;
+    constant MODS_TABLE_1           : natural := 12;
+    
+    constant MODD_LEN               : natural := 17;
+    constant MODS_LEN               : natural := 13;
+    
     constant MODD_LEN_LOG2          : natural := integer(ceil(log2(real(MODD_LEN))));
+    constant MODS_LEN_LOG2          : natural := integer(ceil(log2(real(MODS_LEN))));
 
     -- Mod matrix constants.
     constant MAX_MOD_SOURCES_LOG2   : integer := 2; -- Maximum simulataneous mod sources for a mod destination.
@@ -293,15 +290,20 @@ package wave_array_pkg is
                                                -- x"0007XX3"; -- rw 15 bit unsigned | Envelope release time control value.
                                                -- x"0007XX4"; -- rw  1 bit          | Loop envelope to turn it into an LFO.
 
-    -- LFO registers base address. Contiguous blocks of 5 registers for each wavetable. Stride = 0x10.
+    -- LFO registers base address. Contiguous blocks of 7 registers for each wavetable. Stride = 0x10.
     constant REG_LFO_CTRL_BASE      : unsigned := x"0008000"; -- rw 15 bit unsigned | LFO velocity control value. 
                                                -- x"0008XX1"; -- rw 16 bit unsigned | Select LFO waveform. Clipped to LFO_N_WAVEFORMS - 1.
                                                -- x"0008XX2"; -- rw  1 bit          | Write '1' to enable LFO sync to voices (trigger). 
                                                -- x"0008XX3"; -- rw 15 bit unsigned | Binaural LFO phase difference, [-180 - 180] degrees.
                                                -- x"0008XX4"; -- rw  1 bit          | One-shot mode to turn the LFO into an envelope.
                                                -- x"0008XX5"; -- wo  1 bit          | Reset LFO phase.
-                                               -- x"0008XX6"; -- rw 15 bit unsigned | LFO ampitude (base value).
+                                               -- x"0008XX6"; -- rw 15 bit unsigned | LFO ampitude base value.
 
+    -- Sample & hold registers base address. Contiguous blocks of 4 registers for each wavetable. Stride = 0x10.
+    constant REG_SH_BASE_CONTROL    : unsigned := x"0009000"; -- rw  1 bit          | Individual voice values enable. 
+                                               -- x"0009XX1"; -- rw  1 bit          | Binaural enable (different L/R values.).
+                                               -- x"0009XX2"; -- rw 15 bit          | velocity base value.
+                                               -- x"0009XX3"; -- rw 15 bit          | amplitude base value.
      -- fault register (sticky-)bit indices.
     constant FAULT_UART_TIMEOUT     : integer := 0; -- UART packet engine timout.
     constant FAULT_REG_ADDRESS      : integer := 1; -- Register address undefined.
@@ -328,8 +330,9 @@ package wave_array_pkg is
     type t_osc_ctrl_array is array (0 to N_TABLES - 1) of t_ctrl_value_array(0 to POLYPHONY_MAX - 1);
     type t_table_mix_ctrl_array is array (0 to N_TABLES) of t_ctrl_value_array(0 to POLYPHONY_MAX - 1); -- Also includes noise.
 
-    type t_lfo_out is array (natural range <>) of t_ctrl_value_array(0 to POLYPHONY_MAX - 1);
-    type t_envelope_out is array (natural range <>) of t_ctrl_value_array(0 to POLYPHONY_MAX - 1);
+    type t_lfo_out is array (0 to LFO_N - 1) of t_ctrl_value_array(0 to POLYPHONY_MAX - 1);
+    type t_envelope_out is array (0 to ENV_N - 1) of t_ctrl_value_array(0 to POLYPHONY_MAX - 1);
+    type t_sample_hold_out is array (0 to SAMPLE_HOLD_N - 1) of t_ctrl_value_array(0 to POLYPHONY_MAX - 1);
 
     -- Address in the oscillator coefficient memory. It consists of two memories that each hold
     -- either the even or odd coefficients.
@@ -391,7 +394,7 @@ package wave_array_pkg is
         sector_n                : integer range 1 to FLASH_SECTOR_N;
     end record;
 
-    type t_lfo_input is record 
+    type t_lfo_input is record -- Amplitude is part of the status.mod_destinations.
         wave_select             : integer range 0 to LFO_N_WAVEFORMS - 1;
         reset                   : std_logic; -- phase reset strobe.
         velocity                : t_ctrl_value;
@@ -412,10 +415,9 @@ package wave_array_pkg is
 
     type t_envelope_input_array is array (natural range <>) of t_envelope_input;
 
-    type t_sample_hold_input is record 
-        binaural                : std_logic; 
-        amplitude               : t_ctrl_value;
-        velocity                : t_ctrl_value;
+    type t_sample_hold_input is record -- Amplitude and velocity are part of the status.mod_destinations.
+        individual              : std_logic; -- Each voice has a different value
+        binaural                : std_logic; -- Different values for binaural voice pairs.
     end record;
 
     type t_sample_hold_input_array is array (natural range <>) of t_sample_hold_input;
@@ -434,6 +436,7 @@ package wave_array_pkg is
         filter_select           : integer range 0 to 4;
         lfo_input               : t_lfo_input_array(0 to LFO_N - 1);
         envelope_input          : t_envelope_input_array(0 to ENV_N - 1);
+        sample_hold_input       : t_sample_hold_input_array(0 to SAMPLE_HOLD_N - 1);
         frame_dma_input         : t_frame_dma_input_array;
         flash_dma_input         : t_flash_dma_input;
         noise_select            : std_logic;
@@ -738,7 +741,9 @@ package body wave_array_pkg is
                                         11 => x"3FFF",
                                         12 => x"3FFF",
                                         13 => x"3FFF",
-                                        14 => x"3FFF"),
+                                        14 => x"3FFF",
+                                        15 => x"0800",
+                                        16 => x"3FFF"),
             mod_mapping             => mapping, 
             hk_enable               => '0',
             hk_period               => x"07A1", -- 50 Hz (lsb is 1024 cycles).
@@ -749,6 +754,7 @@ package body wave_array_pkg is
             filter_select           => 0, -- Lowpass
             lfo_input               => (others => (0, '0', (others => '0'), '0', x"0000", '0')),
             envelope_input          => (others => (x"0000", x"0000", x"7FFF", x"0000", '0')),
+            sample_hold_input       => (others => ('1', '1')),
             frame_dma_input         => (others => FRAME_DMA_INPUT_INIT),
             flash_dma_input         => FLASH_DMA_INPUT_INIT,
             noise_select            => '0',

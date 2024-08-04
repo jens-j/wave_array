@@ -59,8 +59,8 @@ architecture arch of envelope is
         update_adsr_state       : std_logic;
         update_phase            : std_logic;
         update_release_amp      : std_logic;
-        envelope_out            : t_envelope_out(0 to N_INSTANCES - 1);
-        envelope_buffer         : t_envelope_out(0 to N_INSTANCES - 1);
+        envelope_out            : t_envelope_out;
+        envelope_buffer         : t_envelope_out;
         velocity_attack         : unsigned(31 downto 0);
         velocity_decay          : unsigned(31 downto 0);
         velocity_release        : unsigned(31 downto 0);
@@ -69,7 +69,7 @@ architecture arch of envelope is
         phase_out               : unsigned(31 downto 0);
         index_array             : t_index_array;
         valid_array             : std_logic_vector(0 to PIPE_SUM_MULT);
-        release_amp             : t_envelope_out(0 to N_INSTANCES - 1); -- Amplitude at start of release. Normally equal to sustain except when the note is released early.
+        release_amp             : t_envelope_out; -- Amplitude at start of release. Normally equal to sustain except when the note is released early.
         release_amp_out         : t_ctrl_value;
         instance_counter        : integer range 0 to N_INSTANCES - 1;
         pipeline_done           : std_logic;

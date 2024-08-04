@@ -77,6 +77,7 @@ class WaveArray:
     REG_FREQ_CTRL_BASE          = 0x00006000 
     REG_ENVELOPE_CTRL_BASE      = 0x00007000
     REG_LFO_CTRL_BASE           = 0x00008000
+    REG_SH_CTRL_BASE            = 0x00009000
 
     def __init__(self, hk_signal=None, wave_signal=None, port='COM3'):
         self.protocol = UartProtocol(port, 2_000_000, hk_signal, wave_signal)

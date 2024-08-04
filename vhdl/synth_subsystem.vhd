@@ -44,8 +44,9 @@ architecture arch of synth_subsystem is
     signal s_mod_destinations       : t_modd_array;
     signal s_pitch_ctrl             : t_osc_ctrl_array;
     signal s_pitched_osc_inputs     : t_pitched_osc_inputs;
-    signal s_lfo_out                : t_lfo_out(0 to LFO_N - 1);
-    signal s_envelope_out           : t_envelope_out(0 to ENV_N - 1);
+    signal s_lfo_out                : t_lfo_out;
+    signal s_envelope_out           : t_envelope_out;
+    signal s_sample_hold_out        : t_sample_hold_out;
     signal s_envelope_active        : std_logic_vector(POLYPHONY_MAX - 1 downto 0);
     signal s_unison_mixer_output    : t_unison_mixer_output;
 
@@ -64,18 +65,19 @@ begin
     
     -- Connect mod source array.
     mods_assign : for i in 0 to POLYPHONY_MAX - 1 generate
-        s_mod_sources(MODS_NONE)(i)       <= (others => '0');
-        s_mod_sources(MODS_ENVELOPE_0)(i) <= s_envelope_out(0)(i);
-        s_mod_sources(MODS_ENVELOPE_1)(i) <= s_envelope_out(1)(i);
-        s_mod_sources(MODS_ENVELOPE_2)(i) <= s_envelope_out(2)(i);
-        s_mod_sources(MODS_ENVELOPE_3)(i) <= s_envelope_out(3)(i);
-        s_mod_sources(MODS_LFO_0)(i)      <= s_lfo_out(0)(i);
-        s_mod_sources(MODS_LFO_1)(i)      <= s_lfo_out(1)(i);
-        s_mod_sources(MODS_LFO_2)(i)      <= s_lfo_out(2)(i);
-        s_mod_sources(MODS_LFO_3)(i)      <= s_lfo_out(3)(i);
-        s_mod_sources(MODS_VELOCITY)(i)   <= '0' & signed(voices(i).midi_velocity) & (0 to 7 => '0'); -- Extend 7 bit midi velocity to signed 16 bit control value.
-        s_mod_sources(MODS_TABLE_0)(i)    <= s_unison_mixer_output(0)(i);
-        s_mod_sources(MODS_TABLE_1)(i)    <= s_unison_mixer_output(1)(i);
+        s_mod_sources(MODS_NONE)(i)         <= (others => '0');
+        s_mod_sources(MODS_ENVELOPE_0)(i)   <= s_envelope_out(0)(i);
+        s_mod_sources(MODS_ENVELOPE_1)(i)   <= s_envelope_out(1)(i);
+        s_mod_sources(MODS_ENVELOPE_2)(i)   <= s_envelope_out(2)(i);
+        s_mod_sources(MODS_ENVELOPE_3)(i)   <= s_envelope_out(3)(i);
+        s_mod_sources(MODS_LFO_0)(i)        <= s_lfo_out(0)(i);
+        s_mod_sources(MODS_LFO_1)(i)        <= s_lfo_out(1)(i);
+        s_mod_sources(MODS_LFO_2)(i)        <= s_lfo_out(2)(i);
+        s_mod_sources(MODS_LFO_3)(i)        <= s_lfo_out(3)(i);
+        s_mod_sources(MODS_SH)(i)           <= s_sample_hold_out(0)(i);
+        s_mod_sources(MODS_KEY_VELOCITY)(i) <= '0' & signed(voices(i).midi_velocity) & (0 to 7 => '0'); -- Extend 7 bit midi velocity to signed 16 bit control value.
+        s_mod_sources(MODS_TABLE_0)(i)      <= s_unison_mixer_output(0)(i);
+        s_mod_sources(MODS_TABLE_1)(i)      <= s_unison_mixer_output(1)(i);
     end generate;
 
     osc_controller : entity osc.osc_controller
@@ -138,14 +140,14 @@ begin
         reset                   => reset,
         config                  => config,
         status                  => status,
-        lfo_input               => config.lfo_input,
         next_sample             => next_sample,
+        lfo_input               => config.lfo_input,
         osc_inputs              => s_osc_inputs,
         lfo_out                 => s_lfo_out
     );
 
     envelope : entity wave.envelope 
-    generic map(
+    generic map (
         N_INSTANCES             => ENV_N
     )
     port map (
@@ -156,6 +158,19 @@ begin
         osc_inputs              => s_osc_inputs,
         envelope_out            => s_envelope_out,
         envelope_active         => s_envelope_active
+    );
+
+    sample_hold : entity wave.sample_hold
+    generic map (
+        N_INSTANCES             => SAMPLE_HOLD_N
+    )
+    port map (
+        clk                     => clk,
+        reset                   => reset,
+        status                  => status,
+        next_sample             => next_sample,
+        sample_hold_input       => config.sample_hold_input,
+        sample_hold_out         => s_sample_hold_out
     );
 
     voice_mixer_subsys : entity wave.voice_mixer_subsystem

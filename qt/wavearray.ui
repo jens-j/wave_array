@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>2449</width>
-    <height>1106</height>
+    <width>2126</width>
+    <height>952</height>
    </rect>
   </property>
   <property name="maximumSize">
@@ -1305,316 +1305,7 @@
                <item>
                 <layout class="QHBoxLayout" name="horizontalLayout_50">
                  <item>
-                  <layout class="QVBoxLayout" name="verticalLayout_58">
-                   <item>
-                    <widget class="QLabel" name="label_45">
-                     <property name="minimumSize">
-                      <size>
-                       <width>0</width>
-                       <height>15</height>
-                      </size>
-                     </property>
-                     <property name="maximumSize">
-                      <size>
-                       <width>16777215</width>
-                       <height>15</height>
-                      </size>
-                     </property>
-                     <property name="font">
-                      <font>
-                       <weight>50</weight>
-                       <bold>false</bold>
-                      </font>
-                     </property>
-                     <property name="text">
-                      <string>cutoff</string>
-                     </property>
-                     <property name="alignment">
-                      <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
-                     </property>
-                    </widget>
-                   </item>
-                   <item>
-                    <widget class="QLabel" name="label_46">
-                     <property name="minimumSize">
-                      <size>
-                       <width>0</width>
-                       <height>15</height>
-                      </size>
-                     </property>
-                     <property name="maximumSize">
-                      <size>
-                       <width>16777215</width>
-                       <height>15</height>
-                      </size>
-                     </property>
-                     <property name="font">
-                      <font>
-                       <weight>50</weight>
-                       <bold>false</bold>
-                      </font>
-                     </property>
-                     <property name="text">
-                      <string>resonance</string>
-                     </property>
-                     <property name="alignment">
-                      <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
-                     </property>
-                    </widget>
-                   </item>
-                   <item>
-                    <widget class="QLabel" name="label_48">
-                     <property name="minimumSize">
-                      <size>
-                       <width>0</width>
-                       <height>15</height>
-                      </size>
-                     </property>
-                     <property name="maximumSize">
-                      <size>
-                       <width>16777215</width>
-                       <height>15</height>
-                      </size>
-                     </property>
-                     <property name="font">
-                      <font>
-                       <weight>50</weight>
-                       <bold>false</bold>
-                      </font>
-                     </property>
-                     <property name="text">
-                      <string>volume</string>
-                     </property>
-                     <property name="alignment">
-                      <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
-                     </property>
-                    </widget>
-                   </item>
-                   <item>
-                    <widget class="QLabel" name="label_47">
-                     <property name="minimumSize">
-                      <size>
-                       <width>0</width>
-                       <height>15</height>
-                      </size>
-                     </property>
-                     <property name="maximumSize">
-                      <size>
-                       <width>16777215</width>
-                       <height>15</height>
-                      </size>
-                     </property>
-                     <property name="font">
-                      <font>
-                       <weight>50</weight>
-                       <bold>false</bold>
-                      </font>
-                     </property>
-                     <property name="text">
-                      <string>A frame</string>
-                     </property>
-                     <property name="alignment">
-                      <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
-                     </property>
-                    </widget>
-                   </item>
-                   <item>
-                    <widget class="QLabel" name="label_65">
-                     <property name="minimumSize">
-                      <size>
-                       <width>0</width>
-                       <height>15</height>
-                      </size>
-                     </property>
-                     <property name="maximumSize">
-                      <size>
-                       <width>16777215</width>
-                       <height>15</height>
-                      </size>
-                     </property>
-                     <property name="font">
-                      <font>
-                       <weight>50</weight>
-                       <bold>false</bold>
-                      </font>
-                     </property>
-                     <property name="text">
-                      <string>B frame</string>
-                     </property>
-                     <property name="alignment">
-                      <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
-                     </property>
-                    </widget>
-                   </item>
-                   <item>
-                    <widget class="QLabel" name="label_66">
-                     <property name="minimumSize">
-                      <size>
-                       <width>0</width>
-                       <height>15</height>
-                      </size>
-                     </property>
-                     <property name="maximumSize">
-                      <size>
-                       <width>16777215</width>
-                       <height>15</height>
-                      </size>
-                     </property>
-                     <property name="font">
-                      <font>
-                       <weight>50</weight>
-                       <bold>false</bold>
-                      </font>
-                     </property>
-                     <property name="text">
-                      <string>A mix</string>
-                     </property>
-                     <property name="alignment">
-                      <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
-                     </property>
-                    </widget>
-                   </item>
-                   <item>
-                    <widget class="QLabel" name="label_67">
-                     <property name="minimumSize">
-                      <size>
-                       <width>0</width>
-                       <height>15</height>
-                      </size>
-                     </property>
-                     <property name="maximumSize">
-                      <size>
-                       <width>16777215</width>
-                       <height>15</height>
-                      </size>
-                     </property>
-                     <property name="font">
-                      <font>
-                       <weight>50</weight>
-                       <bold>false</bold>
-                      </font>
-                     </property>
-                     <property name="text">
-                      <string>B mix</string>
-                     </property>
-                     <property name="alignment">
-                      <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
-                     </property>
-                    </widget>
-                   </item>
-                   <item>
-                    <widget class="QLabel" name="label_68">
-                     <property name="minimumSize">
-                      <size>
-                       <width>0</width>
-                       <height>15</height>
-                      </size>
-                     </property>
-                     <property name="maximumSize">
-                      <size>
-                       <width>16777215</width>
-                       <height>15</height>
-                      </size>
-                     </property>
-                     <property name="font">
-                      <font>
-                       <weight>50</weight>
-                       <bold>false</bold>
-                      </font>
-                     </property>
-                     <property name="text">
-                      <string>noise mix</string>
-                     </property>
-                     <property name="alignment">
-                      <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
-                     </property>
-                    </widget>
-                   </item>
-                   <item>
-                    <widget class="QLabel" name="label_97">
-                     <property name="minimumSize">
-                      <size>
-                       <width>0</width>
-                       <height>15</height>
-                      </size>
-                     </property>
-                     <property name="maximumSize">
-                      <size>
-                       <width>16777215</width>
-                       <height>15</height>
-                      </size>
-                     </property>
-                     <property name="font">
-                      <font>
-                       <weight>50</weight>
-                       <bold>false</bold>
-                      </font>
-                     </property>
-                     <property name="text">
-                      <string> A frequency</string>
-                     </property>
-                     <property name="alignment">
-                      <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
-                     </property>
-                    </widget>
-                   </item>
-                   <item>
-                    <widget class="QLabel" name="label_98">
-                     <property name="minimumSize">
-                      <size>
-                       <width>0</width>
-                       <height>15</height>
-                      </size>
-                     </property>
-                     <property name="maximumSize">
-                      <size>
-                       <width>16777215</width>
-                       <height>15</height>
-                      </size>
-                     </property>
-                     <property name="font">
-                      <font>
-                       <weight>50</weight>
-                       <bold>false</bold>
-                      </font>
-                     </property>
-                     <property name="text">
-                      <string> B frequency</string>
-                     </property>
-                     <property name="alignment">
-                      <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
-                     </property>
-                    </widget>
-                   </item>
-                   <item>
-                    <widget class="QLabel" name="label_99">
-                     <property name="minimumSize">
-                      <size>
-                       <width>0</width>
-                       <height>15</height>
-                      </size>
-                     </property>
-                     <property name="maximumSize">
-                      <size>
-                       <width>16777215</width>
-                       <height>15</height>
-                      </size>
-                     </property>
-                     <property name="font">
-                      <font>
-                       <weight>50</weight>
-                       <bold>false</bold>
-                      </font>
-                     </property>
-                     <property name="text">
-                      <string>unison</string>
-                     </property>
-                     <property name="alignment">
-                      <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
-                     </property>
-                    </widget>
-                   </item>
-                  </layout>
+                  <layout class="QVBoxLayout" name="verticalLayout_58"/>
                  </item>
                  <item>
                   <widget class="Line" name="line_100">
@@ -1643,467 +1334,7 @@
                 </spacer>
                </item>
                <item>
-                <layout class="QHBoxLayout" name="horizontalLayout_71">
-                 <item>
-                  <widget class="QLabel" name="label_83">
-                   <property name="minimumSize">
-                    <size>
-                     <width>28</width>
-                     <height>0</height>
-                    </size>
-                   </property>
-                   <property name="maximumSize">
-                    <size>
-                     <width>28</width>
-                     <height>16777215</height>
-                    </size>
-                   </property>
-                   <property name="font">
-                    <font>
-                     <weight>50</weight>
-                     <bold>false</bold>
-                    </font>
-                   </property>
-                   <property name="text">
-                    <string>Env 0</string>
-                   </property>
-                  </widget>
-                 </item>
-                 <item>
-                  <widget class="Line" name="line_106">
-                   <property name="minimumSize">
-                    <size>
-                     <width>2</width>
-                     <height>0</height>
-                    </size>
-                   </property>
-                   <property name="maximumSize">
-                    <size>
-                     <width>2</width>
-                     <height>16777215</height>
-                    </size>
-                   </property>
-                   <property name="orientation">
-                    <enum>Qt::Vertical</enum>
-                   </property>
-                  </widget>
-                 </item>
-                 <item>
-                  <widget class="QLabel" name="label_87">
-                   <property name="minimumSize">
-                    <size>
-                     <width>28</width>
-                     <height>0</height>
-                    </size>
-                   </property>
-                   <property name="maximumSize">
-                    <size>
-                     <width>28</width>
-                     <height>16777215</height>
-                    </size>
-                   </property>
-                   <property name="font">
-                    <font>
-                     <weight>50</weight>
-                     <bold>false</bold>
-                    </font>
-                   </property>
-                   <property name="text">
-                    <string>Env 1</string>
-                   </property>
-                  </widget>
-                 </item>
-                 <item>
-                  <widget class="Line" name="line_109">
-                   <property name="minimumSize">
-                    <size>
-                     <width>2</width>
-                     <height>0</height>
-                    </size>
-                   </property>
-                   <property name="maximumSize">
-                    <size>
-                     <width>2</width>
-                     <height>16777215</height>
-                    </size>
-                   </property>
-                   <property name="orientation">
-                    <enum>Qt::Vertical</enum>
-                   </property>
-                  </widget>
-                 </item>
-                 <item>
-                  <widget class="QLabel" name="label_95">
-                   <property name="minimumSize">
-                    <size>
-                     <width>28</width>
-                     <height>0</height>
-                    </size>
-                   </property>
-                   <property name="maximumSize">
-                    <size>
-                     <width>28</width>
-                     <height>16777215</height>
-                    </size>
-                   </property>
-                   <property name="font">
-                    <font>
-                     <weight>50</weight>
-                     <bold>false</bold>
-                    </font>
-                   </property>
-                   <property name="text">
-                    <string>Env 2</string>
-                   </property>
-                  </widget>
-                 </item>
-                 <item>
-                  <widget class="Line" name="line_112">
-                   <property name="minimumSize">
-                    <size>
-                     <width>2</width>
-                     <height>0</height>
-                    </size>
-                   </property>
-                   <property name="maximumSize">
-                    <size>
-                     <width>2</width>
-                     <height>16777215</height>
-                    </size>
-                   </property>
-                   <property name="orientation">
-                    <enum>Qt::Vertical</enum>
-                   </property>
-                  </widget>
-                 </item>
-                 <item>
-                  <widget class="QLabel" name="label_96">
-                   <property name="minimumSize">
-                    <size>
-                     <width>28</width>
-                     <height>0</height>
-                    </size>
-                   </property>
-                   <property name="maximumSize">
-                    <size>
-                     <width>28</width>
-                     <height>16777215</height>
-                    </size>
-                   </property>
-                   <property name="font">
-                    <font>
-                     <weight>50</weight>
-                     <bold>false</bold>
-                    </font>
-                   </property>
-                   <property name="text">
-                    <string>Env 3</string>
-                   </property>
-                  </widget>
-                 </item>
-                 <item>
-                  <widget class="Line" name="line_15">
-                   <property name="orientation">
-                    <enum>Qt::Vertical</enum>
-                   </property>
-                  </widget>
-                 </item>
-                 <item>
-                  <widget class="QLabel" name="label_84">
-                   <property name="minimumSize">
-                    <size>
-                     <width>28</width>
-                     <height>0</height>
-                    </size>
-                   </property>
-                   <property name="maximumSize">
-                    <size>
-                     <width>28</width>
-                     <height>16777215</height>
-                    </size>
-                   </property>
-                   <property name="font">
-                    <font>
-                     <weight>50</weight>
-                     <bold>false</bold>
-                    </font>
-                   </property>
-                   <property name="text">
-                    <string>LFO 0</string>
-                   </property>
-                  </widget>
-                 </item>
-                 <item>
-                  <widget class="Line" name="line_107">
-                   <property name="minimumSize">
-                    <size>
-                     <width>2</width>
-                     <height>0</height>
-                    </size>
-                   </property>
-                   <property name="maximumSize">
-                    <size>
-                     <width>2</width>
-                     <height>16777215</height>
-                    </size>
-                   </property>
-                   <property name="orientation">
-                    <enum>Qt::Vertical</enum>
-                   </property>
-                  </widget>
-                 </item>
-                 <item>
-                  <widget class="QLabel" name="label_86">
-                   <property name="minimumSize">
-                    <size>
-                     <width>28</width>
-                     <height>0</height>
-                    </size>
-                   </property>
-                   <property name="maximumSize">
-                    <size>
-                     <width>28</width>
-                     <height>16777215</height>
-                    </size>
-                   </property>
-                   <property name="font">
-                    <font>
-                     <weight>50</weight>
-                     <bold>false</bold>
-                    </font>
-                   </property>
-                   <property name="text">
-                    <string>LFO 1</string>
-                   </property>
-                  </widget>
-                 </item>
-                 <item>
-                  <widget class="Line" name="line_108">
-                   <property name="minimumSize">
-                    <size>
-                     <width>2</width>
-                     <height>0</height>
-                    </size>
-                   </property>
-                   <property name="maximumSize">
-                    <size>
-                     <width>2</width>
-                     <height>16777215</height>
-                    </size>
-                   </property>
-                   <property name="orientation">
-                    <enum>Qt::Vertical</enum>
-                   </property>
-                  </widget>
-                 </item>
-                 <item>
-                  <widget class="QLabel" name="label_100">
-                   <property name="minimumSize">
-                    <size>
-                     <width>28</width>
-                     <height>0</height>
-                    </size>
-                   </property>
-                   <property name="maximumSize">
-                    <size>
-                     <width>28</width>
-                     <height>16777215</height>
-                    </size>
-                   </property>
-                   <property name="font">
-                    <font>
-                     <weight>50</weight>
-                     <bold>false</bold>
-                    </font>
-                   </property>
-                   <property name="text">
-                    <string>LFO 2</string>
-                   </property>
-                  </widget>
-                 </item>
-                 <item>
-                  <widget class="Line" name="line_113">
-                   <property name="minimumSize">
-                    <size>
-                     <width>2</width>
-                     <height>0</height>
-                    </size>
-                   </property>
-                   <property name="maximumSize">
-                    <size>
-                     <width>2</width>
-                     <height>16777215</height>
-                    </size>
-                   </property>
-                   <property name="orientation">
-                    <enum>Qt::Vertical</enum>
-                   </property>
-                  </widget>
-                 </item>
-                 <item>
-                  <widget class="QLabel" name="label_101">
-                   <property name="minimumSize">
-                    <size>
-                     <width>28</width>
-                     <height>0</height>
-                    </size>
-                   </property>
-                   <property name="maximumSize">
-                    <size>
-                     <width>28</width>
-                     <height>16777215</height>
-                    </size>
-                   </property>
-                   <property name="font">
-                    <font>
-                     <weight>50</weight>
-                     <bold>false</bold>
-                    </font>
-                   </property>
-                   <property name="text">
-                    <string>LFO 3</string>
-                   </property>
-                  </widget>
-                 </item>
-                 <item>
-                  <widget class="Line" name="line_114">
-                   <property name="minimumSize">
-                    <size>
-                     <width>2</width>
-                     <height>0</height>
-                    </size>
-                   </property>
-                   <property name="maximumSize">
-                    <size>
-                     <width>2</width>
-                     <height>16777215</height>
-                    </size>
-                   </property>
-                   <property name="orientation">
-                    <enum>Qt::Vertical</enum>
-                   </property>
-                  </widget>
-                 </item>
-                 <item>
-                  <widget class="QLabel" name="label_85">
-                   <property name="minimumSize">
-                    <size>
-                     <width>28</width>
-                     <height>0</height>
-                    </size>
-                   </property>
-                   <property name="maximumSize">
-                    <size>
-                     <width>28</width>
-                     <height>16777215</height>
-                    </size>
-                   </property>
-                   <property name="font">
-                    <font>
-                     <weight>50</weight>
-                     <bold>false</bold>
-                    </font>
-                   </property>
-                   <property name="layoutDirection">
-                    <enum>Qt::LeftToRight</enum>
-                   </property>
-                   <property name="text">
-                    <string>Vel</string>
-                   </property>
-                   <property name="alignment">
-                    <set>Qt::AlignCenter</set>
-                   </property>
-                  </widget>
-                 </item>
-                 <item>
-                  <widget class="Line" name="line_110">
-                   <property name="minimumSize">
-                    <size>
-                     <width>2</width>
-                     <height>0</height>
-                    </size>
-                   </property>
-                   <property name="maximumSize">
-                    <size>
-                     <width>2</width>
-                     <height>16777215</height>
-                    </size>
-                   </property>
-                   <property name="orientation">
-                    <enum>Qt::Vertical</enum>
-                   </property>
-                  </widget>
-                 </item>
-                 <item>
-                  <widget class="QLabel" name="label_92">
-                   <property name="minimumSize">
-                    <size>
-                     <width>28</width>
-                     <height>0</height>
-                    </size>
-                   </property>
-                   <property name="maximumSize">
-                    <size>
-                     <width>28</width>
-                     <height>16777215</height>
-                    </size>
-                   </property>
-                   <property name="font">
-                    <font>
-                     <weight>50</weight>
-                     <bold>false</bold>
-                    </font>
-                   </property>
-                   <property name="text">
-                    <string>Tbl A</string>
-                   </property>
-                  </widget>
-                 </item>
-                 <item>
-                  <widget class="Line" name="line_111">
-                   <property name="minimumSize">
-                    <size>
-                     <width>2</width>
-                     <height>0</height>
-                    </size>
-                   </property>
-                   <property name="maximumSize">
-                    <size>
-                     <width>2</width>
-                     <height>16777215</height>
-                    </size>
-                   </property>
-                   <property name="orientation">
-                    <enum>Qt::Vertical</enum>
-                   </property>
-                  </widget>
-                 </item>
-                 <item>
-                  <widget class="QLabel" name="label_93">
-                   <property name="minimumSize">
-                    <size>
-                     <width>28</width>
-                     <height>0</height>
-                    </size>
-                   </property>
-                   <property name="maximumSize">
-                    <size>
-                     <width>28</width>
-                     <height>16777215</height>
-                    </size>
-                   </property>
-                   <property name="font">
-                    <font>
-                     <weight>50</weight>
-                     <bold>false</bold>
-                    </font>
-                   </property>
-                   <property name="text">
-                    <string>Tbl B</string>
-                   </property>
-                  </widget>
-                 </item>
-                </layout>
+                <layout class="QHBoxLayout" name="horizontalLayout_71"/>
                </item>
                <item>
                 <widget class="Line" name="line_17">
@@ -3161,6 +2392,13 @@ destination</string>
               </widget>
              </item>
              <item>
+              <widget class="Line" name="line_2">
+               <property name="orientation">
+                <enum>Qt::Horizontal</enum>
+               </property>
+              </widget>
+             </item>
+             <item>
               <widget class="QLabel" name="label_12">
                <property name="font">
                 <font>
@@ -3392,6 +2630,13 @@ destination</string>
               </widget>
              </item>
              <item>
+              <widget class="Line" name="line_7">
+               <property name="orientation">
+                <enum>Qt::Horizontal</enum>
+               </property>
+              </widget>
+             </item>
+             <item>
               <widget class="QLabel" name="label_16">
                <property name="font">
                 <font>
@@ -3617,7 +2862,7 @@ destination</string>
                 </font>
                </property>
                <property name="text">
-                <string>Binaural</string>
+                <string>binaural</string>
                </property>
               </widget>
              </item>
@@ -3634,6 +2879,13 @@ destination</string>
                </property>
                <property name="text">
                 <string/>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <widget class="Line" name="line_13">
+               <property name="orientation">
+                <enum>Qt::Horizontal</enum>
                </property>
               </widget>
              </item>
@@ -3658,7 +2910,7 @@ destination</string>
                 </font>
                </property>
                <property name="text">
-                <string>Unison</string>
+                <string>unison</string>
                </property>
               </widget>
              </item>
@@ -3693,13 +2945,6 @@ destination</string>
                </property>
                <property name="displayIntegerBase">
                 <number>10</number>
-               </property>
-              </widget>
-             </item>
-             <item>
-              <widget class="Line" name="line_11">
-               <property name="orientation">
-                <enum>Qt::Horizontal</enum>
                </property>
               </widget>
              </item>
@@ -3871,7 +3116,108 @@ destination</string>
            <item>
             <layout class="QVBoxLayout" name="layout_lfo">
              <item>
-              <widget class="Line" name="line_2">
+              <widget class="QLabel" name="label_73">
+               <property name="minimumSize">
+                <size>
+                 <width>60</width>
+                 <height>0</height>
+                </size>
+               </property>
+               <property name="maximumSize">
+                <size>
+                 <width>60</width>
+                 <height>16777215</height>
+                </size>
+               </property>
+               <property name="font">
+                <font>
+                 <weight>50</weight>
+                 <bold>false</bold>
+                </font>
+               </property>
+               <property name="text">
+                <string>trigger</string>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <widget class="QCheckBox" name="btn_enable_lfo_trigger">
+               <property name="text">
+                <string/>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <widget class="Line" name="line_22">
+               <property name="orientation">
+                <enum>Qt::Horizontal</enum>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <widget class="QLabel" name="label_58">
+               <property name="minimumSize">
+                <size>
+                 <width>60</width>
+                 <height>0</height>
+                </size>
+               </property>
+               <property name="maximumSize">
+                <size>
+                 <width>60</width>
+                 <height>16777215</height>
+                </size>
+               </property>
+               <property name="font">
+                <font>
+                 <weight>50</weight>
+                 <bold>false</bold>
+                </font>
+               </property>
+               <property name="text">
+                <string>waveform</string>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <widget class="QComboBox" name="box_lfo_waveform">
+               <property name="minimumSize">
+                <size>
+                 <width>60</width>
+                 <height>0</height>
+                </size>
+               </property>
+               <property name="maximumSize">
+                <size>
+                 <width>60</width>
+                 <height>16777215</height>
+                </size>
+               </property>
+               <property name="font">
+                <font>
+                 <weight>50</weight>
+                 <bold>false</bold>
+                </font>
+               </property>
+               <item>
+                <property name="text">
+                 <string>sine</string>
+                </property>
+               </item>
+               <item>
+                <property name="text">
+                 <string>saw</string>
+                </property>
+               </item>
+               <item>
+                <property name="text">
+                 <string>square</string>
+                </property>
+               </item>
+              </widget>
+             </item>
+             <item>
+              <widget class="Line" name="line_23">
                <property name="orientation">
                 <enum>Qt::Horizontal</enum>
                </property>
@@ -3894,205 +3240,60 @@ destination</string>
               </spacer>
              </item>
              <item>
-              <layout class="QHBoxLayout" name="horizontalLayout_76">
-               <item>
-                <widget class="QLabel" name="label_73">
-                 <property name="minimumSize">
-                  <size>
-                   <width>60</width>
-                   <height>0</height>
-                  </size>
-                 </property>
-                 <property name="maximumSize">
-                  <size>
-                   <width>60</width>
-                   <height>16777215</height>
-                  </size>
-                 </property>
-                 <property name="font">
-                  <font>
-                   <weight>50</weight>
-                   <bold>false</bold>
-                  </font>
-                 </property>
-                 <property name="text">
-                  <string>trigger</string>
-                 </property>
-                </widget>
-               </item>
-               <item>
-                <spacer name="horizontalSpacer_40">
-                 <property name="orientation">
-                  <enum>Qt::Horizontal</enum>
-                 </property>
-                 <property name="sizeHint" stdset="0">
-                  <size>
-                   <width>40</width>
-                   <height>20</height>
-                  </size>
-                 </property>
-                </spacer>
-               </item>
-               <item>
-                <widget class="QCheckBox" name="btn_enable_lfo_trigger">
-                 <property name="text">
-                  <string/>
-                 </property>
-                </widget>
-               </item>
-              </layout>
+              <widget class="QLabel" name="label_74">
+               <property name="minimumSize">
+                <size>
+                 <width>60</width>
+                 <height>0</height>
+                </size>
+               </property>
+               <property name="maximumSize">
+                <size>
+                 <width>60</width>
+                 <height>16777215</height>
+                </size>
+               </property>
+               <property name="font">
+                <font>
+                 <weight>50</weight>
+                 <bold>false</bold>
+                </font>
+               </property>
+               <property name="text">
+                <string>reset phase</string>
+               </property>
+              </widget>
              </item>
              <item>
-              <layout class="QHBoxLayout" name="horizontalLayout_63">
-               <item>
-                <widget class="QLabel" name="label_58">
-                 <property name="minimumSize">
-                  <size>
-                   <width>60</width>
-                   <height>0</height>
-                  </size>
-                 </property>
-                 <property name="maximumSize">
-                  <size>
-                   <width>60</width>
-                   <height>16777215</height>
-                  </size>
-                 </property>
-                 <property name="font">
-                  <font>
-                   <weight>50</weight>
-                   <bold>false</bold>
-                  </font>
-                 </property>
-                 <property name="text">
-                  <string>waveform</string>
-                 </property>
-                </widget>
-               </item>
-               <item>
-                <spacer name="horizontalSpacer_28">
-                 <property name="orientation">
-                  <enum>Qt::Horizontal</enum>
-                 </property>
-                 <property name="sizeHint" stdset="0">
-                  <size>
-                   <width>40</width>
-                   <height>20</height>
-                  </size>
-                 </property>
-                </spacer>
-               </item>
-               <item>
-                <widget class="QComboBox" name="box_lfo_waveform">
-                 <property name="minimumSize">
-                  <size>
-                   <width>60</width>
-                   <height>0</height>
-                  </size>
-                 </property>
-                 <property name="maximumSize">
-                  <size>
-                   <width>60</width>
-                   <height>16777215</height>
-                  </size>
-                 </property>
-                 <property name="font">
-                  <font>
-                   <weight>50</weight>
-                   <bold>false</bold>
-                  </font>
-                 </property>
-                 <item>
-                  <property name="text">
-                   <string>sine</string>
-                  </property>
-                 </item>
-                 <item>
-                  <property name="text">
-                   <string>saw</string>
-                  </property>
-                 </item>
-                 <item>
-                  <property name="text">
-                   <string>square</string>
-                  </property>
-                 </item>
-                </widget>
-               </item>
-              </layout>
-             </item>
-             <item>
-              <layout class="QHBoxLayout" name="horizontalLayout_77">
-               <item>
-                <widget class="QLabel" name="label_74">
-                 <property name="minimumSize">
-                  <size>
-                   <width>60</width>
-                   <height>0</height>
-                  </size>
-                 </property>
-                 <property name="maximumSize">
-                  <size>
-                   <width>60</width>
-                   <height>16777215</height>
-                  </size>
-                 </property>
-                 <property name="font">
-                  <font>
-                   <weight>50</weight>
-                   <bold>false</bold>
-                  </font>
-                 </property>
-                 <property name="text">
-                  <string>reset phase</string>
-                 </property>
-                </widget>
-               </item>
-               <item>
-                <spacer name="horizontalSpacer_53">
-                 <property name="orientation">
-                  <enum>Qt::Horizontal</enum>
-                 </property>
-                 <property name="sizeHint" stdset="0">
-                  <size>
-                   <width>40</width>
-                   <height>20</height>
-                  </size>
-                 </property>
-                </spacer>
-               </item>
-               <item>
-                <widget class="QPushButton" name="btn_lfo_reset">
-                 <property name="sizePolicy">
-                  <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
-                   <horstretch>0</horstretch>
-                   <verstretch>0</verstretch>
-                  </sizepolicy>
-                 </property>
-                 <property name="minimumSize">
-                  <size>
-                   <width>60</width>
-                   <height>0</height>
-                  </size>
-                 </property>
-                 <property name="maximumSize">
-                  <size>
-                   <width>60</width>
-                   <height>16777215</height>
-                  </size>
-                 </property>
-                 <property name="font">
-                  <font>
-                   <weight>50</weight>
-                   <bold>false</bold>
-                  </font>
-                 </property>
-                 <property name="text">
-                  <string>reset</string>
-                 </property>
-                </widget>
-               </item>
-              </layout>
+              <widget class="QPushButton" name="btn_lfo_reset">
+               <property name="sizePolicy">
+                <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+                 <horstretch>0</horstretch>
+                 <verstretch>0</verstretch>
+                </sizepolicy>
+               </property>
+               <property name="minimumSize">
+                <size>
+                 <width>60</width>
+                 <height>0</height>
+                </size>
+               </property>
+               <property name="maximumSize">
+                <size>
+                 <width>60</width>
+                 <height>16777215</height>
+                </size>
+               </property>
+               <property name="font">
+                <font>
+                 <weight>50</weight>
+                 <bold>false</bold>
+                </font>
+               </property>
+               <property name="text">
+                <string>reset</string>
+               </property>
+              </widget>
              </item>
             </layout>
            </item>
@@ -4102,6 +3303,124 @@ destination</string>
               <enum>Qt::Vertical</enum>
              </property>
             </widget>
+           </item>
+           <item>
+            <layout class="QVBoxLayout" name="verticalLayout_105">
+             <item>
+              <spacer name="verticalSpacer_89">
+               <property name="orientation">
+                <enum>Qt::Vertical</enum>
+               </property>
+               <property name="sizeType">
+                <enum>QSizePolicy::Minimum</enum>
+               </property>
+               <property name="sizeHint" stdset="0">
+                <size>
+                 <width>20</width>
+                 <height>0</height>
+                </size>
+               </property>
+              </spacer>
+             </item>
+             <item>
+              <widget class="QSlider" name="slider_lfo_amplitude">
+               <property name="sizePolicy">
+                <sizepolicy hsizetype="Minimum" vsizetype="Expanding">
+                 <horstretch>0</horstretch>
+                 <verstretch>0</verstretch>
+                </sizepolicy>
+               </property>
+               <property name="minimumSize">
+                <size>
+                 <width>60</width>
+                 <height>100</height>
+                </size>
+               </property>
+               <property name="maximumSize">
+                <size>
+                 <width>60</width>
+                 <height>200</height>
+                </size>
+               </property>
+               <property name="font">
+                <font>
+                 <weight>50</weight>
+                 <bold>false</bold>
+                </font>
+               </property>
+               <property name="minimum">
+                <number>0</number>
+               </property>
+               <property name="maximum">
+                <number>32767</number>
+               </property>
+               <property name="value">
+                <number>16383</number>
+               </property>
+               <property name="orientation">
+                <enum>Qt::Vertical</enum>
+               </property>
+               <property name="tickPosition">
+                <enum>QSlider::TicksBothSides</enum>
+               </property>
+               <property name="tickInterval">
+                <number>4096</number>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <widget class="Line" name="line_44">
+               <property name="orientation">
+                <enum>Qt::Horizontal</enum>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <widget class="QLabel" name="lbl_lfo_amplitude">
+               <property name="font">
+                <font>
+                 <weight>50</weight>
+                 <bold>false</bold>
+                </font>
+               </property>
+               <property name="text">
+                <string>0%</string>
+               </property>
+               <property name="alignment">
+                <set>Qt::AlignCenter</set>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <widget class="QLabel" name="lbl_filter_cutoff_34">
+               <property name="minimumSize">
+                <size>
+                 <width>0</width>
+                 <height>15</height>
+                </size>
+               </property>
+               <property name="maximumSize">
+                <size>
+                 <width>16777215</width>
+                 <height>15</height>
+                </size>
+               </property>
+               <property name="font">
+                <font>
+                 <pointsize>8</pointsize>
+                 <weight>75</weight>
+                 <bold>true</bold>
+                </font>
+               </property>
+               <property name="text">
+                <string>amplitude</string>
+               </property>
+               <property name="alignment">
+                <set>Qt::AlignCenter</set>
+               </property>
+              </widget>
+             </item>
+            </layout>
            </item>
            <item>
             <layout class="QVBoxLayout" name="verticalLayout_96">
@@ -4172,7 +3491,7 @@ destination</string>
               </widget>
              </item>
              <item>
-              <widget class="QLabel" name="lbl_velocity">
+              <widget class="QLabel" name="lbl_lfo_velocity">
                <property name="font">
                 <font>
                  <weight>50</weight>
@@ -4287,7 +3606,7 @@ destination</string>
               </widget>
              </item>
              <item>
-              <widget class="QLabel" name="lbl_phase">
+              <widget class="QLabel" name="lbl_lfo_phase">
                <property name="font">
                 <font>
                  <weight>50</weight>
@@ -4454,7 +3773,7 @@ destination</string>
               </widget>
              </item>
              <item>
-              <widget class="QLabel" name="lbl_attack">
+              <widget class="QLabel" name="lbl_envelope_attack">
                <property name="font">
                 <font>
                  <weight>50</weight>
@@ -4569,7 +3888,7 @@ destination</string>
               </widget>
              </item>
              <item>
-              <widget class="QLabel" name="lbl_decay">
+              <widget class="QLabel" name="lbl_envelope_decay">
                <property name="font">
                 <font>
                  <weight>50</weight>
@@ -4684,7 +4003,7 @@ destination</string>
               </widget>
              </item>
              <item>
-              <widget class="QLabel" name="lbl_sustain">
+              <widget class="QLabel" name="lbl_envelope_sustain">
                <property name="font">
                 <font>
                  <weight>50</weight>
@@ -4799,7 +4118,7 @@ destination</string>
               </widget>
              </item>
              <item>
-              <widget class="QLabel" name="lbl_release">
+              <widget class="QLabel" name="lbl_envelope_release">
                <property name="font">
                 <font>
                  <weight>50</weight>
@@ -4938,13 +4257,6 @@ destination</string>
               </widget>
              </item>
              <item>
-              <widget class="Line" name="line_13">
-               <property name="orientation">
-                <enum>Qt::Horizontal</enum>
-               </property>
-              </widget>
-             </item>
-             <item>
               <spacer name="verticalSpacer_11">
                <property name="orientation">
                 <enum>Qt::Vertical</enum>
@@ -5028,7 +4340,7 @@ destination</string>
               </widget>
              </item>
              <item>
-              <widget class="QLabel" name="lbl_cutoff">
+              <widget class="QLabel" name="lbl_filter_cutoff">
                <property name="font">
                 <font>
                  <weight>50</weight>
@@ -5143,7 +4455,7 @@ destination</string>
               </widget>
              </item>
              <item>
-              <widget class="QLabel" name="lbl_resonance">
+              <widget class="QLabel" name="lbl_filter_resonance">
                <property name="font">
                 <font>
                  <weight>50</weight>
@@ -5192,12 +4504,354 @@ destination</string>
           </layout>
          </widget>
         </item>
+        <item>
+         <widget class="QGroupBox" name="groupBox_11">
+          <property name="font">
+           <font>
+            <weight>75</weight>
+            <bold>true</bold>
+           </font>
+          </property>
+          <property name="title">
+           <string>Sample and Hold</string>
+          </property>
+          <property name="alignment">
+           <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
+          </property>
+          <layout class="QHBoxLayout" name="horizontalLayout_103">
+           <item>
+            <layout class="QVBoxLayout" name="verticalLayout_18">
+             <item>
+              <widget class="QLabel" name="label_76">
+               <property name="minimumSize">
+                <size>
+                 <width>60</width>
+                 <height>0</height>
+                </size>
+               </property>
+               <property name="maximumSize">
+                <size>
+                 <width>60</width>
+                 <height>16777215</height>
+                </size>
+               </property>
+               <property name="font">
+                <font>
+                 <weight>50</weight>
+                 <bold>false</bold>
+                </font>
+               </property>
+               <property name="text">
+                <string>individual</string>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <widget class="QCheckBox" name="btn_enable_sh_individual">
+               <property name="text">
+                <string/>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <widget class="Line" name="line_15">
+               <property name="orientation">
+                <enum>Qt::Horizontal</enum>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <widget class="QLabel" name="label_77">
+               <property name="minimumSize">
+                <size>
+                 <width>60</width>
+                 <height>0</height>
+                </size>
+               </property>
+               <property name="maximumSize">
+                <size>
+                 <width>60</width>
+                 <height>16777215</height>
+                </size>
+               </property>
+               <property name="font">
+                <font>
+                 <weight>50</weight>
+                 <bold>false</bold>
+                </font>
+               </property>
+               <property name="text">
+                <string>binaural</string>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <widget class="QCheckBox" name="btn_enable_sh_binaural">
+               <property name="text">
+                <string/>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <spacer name="verticalSpacer_13">
+               <property name="orientation">
+                <enum>Qt::Vertical</enum>
+               </property>
+               <property name="sizeHint" stdset="0">
+                <size>
+                 <width>20</width>
+                 <height>40</height>
+                </size>
+               </property>
+              </spacer>
+             </item>
+            </layout>
+           </item>
+           <item>
+            <layout class="QVBoxLayout" name="verticalLayout_106">
+             <item>
+              <spacer name="verticalSpacer_90">
+               <property name="orientation">
+                <enum>Qt::Vertical</enum>
+               </property>
+               <property name="sizeType">
+                <enum>QSizePolicy::Minimum</enum>
+               </property>
+               <property name="sizeHint" stdset="0">
+                <size>
+                 <width>20</width>
+                 <height>0</height>
+                </size>
+               </property>
+              </spacer>
+             </item>
+             <item>
+              <widget class="QSlider" name="slider_sh_velocity">
+               <property name="sizePolicy">
+                <sizepolicy hsizetype="Minimum" vsizetype="Expanding">
+                 <horstretch>0</horstretch>
+                 <verstretch>0</verstretch>
+                </sizepolicy>
+               </property>
+               <property name="minimumSize">
+                <size>
+                 <width>60</width>
+                 <height>100</height>
+                </size>
+               </property>
+               <property name="maximumSize">
+                <size>
+                 <width>60</width>
+                 <height>200</height>
+                </size>
+               </property>
+               <property name="font">
+                <font>
+                 <weight>50</weight>
+                 <bold>false</bold>
+                </font>
+               </property>
+               <property name="minimum">
+                <number>0</number>
+               </property>
+               <property name="maximum">
+                <number>32767</number>
+               </property>
+               <property name="orientation">
+                <enum>Qt::Vertical</enum>
+               </property>
+               <property name="tickPosition">
+                <enum>QSlider::TicksBothSides</enum>
+               </property>
+               <property name="tickInterval">
+                <number>4096</number>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <widget class="Line" name="line_45">
+               <property name="orientation">
+                <enum>Qt::Horizontal</enum>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <widget class="QLabel" name="lbl_sh_velocity">
+               <property name="font">
+                <font>
+                 <weight>50</weight>
+                 <bold>false</bold>
+                </font>
+               </property>
+               <property name="text">
+                <string>0%</string>
+               </property>
+               <property name="alignment">
+                <set>Qt::AlignCenter</set>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <widget class="QLabel" name="lbl_filter_cutoff_35">
+               <property name="minimumSize">
+                <size>
+                 <width>0</width>
+                 <height>15</height>
+                </size>
+               </property>
+               <property name="maximumSize">
+                <size>
+                 <width>16777215</width>
+                 <height>15</height>
+                </size>
+               </property>
+               <property name="font">
+                <font>
+                 <pointsize>8</pointsize>
+                 <weight>75</weight>
+                 <bold>true</bold>
+                </font>
+               </property>
+               <property name="text">
+                <string>velocity</string>
+               </property>
+               <property name="alignment">
+                <set>Qt::AlignCenter</set>
+               </property>
+              </widget>
+             </item>
+            </layout>
+           </item>
+           <item>
+            <layout class="QVBoxLayout" name="verticalLayout_107">
+             <item>
+              <spacer name="verticalSpacer_91">
+               <property name="orientation">
+                <enum>Qt::Vertical</enum>
+               </property>
+               <property name="sizeType">
+                <enum>QSizePolicy::Minimum</enum>
+               </property>
+               <property name="sizeHint" stdset="0">
+                <size>
+                 <width>20</width>
+                 <height>0</height>
+                </size>
+               </property>
+              </spacer>
+             </item>
+             <item>
+              <widget class="QSlider" name="slider_sh_amplitude">
+               <property name="sizePolicy">
+                <sizepolicy hsizetype="Minimum" vsizetype="Expanding">
+                 <horstretch>0</horstretch>
+                 <verstretch>0</verstretch>
+                </sizepolicy>
+               </property>
+               <property name="minimumSize">
+                <size>
+                 <width>60</width>
+                 <height>100</height>
+                </size>
+               </property>
+               <property name="maximumSize">
+                <size>
+                 <width>60</width>
+                 <height>200</height>
+                </size>
+               </property>
+               <property name="font">
+                <font>
+                 <weight>50</weight>
+                 <bold>false</bold>
+                </font>
+               </property>
+               <property name="minimum">
+                <number>0</number>
+               </property>
+               <property name="maximum">
+                <number>32767</number>
+               </property>
+               <property name="orientation">
+                <enum>Qt::Vertical</enum>
+               </property>
+               <property name="tickPosition">
+                <enum>QSlider::TicksBothSides</enum>
+               </property>
+               <property name="tickInterval">
+                <number>4096</number>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <widget class="Line" name="line_46">
+               <property name="orientation">
+                <enum>Qt::Horizontal</enum>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <widget class="QLabel" name="lbl_sh_amplitude">
+               <property name="font">
+                <font>
+                 <weight>50</weight>
+                 <bold>false</bold>
+                </font>
+               </property>
+               <property name="text">
+                <string>0%</string>
+               </property>
+               <property name="alignment">
+                <set>Qt::AlignCenter</set>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <widget class="QLabel" name="lbl_filter_resonance_7">
+               <property name="minimumSize">
+                <size>
+                 <width>0</width>
+                 <height>15</height>
+                </size>
+               </property>
+               <property name="maximumSize">
+                <size>
+                 <width>16777215</width>
+                 <height>15</height>
+                </size>
+               </property>
+               <property name="font">
+                <font>
+                 <pointsize>8</pointsize>
+                 <weight>75</weight>
+                 <bold>true</bold>
+                </font>
+               </property>
+               <property name="text">
+                <string>amplitude</string>
+               </property>
+               <property name="alignment">
+                <set>Qt::AlignCenter</set>
+               </property>
+              </widget>
+             </item>
+            </layout>
+           </item>
+          </layout>
+         </widget>
+        </item>
        </layout>
       </item>
      </layout>
     </item>
     <item>
      <widget class="QGroupBox" name="group_modd">
+      <property name="minimumSize">
+       <size>
+        <width>300</width>
+        <height>0</height>
+       </size>
+      </property>
       <property name="font">
        <font>
         <weight>75</weight>
@@ -5207,665 +4861,17 @@ destination</string>
       <property name="title">
        <string>Mod Destinations</string>
       </property>
-      <layout class="QVBoxLayout" name="verticalLayout_6">
-       <item>
-        <layout class="QVBoxLayout" name="verticalLayout_12">
-         <item>
-          <layout class="QHBoxLayout" name="horizontalLayout_73">
-           <item>
-            <widget class="QLabel" name="label_76">
-             <property name="minimumSize">
-              <size>
-               <width>120</width>
-               <height>0</height>
-              </size>
-             </property>
-             <property name="maximumSize">
-              <size>
-               <width>16777215</width>
-               <height>20</height>
-              </size>
-             </property>
-             <property name="font">
-              <font>
-               <weight>50</weight>
-               <bold>false</bold>
-              </font>
-             </property>
-             <property name="text">
-              <string>Filter cutoff</string>
-             </property>
-            </widget>
-           </item>
-           <item>
-            <spacer name="horizontalSpacer_42">
-             <property name="orientation">
-              <enum>Qt::Horizontal</enum>
-             </property>
-             <property name="sizeHint" stdset="0">
-              <size>
-               <width>40</width>
-               <height>20</height>
-              </size>
-             </property>
-            </spacer>
-           </item>
-           <item>
-            <widget class="QCheckBox" name="btn_enable_plot_cutoff">
-             <property name="maximumSize">
-              <size>
-               <width>16777215</width>
-               <height>20</height>
-              </size>
-             </property>
-             <property name="text">
-              <string/>
-             </property>
-             <property name="checked">
-              <bool>true</bool>
-             </property>
-            </widget>
-           </item>
-          </layout>
-         </item>
-         <item>
-          <layout class="QHBoxLayout" name="horizontalLayout_74">
-           <item>
-            <widget class="QLabel" name="label_77">
-             <property name="minimumSize">
-              <size>
-               <width>120</width>
-               <height>0</height>
-              </size>
-             </property>
-             <property name="maximumSize">
-              <size>
-               <width>16777215</width>
-               <height>20</height>
-              </size>
-             </property>
-             <property name="font">
-              <font>
-               <weight>50</weight>
-               <bold>false</bold>
-              </font>
-             </property>
-             <property name="text">
-              <string>Filter resonance</string>
-             </property>
-            </widget>
-           </item>
-           <item>
-            <spacer name="horizontalSpacer_43">
-             <property name="orientation">
-              <enum>Qt::Horizontal</enum>
-             </property>
-             <property name="sizeHint" stdset="0">
-              <size>
-               <width>40</width>
-               <height>20</height>
-              </size>
-             </property>
-            </spacer>
-           </item>
-           <item>
-            <widget class="QCheckBox" name="btn_enable_plot_resonance">
-             <property name="maximumSize">
-              <size>
-               <width>16777215</width>
-               <height>20</height>
-              </size>
-             </property>
-             <property name="text">
-              <string/>
-             </property>
-            </widget>
-           </item>
-          </layout>
-         </item>
-         <item>
-          <layout class="QHBoxLayout" name="horizontalLayout_75">
-           <item>
-            <widget class="QLabel" name="label_78">
-             <property name="minimumSize">
-              <size>
-               <width>120</width>
-               <height>0</height>
-              </size>
-             </property>
-             <property name="maximumSize">
-              <size>
-               <width>16777215</width>
-               <height>20</height>
-              </size>
-             </property>
-             <property name="font">
-              <font>
-               <weight>50</weight>
-               <bold>false</bold>
-              </font>
-             </property>
-             <property name="text">
-              <string>Mixer volume</string>
-             </property>
-            </widget>
-           </item>
-           <item>
-            <spacer name="horizontalSpacer_44">
-             <property name="orientation">
-              <enum>Qt::Horizontal</enum>
-             </property>
-             <property name="sizeHint" stdset="0">
-              <size>
-               <width>40</width>
-               <height>20</height>
-              </size>
-             </property>
-            </spacer>
-           </item>
-           <item>
-            <widget class="QCheckBox" name="btn_enable_plot_volume">
-             <property name="maximumSize">
-              <size>
-               <width>16777215</width>
-               <height>20</height>
-              </size>
-             </property>
-             <property name="text">
-              <string/>
-             </property>
-             <property name="checked">
-              <bool>true</bool>
-             </property>
-            </widget>
-           </item>
-          </layout>
-         </item>
-         <item>
-          <layout class="QHBoxLayout" name="horizontalLayout_80">
-           <item>
-            <widget class="QLabel" name="label_79">
-             <property name="minimumSize">
-              <size>
-               <width>120</width>
-               <height>0</height>
-              </size>
-             </property>
-             <property name="maximumSize">
-              <size>
-               <width>16777215</width>
-               <height>20</height>
-              </size>
-             </property>
-             <property name="font">
-              <font>
-               <weight>50</weight>
-               <bold>false</bold>
-              </font>
-             </property>
-             <property name="text">
-              <string>Table A frame</string>
-             </property>
-            </widget>
-           </item>
-           <item>
-            <spacer name="horizontalSpacer_45">
-             <property name="orientation">
-              <enum>Qt::Horizontal</enum>
-             </property>
-             <property name="sizeHint" stdset="0">
-              <size>
-               <width>40</width>
-               <height>20</height>
-              </size>
-             </property>
-            </spacer>
-           </item>
-           <item>
-            <widget class="QCheckBox" name="btn_enable_plot_frame_0">
-             <property name="maximumSize">
-              <size>
-               <width>16777215</width>
-               <height>20</height>
-              </size>
-             </property>
-             <property name="text">
-              <string/>
-             </property>
-             <property name="checked">
-              <bool>true</bool>
-             </property>
-            </widget>
-           </item>
-          </layout>
-         </item>
-         <item>
-          <layout class="QHBoxLayout" name="horizontalLayout_81">
-           <item>
-            <widget class="QLabel" name="label_80">
-             <property name="minimumSize">
-              <size>
-               <width>120</width>
-               <height>0</height>
-              </size>
-             </property>
-             <property name="maximumSize">
-              <size>
-               <width>16777215</width>
-               <height>20</height>
-              </size>
-             </property>
-             <property name="font">
-              <font>
-               <weight>50</weight>
-               <bold>false</bold>
-              </font>
-             </property>
-             <property name="text">
-              <string>Table B frame</string>
-             </property>
-            </widget>
-           </item>
-           <item>
-            <spacer name="horizontalSpacer_46">
-             <property name="orientation">
-              <enum>Qt::Horizontal</enum>
-             </property>
-             <property name="sizeHint" stdset="0">
-              <size>
-               <width>40</width>
-               <height>20</height>
-              </size>
-             </property>
-            </spacer>
-           </item>
-           <item>
-            <widget class="QCheckBox" name="btn_enable_plot_frame_1">
-             <property name="maximumSize">
-              <size>
-               <width>16777215</width>
-               <height>20</height>
-              </size>
-             </property>
-             <property name="text">
-              <string/>
-             </property>
-             <property name="checked">
-              <bool>true</bool>
-             </property>
-            </widget>
-           </item>
-          </layout>
-         </item>
-         <item>
-          <layout class="QHBoxLayout" name="horizontalLayout_82">
-           <item>
-            <widget class="QLabel" name="label_81">
-             <property name="minimumSize">
-              <size>
-               <width>120</width>
-               <height>0</height>
-              </size>
-             </property>
-             <property name="maximumSize">
-              <size>
-               <width>16777215</width>
-               <height>20</height>
-              </size>
-             </property>
-             <property name="font">
-              <font>
-               <weight>50</weight>
-               <bold>false</bold>
-              </font>
-             </property>
-             <property name="text">
-              <string>Table A mix</string>
-             </property>
-            </widget>
-           </item>
-           <item>
-            <spacer name="horizontalSpacer_47">
-             <property name="orientation">
-              <enum>Qt::Horizontal</enum>
-             </property>
-             <property name="sizeHint" stdset="0">
-              <size>
-               <width>40</width>
-               <height>20</height>
-              </size>
-             </property>
-            </spacer>
-           </item>
-           <item>
-            <widget class="QCheckBox" name="btn_enable_plot_mix_0">
-             <property name="maximumSize">
-              <size>
-               <width>16777215</width>
-               <height>20</height>
-              </size>
-             </property>
-             <property name="text">
-              <string/>
-             </property>
-            </widget>
-           </item>
-          </layout>
-         </item>
-         <item>
-          <layout class="QHBoxLayout" name="horizontalLayout_83">
-           <item>
-            <widget class="QLabel" name="label_82">
-             <property name="minimumSize">
-              <size>
-               <width>120</width>
-               <height>0</height>
-              </size>
-             </property>
-             <property name="maximumSize">
-              <size>
-               <width>16777215</width>
-               <height>20</height>
-              </size>
-             </property>
-             <property name="font">
-              <font>
-               <weight>50</weight>
-               <bold>false</bold>
-              </font>
-             </property>
-             <property name="text">
-              <string>Table B mix</string>
-             </property>
-            </widget>
-           </item>
-           <item>
-            <spacer name="horizontalSpacer_48">
-             <property name="orientation">
-              <enum>Qt::Horizontal</enum>
-             </property>
-             <property name="sizeHint" stdset="0">
-              <size>
-               <width>40</width>
-               <height>20</height>
-              </size>
-             </property>
-            </spacer>
-           </item>
-           <item>
-            <widget class="QCheckBox" name="btn_enable_plot_mix_1">
-             <property name="maximumSize">
-              <size>
-               <width>16777215</width>
-               <height>20</height>
-              </size>
-             </property>
-             <property name="text">
-              <string/>
-             </property>
-            </widget>
-           </item>
-          </layout>
-         </item>
-         <item>
-          <layout class="QHBoxLayout" name="horizontalLayout_86">
-           <item>
-            <widget class="QLabel" name="label_90">
-             <property name="minimumSize">
-              <size>
-               <width>120</width>
-               <height>0</height>
-              </size>
-             </property>
-             <property name="maximumSize">
-              <size>
-               <width>16777215</width>
-               <height>20</height>
-              </size>
-             </property>
-             <property name="font">
-              <font>
-               <weight>50</weight>
-               <bold>false</bold>
-              </font>
-             </property>
-             <property name="text">
-              <string>Noise mix</string>
-             </property>
-            </widget>
-           </item>
-           <item>
-            <spacer name="horizontalSpacer_51">
-             <property name="orientation">
-              <enum>Qt::Horizontal</enum>
-             </property>
-             <property name="sizeHint" stdset="0">
-              <size>
-               <width>40</width>
-               <height>20</height>
-              </size>
-             </property>
-            </spacer>
-           </item>
-           <item>
-            <widget class="QCheckBox" name="btn_enable_plot_mix_noise">
-             <property name="maximumSize">
-              <size>
-               <width>16777215</width>
-               <height>20</height>
-              </size>
-             </property>
-             <property name="text">
-              <string/>
-             </property>
-            </widget>
-           </item>
-          </layout>
-         </item>
-         <item>
-          <layout class="QHBoxLayout" name="horizontalLayout_84">
-           <item>
-            <widget class="QLabel" name="label_88">
-             <property name="minimumSize">
-              <size>
-               <width>120</width>
-               <height>0</height>
-              </size>
-             </property>
-             <property name="maximumSize">
-              <size>
-               <width>16777215</width>
-               <height>20</height>
-              </size>
-             </property>
-             <property name="font">
-              <font>
-               <weight>50</weight>
-               <bold>false</bold>
-              </font>
-             </property>
-             <property name="text">
-              <string>Table A frequency</string>
-             </property>
-            </widget>
-           </item>
-           <item>
-            <spacer name="horizontalSpacer_49">
-             <property name="orientation">
-              <enum>Qt::Horizontal</enum>
-             </property>
-             <property name="sizeHint" stdset="0">
-              <size>
-               <width>40</width>
-               <height>20</height>
-              </size>
-             </property>
-            </spacer>
-           </item>
-           <item>
-            <widget class="QCheckBox" name="btn_enable_plot_frequency_0">
-             <property name="maximumSize">
-              <size>
-               <width>16777215</width>
-               <height>20</height>
-              </size>
-             </property>
-             <property name="text">
-              <string/>
-             </property>
-            </widget>
-           </item>
-          </layout>
-         </item>
-         <item>
-          <layout class="QHBoxLayout" name="horizontalLayout_85">
-           <item>
-            <widget class="QLabel" name="label_89">
-             <property name="minimumSize">
-              <size>
-               <width>120</width>
-               <height>0</height>
-              </size>
-             </property>
-             <property name="maximumSize">
-              <size>
-               <width>16777215</width>
-               <height>20</height>
-              </size>
-             </property>
-             <property name="font">
-              <font>
-               <weight>50</weight>
-               <bold>false</bold>
-              </font>
-             </property>
-             <property name="text">
-              <string>Table B frequency</string>
-             </property>
-            </widget>
-           </item>
-           <item>
-            <spacer name="horizontalSpacer_50">
-             <property name="orientation">
-              <enum>Qt::Horizontal</enum>
-             </property>
-             <property name="sizeHint" stdset="0">
-              <size>
-               <width>40</width>
-               <height>20</height>
-              </size>
-             </property>
-            </spacer>
-           </item>
-           <item>
-            <widget class="QCheckBox" name="btn_enable_plot_frequency_1">
-             <property name="maximumSize">
-              <size>
-               <width>16777215</width>
-               <height>20</height>
-              </size>
-             </property>
-             <property name="text">
-              <string/>
-             </property>
-            </widget>
-           </item>
-          </layout>
-         </item>
-         <item>
-          <layout class="QHBoxLayout" name="horizontalLayout_87">
-           <item>
-            <widget class="QLabel" name="label_91">
-             <property name="sizePolicy">
-              <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
-               <horstretch>0</horstretch>
-               <verstretch>0</verstretch>
-              </sizepolicy>
-             </property>
-             <property name="minimumSize">
-              <size>
-               <width>280</width>
-               <height>0</height>
-              </size>
-             </property>
-             <property name="maximumSize">
-              <size>
-               <width>16777215</width>
-               <height>20</height>
-              </size>
-             </property>
-             <property name="font">
-              <font>
-               <weight>50</weight>
-               <bold>false</bold>
-              </font>
-             </property>
-             <property name="text">
-              <string>Unison</string>
-             </property>
-            </widget>
-           </item>
-           <item>
-            <spacer name="horizontalSpacer_52">
-             <property name="orientation">
-              <enum>Qt::Horizontal</enum>
-             </property>
-             <property name="sizeType">
-              <enum>QSizePolicy::Expanding</enum>
-             </property>
-             <property name="sizeHint" stdset="0">
-              <size>
-               <width>40</width>
-               <height>20</height>
-              </size>
-             </property>
-            </spacer>
-           </item>
-           <item>
-            <widget class="QCheckBox" name="btn_enable_plot_spread">
-             <property name="maximumSize">
-              <size>
-               <width>16777215</width>
-               <height>20</height>
-              </size>
-             </property>
-             <property name="text">
-              <string/>
-             </property>
-            </widget>
-           </item>
-          </layout>
-         </item>
-        </layout>
-       </item>
-       <item>
-        <widget class="Line" name="line_7">
-         <property name="orientation">
-          <enum>Qt::Horizontal</enum>
-         </property>
-        </widget>
-       </item>
-       <item>
-        <spacer name="verticalSpacer_7">
-         <property name="orientation">
-          <enum>Qt::Vertical</enum>
-         </property>
-         <property name="sizeType">
-          <enum>QSizePolicy::MinimumExpanding</enum>
-         </property>
-         <property name="sizeHint" stdset="0">
-          <size>
-           <width>20</width>
-           <height>0</height>
-          </size>
-         </property>
-        </spacer>
-       </item>
-      </layout>
+      <layout class="QVBoxLayout" name="verticalLayout_6"/>
      </widget>
     </item>
     <item>
      <widget class="QGroupBox" name="group_mods">
+      <property name="minimumSize">
+       <size>
+        <width>300</width>
+        <height>0</height>
+       </size>
+      </property>
       <property name="font">
        <font>
         <weight>75</weight>
@@ -5875,206 +4881,7 @@ destination</string>
       <property name="title">
        <string>Mod Sources</string>
       </property>
-      <layout class="QVBoxLayout" name="verticalLayout_9">
-       <item>
-        <widget class="DropPlotWidget" name="plot_lfo_0" native="true">
-         <property name="sizePolicy">
-          <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
-           <horstretch>0</horstretch>
-           <verstretch>0</verstretch>
-          </sizepolicy>
-         </property>
-         <property name="minimumSize">
-          <size>
-           <width>300</width>
-           <height>40</height>
-          </size>
-         </property>
-         <property name="maximumSize">
-          <size>
-           <width>600</width>
-           <height>160</height>
-          </size>
-         </property>
-        </widget>
-       </item>
-       <item>
-        <widget class="DropPlotWidget" name="plot_lfo_1" native="true">
-         <property name="sizePolicy">
-          <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
-           <horstretch>0</horstretch>
-           <verstretch>0</verstretch>
-          </sizepolicy>
-         </property>
-         <property name="minimumSize">
-          <size>
-           <width>300</width>
-           <height>40</height>
-          </size>
-         </property>
-         <property name="maximumSize">
-          <size>
-           <width>600</width>
-           <height>160</height>
-          </size>
-         </property>
-        </widget>
-       </item>
-       <item>
-        <widget class="DropPlotWidget" name="plot_lfo_2" native="true">
-         <property name="sizePolicy">
-          <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
-           <horstretch>0</horstretch>
-           <verstretch>0</verstretch>
-          </sizepolicy>
-         </property>
-         <property name="minimumSize">
-          <size>
-           <width>300</width>
-           <height>40</height>
-          </size>
-         </property>
-         <property name="maximumSize">
-          <size>
-           <width>600</width>
-           <height>160</height>
-          </size>
-         </property>
-        </widget>
-       </item>
-       <item>
-        <widget class="DropPlotWidget" name="plot_lfo_3" native="true">
-         <property name="sizePolicy">
-          <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
-           <horstretch>0</horstretch>
-           <verstretch>0</verstretch>
-          </sizepolicy>
-         </property>
-         <property name="minimumSize">
-          <size>
-           <width>300</width>
-           <height>40</height>
-          </size>
-         </property>
-         <property name="maximumSize">
-          <size>
-           <width>600</width>
-           <height>160</height>
-          </size>
-         </property>
-        </widget>
-       </item>
-       <item>
-        <widget class="DropPlotWidget" name="plot_envelope_0" native="true">
-         <property name="sizePolicy">
-          <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
-           <horstretch>0</horstretch>
-           <verstretch>0</verstretch>
-          </sizepolicy>
-         </property>
-         <property name="minimumSize">
-          <size>
-           <width>300</width>
-           <height>40</height>
-          </size>
-         </property>
-         <property name="maximumSize">
-          <size>
-           <width>600</width>
-           <height>160</height>
-          </size>
-         </property>
-        </widget>
-       </item>
-       <item>
-        <widget class="DropPlotWidget" name="plot_envelope_1" native="true">
-         <property name="sizePolicy">
-          <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
-           <horstretch>0</horstretch>
-           <verstretch>0</verstretch>
-          </sizepolicy>
-         </property>
-         <property name="minimumSize">
-          <size>
-           <width>300</width>
-           <height>40</height>
-          </size>
-         </property>
-         <property name="maximumSize">
-          <size>
-           <width>600</width>
-           <height>160</height>
-          </size>
-         </property>
-        </widget>
-       </item>
-       <item>
-        <widget class="DropPlotWidget" name="plot_envelope_2" native="true">
-         <property name="sizePolicy">
-          <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
-           <horstretch>0</horstretch>
-           <verstretch>0</verstretch>
-          </sizepolicy>
-         </property>
-         <property name="minimumSize">
-          <size>
-           <width>300</width>
-           <height>40</height>
-          </size>
-         </property>
-         <property name="maximumSize">
-          <size>
-           <width>600</width>
-           <height>160</height>
-          </size>
-         </property>
-        </widget>
-       </item>
-       <item>
-        <widget class="DropPlotWidget" name="plot_envelope_3" native="true">
-         <property name="sizePolicy">
-          <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
-           <horstretch>0</horstretch>
-           <verstretch>0</verstretch>
-          </sizepolicy>
-         </property>
-         <property name="minimumSize">
-          <size>
-           <width>300</width>
-           <height>40</height>
-          </size>
-         </property>
-         <property name="maximumSize">
-          <size>
-           <width>600</width>
-           <height>160</height>
-          </size>
-         </property>
-        </widget>
-       </item>
-       <item>
-        <widget class="DropPlotWidget" name="plot_velocity" native="true">
-         <property name="sizePolicy">
-          <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
-           <horstretch>0</horstretch>
-           <verstretch>0</verstretch>
-          </sizepolicy>
-         </property>
-         <property name="minimumSize">
-          <size>
-           <width>300</width>
-           <height>40</height>
-          </size>
-         </property>
-         <property name="maximumSize">
-          <size>
-           <width>600</width>
-           <height>160</height>
-          </size>
-         </property>
-        </widget>
-       </item>
-      </layout>
+      <layout class="QVBoxLayout" name="verticalLayout_9"/>
      </widget>
     </item>
     <item>
@@ -6100,7 +4907,7 @@ destination</string>
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>2449</width>
+     <width>2126</width>
      <height>21</height>
     </rect>
    </property>

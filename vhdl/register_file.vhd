@@ -74,6 +74,7 @@ begin
         variable v_table_index : integer range 0 to N_TABLES - 1;
         variable v_lfo_index : integer range 0 to LFO_N - 1;
         variable v_env_index : integer range 0 to ENV_N - 1;
+        variable v_sh_index : integer range 0 to SAMPLE_HOLD_N - 1;
         variable v_table_mix_index : integer range 0 to N_TABLES;
         variable v_voice_index : integer range 0 to POLYPHONY_MAX - 1;
         variable v_unison_n : integer range 1 to UNISON_MAX;
@@ -271,7 +272,7 @@ begin
                
             -- Wavetable registers.
             elsif register_input.address >= REG_TABLE_BASE 
-                    and register_input.address < REG_TABLE_BASE + N_TABLES * x"10" + 4 then
+                    and register_input.address < REG_TABLE_BASE + N_TABLES * x"10" then
 
                 v_rel_address := register_input.address  and x"0000_0FFF";
                 v_table_index := to_integer(unsigned(v_rel_address(N_TABLES_LOG2 + 4 downto 4))); -- Index slice is 1 bit wider than necessary to accomodate N_TABLES_LOG2 = 0.
@@ -296,9 +297,9 @@ begin
 
             -- Envelope registers.
             elsif register_input.address >= REG_ENVELOPE_CTRL_BASE 
-                    and register_input.address < REG_ENVELOPE_CTRL_BASE + ENV_N * x"10" + 5 then
+                    and register_input.address < REG_ENVELOPE_CTRL_BASE + ENV_N * x"10" then
 
-                v_rel_address := register_input.address  and x"0000_0FFF";
+                v_rel_address := register_input.address and x"0000_0FFF";
                 v_env_index := to_integer(unsigned(v_rel_address(ENV_N_LOG2 + 4 downto 4))); -- Index slice is 1 bit wider than necessary to accomodate ENV_N_LOG2 = 0.
 
                 case v_rel_address(3 downto 0) is 
@@ -323,7 +324,7 @@ begin
 
             -- LFO registers.
             elsif register_input.address >= REG_LFO_CTRL_BASE 
-                    and register_input.address < REG_LFO_CTRL_BASE + LFO_N * x"10" + 5 then
+                    and register_input.address < REG_LFO_CTRL_BASE + LFO_N * x"10" then
 
                 v_rel_address := register_input.address and x"0000_0FFF";
                 v_lfo_index := to_integer(unsigned(v_rel_address(LFO_N_LOG2 + 4 downto 4))); -- Index slice is 1 bit wider than necessary to accomodate LFO_N_LOG2 = 0.
@@ -354,6 +355,30 @@ begin
                     r_in.register_output.valid <= '0';
                 end case;
 
+            -- Sample & hold registers.
+            elsif register_input.address >= REG_SH_BASE_CONTROL 
+                    and register_input.address < REG_SH_BASE_CONTROL + SAMPLE_HOLD_N * x"10" then
+
+                v_rel_address := register_input.address and x"0000_0FFF";
+                v_sh_index := to_integer(unsigned(v_rel_address(SAMPLE_HOLD_N_LOG2 + 4 downto 4))); -- Index slice is 1 bit wider than necessary to accomodate SAMPLE_HOLD_N_LOG2 = 0.
+
+                case v_rel_address(3 downto 0) is 
+                when x"0" => 
+                    r_in.register_output.read_data(0) <= r.config.sample_hold_input(v_lfo_index).individual;
+
+                when x"1" => 
+                    r_in.register_output.read_data(0) <= r.config.sample_hold_input(v_lfo_index).binaural;
+
+                when x"2" => 
+                    r_in.register_output.read_data <= std_logic_vector(r.config.base_ctrl(MODD_SH_VELOCITY + v_lfo_index));
+
+                when x"3" => 
+                    r_in.register_output.read_data <= std_logic_vector(r.config.base_ctrl(MODD_SH_AMPLITUDE + v_lfo_index));
+
+                when others => 
+                    r_in.register_output.valid <= '0';
+                end case;
+                    
             -- Read mod mapping registers.
             elsif register_input.address >= REG_MOD_MAP_BASE 
                     and register_input.address < REG_MOD_MAP_BASE + MODD_LEN * MAX_MOD_SOURCES * 2 then
@@ -512,7 +537,7 @@ begin
             -- Wavetable registers.
             -- Each wavetable has 4 registers.
             elsif register_input.address >= REG_TABLE_BASE 
-                    and register_input.address < REG_TABLE_BASE + N_TABLES * x"10" + 4 then
+                    and register_input.address < REG_TABLE_BASE + N_TABLES * x"10" then
 
                 v_rel_address := register_input.address and x"0000_0FFF";
                 v_table_index := to_integer(unsigned(v_rel_address(N_TABLES_LOG2 + 4 downto 4)));
@@ -541,7 +566,7 @@ begin
             -- Envelope registers.
             -- Each wavetable has 4 registers.
             elsif register_input.address >= REG_ENVELOPE_CTRL_BASE 
-                    and register_input.address < REG_ENVELOPE_CTRL_BASE + ENV_N * x"10" + 5 then
+                    and register_input.address < REG_ENVELOPE_CTRL_BASE + ENV_N * x"10" then
 
                 v_rel_address := register_input.address and x"0000_0FFF";
                 v_env_index := to_integer(unsigned(v_rel_address(ENV_N_LOG2 + 4 downto 4)));
@@ -570,7 +595,7 @@ begin
             -- LFO registers.
             -- Each wavetable has 5 registers.
             elsif register_input.address >= REG_LFO_CTRL_BASE 
-                    and register_input.address < REG_LFO_CTRL_BASE + LFO_N * x"10" + 6 then
+                    and register_input.address < REG_LFO_CTRL_BASE + LFO_N * x"10" then
 
                 v_rel_address := register_input.address and x"0000_0FFF";
                 v_lfo_index := to_integer(unsigned(v_rel_address(LFO_N_LOG2 + 4 downto 4)));
@@ -601,9 +626,31 @@ begin
                 
                 when others => 
                     r_in.register_output.valid <= '0';
-
                 end case;
 
+            -- Sample and hold registers.
+            elsif register_input.address >= REG_SH_BASE_CONTROL 
+                    and register_input.address < REG_SH_BASE_CONTROL + SAMPLE_HOLD_N * x"10" then
+
+                v_rel_address := register_input.address and x"0000_0FFF";
+                v_sh_index := to_integer(unsigned(v_rel_address(SAMPLE_HOLD_N_LOG2 + 4 downto 4)));
+
+                case v_rel_address(3 downto 0) is 
+                when x"0" => 
+                    r_in.config_buffer.sample_hold_input(v_sh_index).individual <= register_input.write_data(0);
+
+                when x"1" =>
+                    r_in.config_buffer.sample_hold_input(v_sh_index).binaural <= register_input.write_data(0);                
+
+                when x"2" => 
+                    r_in.config_buffer.base_ctrl(MODD_SH_VELOCITY + v_sh_index) <= signed(register_input.write_data);
+
+                when x"3" => 
+                    r_in.config_buffer.base_ctrl(MODD_SH_AMPLITUDE + v_sh_index) <= signed(register_input.write_data);
+                
+                when others => 
+                    r_in.register_output.valid <= '0';
+                end case;
 
             -- Mod matrix registers. 
             -- Each mod destination holds a list length MAX_MOD_SOURCES containing a (source_index, amount) pair.

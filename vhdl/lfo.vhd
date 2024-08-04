@@ -15,10 +15,10 @@ entity lfo is
     port (
         clk                     : in  std_logic;
         reset                   : in  std_logic;
+        next_sample             : in  std_logic;
         config                  : in  t_config;
         status                  : in  t_status;
         lfo_input               : in  t_lfo_input_array(0 to N_INSTANCES - 1);
-        next_sample             : in  std_logic;
         osc_inputs              : in  t_osc_input_array(0 to POLYPHONY_MAX - 1);
         lfo_out                 : out t_lfo_out
     );
@@ -60,8 +60,8 @@ architecture arch of lfo is
         state                   : t_state;
         lfo_velocity_squared    : t_ctrl_value;
         lfo_velocity_clipped    : t_ctrl_value_array(0 to N_INSTANCES - 1);
-        lfo_out                 : t_lfo_out(0 to N_INSTANCES - 1);
-        lfo_buffer              : t_lfo_out(0 to N_INSTANCES - 1);
+        lfo_out                 : t_lfo_out;
+        lfo_buffer              : t_lfo_out;
         raw_buffer              : t_ctrl_value;
         scaled_buffer           : t_ctrl_value;
         scale_buffer            : t_ctrl_value;

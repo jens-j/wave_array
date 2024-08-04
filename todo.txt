@@ -28,6 +28,8 @@ Optimizations:
 - Replace output buffers by using accumulators e.g. directly.
 - Table address generator can be unified (really?)
 - Mod matrix could reuse mod value register array and multiplex multipliers.
+- Use less bits for phase registers in envelope (32) and lfo (48)
+- serializing table_address_generator output could reduce the 10k flipflops with a factor 64.
 
 Open Problems:
 - integrating midi velocity in the voice mixer (mapping to sustain works)

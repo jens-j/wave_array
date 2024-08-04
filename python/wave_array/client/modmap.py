@@ -43,6 +43,8 @@ class ModMap:
     MODD_LFO_1_AMPLITUDE    = 12
     MODD_LFO_2_AMPLITUDE    = 13
     MODD_LFO_3_AMPLITUDE    = 14
+    MODD_SH_VELOCITY        = 15
+    MODD_SH_AMPLITUDE       = 16
 
     MODS_NONE               = 0
     MODS_ENVELOPE_0         = 1
@@ -53,14 +55,16 @@ class ModMap:
     MODS_LFO_1              = 6
     MODS_LFO_2              = 7
     MODS_LFO_3              = 8
-    MODS_VELOCITY           = 9
-    MODS_TABLE_0            = 10
-    MODS_TABLE_1            = 11
-
-    MODS_LEN                = 12
-    MODD_LEN                = 15
-    MODS_LEN_LOG2           = int(np.ceil(np.log2(MODS_LEN)))
+    MODS_SH                 = 9
+    MODS_KEY_VELOCITY       = 10
+    MODS_TABLE_0            = 11
+    MODS_TABLE_1            = 12
+    
+    MODD_LEN                = 17
+    MODS_LEN                = 13
+    
     MODD_LEN_LOG2           = int(np.ceil(np.log2(MODD_LEN)))
+    MODS_LEN_LOG2           = int(np.ceil(np.log2(MODS_LEN)))
 
     # Modulation destination strings.
     MODD_STRING = {
@@ -78,7 +82,9 @@ class ModMap:
         MODD_LFO_0_AMPLITUDE    : 'lfo 0 amplitude',
         MODD_LFO_1_AMPLITUDE    : 'lfo 1 amplitude',
         MODD_LFO_2_AMPLITUDE    : 'lfo 2 amplitude',
-        MODD_LFO_3_AMPLITUDE    : 'lfo 3 amplitude'
+        MODD_LFO_3_AMPLITUDE    : 'lfo 3 amplitude',
+        MODD_SH_VELOCITY        : 'sample & hold velocity',
+        MODD_SH_AMPLITUDE       : 'sample & hold amplitude'
     }      
 
     # Modulation destination short strings.
@@ -97,7 +103,9 @@ class ModMap:
         MODD_LFO_0_AMPLITUDE    : 'lfo 0 depth',
         MODD_LFO_1_AMPLITUDE    : 'lfo 1 depth',
         MODD_LFO_2_AMPLITUDE    : 'lfo 2 depth',
-        MODD_LFO_3_AMPLITUDE    : 'lfo 3 depth'
+        MODD_LFO_3_AMPLITUDE    : 'lfo 3 depth',
+        MODD_SH_VELOCITY        : 's/h velocity',
+        MODD_SH_AMPLITUDE       : 's/h amplitude', 
     }               
 
     # Modulation source strings.
@@ -111,7 +119,8 @@ class ModMap:
         MODS_LFO_1          : 'lfo 1',
         MODS_LFO_2          : 'lfo 2',
         MODS_LFO_3          : 'lfo 3',
-        MODS_VELOCITY       : 'velocity',
+        MODS_SH             : 'sample & hold',
+        MODS_KEY_VELOCITY   : 'key velocity',
         MODS_TABLE_0        : 'oscillator 0',
         MODS_TABLE_1        : 'oscillator 1'
     }
@@ -127,7 +136,8 @@ class ModMap:
         MODS_LFO_1          : 'lfo 1',
         MODS_LFO_2          : 'lfo 2',
         MODS_LFO_3          : 'lfo 3',
-        MODS_VELOCITY       : 'vel',
+        MODS_SH             : 's/h',
+        MODS_KEY_VELOCITY   : 'vel',
         MODS_TABLE_0        : 'osc 0',
         MODS_TABLE_1        : 'osc 1'
     }
