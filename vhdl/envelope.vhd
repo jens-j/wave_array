@@ -8,10 +8,13 @@ use wave.wave_array_pkg.all;
 
 library xil_defaultlib;
 
-
+-- Implements N_INSTANCES separate envelopes that each track the envelope for all voices. 
+-- The envelopes generate a circular shape for the decay and release stages using a cordic. 
+-- The mapping from control value to velocity done using a ROM that maps the control values logarithmically for 
+-- more fine control at high rates. The min and max periods are also hidden in that transformation. 
 entity envelope is
     generic (
-        N_INSTANCES             : natural; -- Number of envelopes this entity implements.
+        N_INSTANCES             : natural -- Number of envelopes this entity implements.
     );
     port (
         clk                     : in  std_logic;
@@ -28,38 +31,17 @@ end entity;
 architecture arch of envelope is
 
     -- Length of pipeline stages in cycles. 
-    constant PIPE_LEN_MUX       : integer := 1;
+    constant PIPE_LEN_MUX_IN    : integer := 1;
     constant PIPE_LEN_PHASE     : integer := 1;
+    constant PIPE_LEN_MUX_OUT   : integer := 1; 
     constant PIPE_LEN_CORDIC    : integer := 22;
     constant PIPE_LEN_MULT      : integer := 4;
 
     -- Cumulative length of pipeline stages in cycles. 
-    constant PIPE_SUM_PHASE     : integer := PIPE_LEN_MUX + PIPE_LEN_PHASE;
-    constant PIPE_SUM_CORDIC    : integer := PIPE_SUM_PHASE + PIPE_LEN_CORDIC;
+    constant PIPE_SUM_PHASE     : integer := PIPE_LEN_MUX_IN + PIPE_LEN_PHASE;
+    constant PIPE_SUM_MUX_OUT   : integer := PIPE_SUM_PHASE + PIPE_LEN_MUX_OUT;
+    constant PIPE_SUM_CORDIC    : integer := PIPE_SUM_MUX_OUT + PIPE_LEN_CORDIC;
     constant PIPE_SUM_MULT      : integer := PIPE_SUM_CORDIC + PIPE_LEN_MULT;
-
-    -- Calculate minimum and maximum velocity.
-    constant ATTACK_MIN         : real := 1.0 / (ENV_MAX_ATTACK_T * real(SAMPLE_RATE)); 
-    constant ATTACK_MAX         : real := 1.0 / (ENV_MIN_ATTACK_T * real(SAMPLE_RATE));      
-    constant ATTACK_A           : std_logic_vector := std_logic_vector(to_unsigned(
-        integer((ATTACK_MAX - ATTACK_MIN) * real(2**CTRL_SIZE)), 16));
-    constant ATTACK_C           : std_logic_vector := std_logic_vector(to_unsigned(
-        integer(ATTACK_MIN * 2.0**(2 * CTRL_SIZE)), 32));
-
-    constant DECAY_MIN          : real := 1.0 / real(ENV_MAX_DECAY_T * real(SAMPLE_RATE)); 
-    constant DECAY_MAX          : real := 1.0 / real(ENV_MIN_DECAY_T * real(SAMPLE_RATE));      
-    constant DECAY_A            : std_logic_vector := std_logic_vector(to_unsigned(
-        integer((DECAY_MAX - DECAY_MIN) * real(2**CTRL_SIZE)), 16));
-    constant DECAY_C            : std_logic_vector := std_logic_vector(to_unsigned(
-        integer(DECAY_MIN * 2.0**(2 * CTRL_SIZE)), 32));
-
-    constant RELEASE_MIN        : real := 1.0 / real(ENV_MAX_RELEASE_T * real(SAMPLE_RATE)); 
-    constant RELEASE_MAX        : real := 1.0 / real(ENV_MIN_RELEASE_T * real(SAMPLE_RATE));      
-    constant RELEASE_A          : std_logic_vector := std_logic_vector(to_unsigned(
-        integer((RELEASE_MAX - RELEASE_MIN) * real(2**CTRL_SIZE)), 16));
-    constant RELEASE_C          : std_logic_vector := std_logic_vector(to_unsigned(
-        integer(ATTACK_MIN * 2.0**(2 * CTRL_SIZE)), 32));
-
 
     type t_state is (idle, wait_valid, map_attack, map_decay, map_release, running);
     type t_adsr_state is (attack, decay, sustain, state_release, closed);
@@ -71,18 +53,24 @@ architecture arch of envelope is
 
     type t_envelope_reg is record
         state                   : t_state;
-        next_state              : t_state;
         adsr_state              : t_adsr_state_2d_array;
+        adsr_state_in           : t_adsr_state;
+        adsr_state_out          : t_adsr_state;
+        update_adsr_state       : std_logic;
+        update_phase            : std_logic;
+        update_release_amp      : std_logic;
         envelope_out            : t_envelope_out(0 to N_INSTANCES - 1);
         envelope_buffer         : t_envelope_out(0 to N_INSTANCES - 1);
         velocity_attack         : unsigned(31 downto 0);
         velocity_decay          : unsigned(31 downto 0);
         velocity_release        : unsigned(31 downto 0);
         phase                   : t_envelope_phase_2d_array; -- Cordic phase inputs in [0 - 1] for each instance for each output.
-        selected_phase          : unsigned(31 downto 0);
+        phase_in                : unsigned(31 downto 0);
+        phase_out               : unsigned(31 downto 0);
         index_array             : t_index_array;
         valid_array             : std_logic_vector(0 to PIPE_SUM_MULT);
         release_amp             : t_envelope_out(0 to N_INSTANCES - 1); -- Amplitude at start of release. Normally equal to sustain except when the note is released early.
+        release_amp_out         : t_ctrl_value;
         instance_counter        : integer range 0 to N_INSTANCES - 1;
         pipeline_done           : std_logic;
         envelope_active         : std_logic_vector(POLYPHONY_MAX - 1 downto 0);
@@ -90,18 +78,24 @@ architecture arch of envelope is
 
     constant REG_INIT : t_envelope_reg := (
         state                   => idle,
-        next_state              => idle,
         adsr_state              => (others => (others => closed)),
+        adsr_state_in           => closed,
+        adsr_state_out          => closed,
+        update_adsr_state       => '0',
+        update_phase            => '0',
+        update_release_amp      => '0',
         envelope_out            => (others => (others => (others => '0'))),
         envelope_buffer         => (others => (others => (others => '0'))),
         velocity_attack         => (others => '0'),
         velocity_decay          => (others => '0'),
         velocity_release        => (others => '0'),        
         phase                   => (others => (others => (others => '0'))),
-        selected_phase          => (others => '0'),
+        phase_in                => (others => '0'),
+        phase_out               => (others => '0'),
         index_array             => (others => 0),
         valid_array             => (others => '0'),
         release_amp             => (others => (others => (others => '0'))),
+        release_amp_out         => (others => '0'),
         instance_counter        => 0,
         pipeline_done           => '0',
         envelope_active         => (others => '0')
@@ -130,39 +124,46 @@ architecture arch of envelope is
     signal s_data_out           : unsigned(31 downto 0);
 
 
-    -- Increment phase with a velocity based on the adsr state (pipeline stage 1).
-    procedure increment_phase(signal r          : in  t_envelope_reg;
-                              signal r_in       : out t_envelope_reg;
-                              signal velocity   : in  unsigned(31 downto 0);
-                              constant next_state : in  t_adsr_state) is
+    -- -- Increment phase with a velocity based on the adsr state (pipeline stage 1).
+    -- procedure increment_phase(signal r          : in  t_envelope_reg;
+    --                           signal r_in       : out t_envelope_reg;
+    --                           signal velocity   : in  unsigned(31 downto 0);
+    --                           constant next_state : in  t_adsr_state) is
         
-        variable v_new_phase : unsigned(31 downto 0);
-    begin
-        -- Increment phase.
-        v_new_phase := r.selected_phase + velocity;
+    --     variable v_new_phase : unsigned(31 downto 0);
+    -- begin
+    --     -- Increment phase.
+    --     v_new_phase := r.phase_in + velocity;
 
-        -- Check for overflow.
-        if v_new_phase(31) = '0' and r.selected_phase(31) = '1' then 
-            r_in.phase(r.instance_counter)(r.index_array(PIPE_LEN_MUX)) <= (others => '0');
-            r_in.adsr_state(r.instance_counter)(r.index_array(PIPE_LEN_MUX)) <= next_state;
-        else 
-            r_in.phase(r.instance_counter)(r.index_array(PIPE_LEN_MUX)) <= v_new_phase;
-        end if;
-    end procedure;   
+    --     r_in.update_phase <= '1';
+    --     r_in.adsr_state_out <= next_state; -- Only gets written when update_adsr_state = '1';
+
+    --     -- Check for overflow.
+    --     if v_new_phase(31) = '0' and r.phase_in(31) = '1' then 
+    --         r_in.phase_out <= (others => '0');
+    --         r_in.update_adsr_state <= '1';
+    --     else 
+    --         r_in.phase_out <= v_new_phase;
+    --     end if;
+    -- end procedure;   
 
  
-    -- Check if the voice is still enabled and go to release state if not (pipeline stage 1).
-    procedure check_release(signal r          : in  t_envelope_reg;
-                            signal r_in       : out t_envelope_reg;
-                            signal osc_inputs : in  t_osc_input_array(0 to POLYPHONY_MAX - 1)) is
-    begin
-        if osc_inputs(r.index_array(PIPE_LEN_MUX)).enable = '0' then 
-            r_in.phase(r.instance_counter)(r.index_array(PIPE_LEN_MUX)) <= (others => '0');
-            r_in.adsr_state(r.instance_counter)(r.index_array(PIPE_LEN_MUX)) <= state_release;
-            r_in.release_amp(r.instance_counter)(r.index_array(PIPE_LEN_MUX)) 
-                <= r.envelope_buffer(r.instance_counter)(r.index_array(PIPE_LEN_MUX));
-        end if;
-    end procedure;
+    -- -- Check if the voice is still enabled and go to release state if not (pipeline stage 1).
+    -- procedure check_release(signal r          : in  t_envelope_reg;
+    --                         signal r_in       : out t_envelope_reg;
+    --                         signal osc_inputs : in  t_osc_input_array(0 to POLYPHONY_MAX - 1)) is
+    -- begin
+    --     if osc_inputs(r.index_array(PIPE_LEN_MUX_IN)).enable = '0' then 
+
+    --         r_in.update_phase <= '1';
+    --         r_in.update_adsr_state <= '1';
+    --         r_in.update_release_amp <= '1';
+
+    --         r_in.phase_out <= (others => '0');
+    --         r_in.adsr_state_out <= state_release;
+    --         r_in.release_amp_out <= r.envelope_buffer(r.instance_counter)(r.index_array(PIPE_LEN_MUX_IN));
+    --     end if;
+    -- end procedure;
 
 begin
 
@@ -199,10 +200,14 @@ begin
             s_cordic_cos, s_cordic_sin, s_data_out_valid, s_data_out)
 
         variable v_envelope_active : std_logic_vector(POLYPHONY_MAX - 1 downto 0);
+        variable v_new_phase : unsigned(31 downto 0);
     begin
 
         -- Default register input.
         r_in <= r;
+        r_in.update_adsr_state <= '0';
+        r_in.update_phase <= '0';
+        r_in.update_release_amp <= '0';
 
         -- Connect outputs.
         envelope_out <= r.envelope_out;
@@ -230,6 +235,7 @@ begin
         s_cordic_cos <= signed(s_dout_tdata(17 downto 0));
         s_cordic_sin <= signed(s_dout_tdata(41 downto 24));
 
+        -- Default lin2log inputs.
         s_data_in_valid <= '0';
         s_data_in <= (others => '0');
 
@@ -299,56 +305,139 @@ begin
                 r_in.valid_array(0) <= '0';
             end if;
 
-            -- Pipeline stage 0: Mux phase of active instance and output for better timing.
+            -- Pipeline stage 0: Mux phase and adsr state of active instance and output for better timing.
             if r.valid_array(0) = '1' then 
-                r_in.selected_phase <= r.phase(r.instance_counter)(r.index_array(0));
+                r_in.phase_in <= r.phase(r.instance_counter)(r.index_array(0));
+                r_in.adsr_state_in <= r.adsr_state(r.instance_counter)(r.index_array(0));
             end if;
 
-            -- Pipeline stage 1: increment phase based on adsr state. Also do adsr state transitions.
-            if r.valid_array(PIPE_LEN_MUX) = '1' then 
-                case r.adsr_state(r.instance_counter)(r.index_array(PIPE_LEN_MUX)) is 
+            -- Pipeline stage 1: increment phase based on adsr state and do adsr state transitions.
+            if r.valid_array(PIPE_LEN_MUX_IN) = '1' then 
 
-                    when closed => 
+                -- Check for voice being triggered.
+                if r.adsr_state_in = closed then 
 
-                        if osc_inputs(r.index_array(PIPE_LEN_MUX)).enable = '1' then 
-                            r_in.phase(r.instance_counter)(r.index_array(PIPE_LEN_MUX)) <= (others => '0');
-                            r_in.adsr_state(r.instance_counter)(r.index_array(PIPE_LEN_MUX)) <= attack;
-                        end if;
+                    if osc_inputs(r.index_array(PIPE_LEN_MUX_IN)).enable = '1' then 
+
+                        r_in.update_adsr_state <= '1';
+                        r_in.adsr_state_out <= attack;
+
+                        r_in.update_phase <= '1';
+                        r_in.phase_out <= (others => '0');
+                    end if;
+
+                -- Increment state phase.
+                elsif r.adsr_state_in /= sustain then 
+                    
+                    -- Increment phase.
+                    r_in.update_phase <= '1';
+ 
+                    with r.adsr_state_in select v_new_phase := 
+                        r.phase_in + r.velocity_attack when attack, 
+                        r.phase_in + r.velocity_decay when decay, 
+                        r.phase_in + r.velocity_release when others; -- state_release
+                    
+                    -- Check for overflow.
+                    if v_new_phase(31) = '0' and r.phase_in(31) = '1' then 
+                        r_in.phase_out <= (others => '0');
+                        r_in.update_adsr_state <= '1';
+                        with r.adsr_state_in select r_in.adsr_state_out <= decay when attack,
+                                                                           sustain when decay,
+                                                                           closed when others; -- state_release
+                    else 
+                        r_in.phase_out <= v_new_phase;
+                    end if;
+                end if; 
+
+                -- Check if active voice is released. 
+                if r.adsr_state_in = attack or r.adsr_state_in = decay or r.adsr_state_in = sustain then 
+
+                    if osc_inputs(r.index_array(PIPE_LEN_MUX_IN)).enable = '0' then 
+
+                        r_in.update_phase <= '1';
+                        r_in.update_adsr_state <= '1';
+                        r_in.update_release_amp <= '1';
+
+                        r_in.phase_out <= (others => '0');
+                        r_in.adsr_state_out <= state_release;
+                        r_in.release_amp_out <= r.envelope_buffer(r.instance_counter)(r.index_array(PIPE_LEN_MUX_IN));
+                    end if;
+                end if;
+
+                -- Check for voice retrigger in release state. 
+                if r.adsr_state_in = state_release and osc_inputs(r.index_array(PIPE_LEN_MUX_IN)).enable = '1' then 
+
+                    r_in.update_phase <= '1';
+                    r_in.phase_out <= unsigned(r.envelope_buffer(r.instance_counter)
+                        (r.index_array(PIPE_LEN_MUX_IN))(14 downto 0)) & (0 to 16 => '0');
+                        
+                    r_in.update_adsr_state <= '1';
+                    r_in.adsr_state_out <= attack;
+                end if;
+            end if;
+
+            --     case r.adsr_state(r.instance_counter)(r.index_array(PIPE_LEN_MUX_IN)) is 
+
+            --         when closed => 
+
+            --             if osc_inputs(r.index_array(PIPE_LEN_MUX_IN)).enable = '1' then 
+
+            --                 r_in.update_adsr_state <= '1';
+            --                 r_in.adsr_state_out <= attack;
+
+            --                 r_in.update_phase <= '1';
+            --                 r_in.phase_out <= (others => '0');
+            --             end if;
                 
-                    when attack =>
-                        increment_phase(r, r_in, r.velocity_attack, decay);
-                        check_release(r, r_in, osc_inputs);
+            --         when attack =>
+            --             increment_phase(r, r_in, r.velocity_attack, decay);
+            --             check_release(r, r_in, osc_inputs); -- This function must be called after increment_phase.
 
-                    when decay => 
-                        increment_phase(r, r_in, r.velocity_decay, sustain);
-                        check_release(r, r_in, osc_inputs);
+            --         when decay => 
+            --             increment_phase(r, r_in, r.velocity_decay, sustain);
+            --             check_release(r, r_in, osc_inputs);
 
-                    when sustain => 
-                        check_release(r, r_in, osc_inputs);
+            --         when sustain => 
+            --             check_release(r, r_in, osc_inputs);
 
-                    when state_release => 
-                        increment_phase(r, r_in, r.velocity_release, closed);
+            --         when state_release => 
+            --             increment_phase(r, r_in, r.velocity_release, closed);
 
-                        -- Note is re-triggered during release.
-                        if osc_inputs(r.index_array(PIPE_LEN_MUX)).enable = '1' then 
+            --             -- Note is re-triggered during release.
+            --             if osc_inputs(r.index_array(PIPE_LEN_MUX_IN)).enable = '1' then 
 
-                            -- Set phase so that the attack continues from the current mod level.
-                            r_in.phase(r.instance_counter)(r.index_array(PIPE_LEN_MUX)) <= 
-                                unsigned(r.envelope_buffer(r.instance_counter)(r.index_array(PIPE_LEN_MUX))(14 downto 0))
-                                & (0 to 16 => '0');
+            --                 r_in.update_phase <= '1';
+            --                 r_in.phase_out <= unsigned(r.envelope_buffer(r.instance_counter)
+            --                     (r.index_array(PIPE_LEN_MUX_IN))(14 downto 0)) & (0 to 16 => '0');
+                                
+            --                 r_in.update_adsr_state <= '1';
+            --                 r_in.adsr_state_out <= attack;
+            --             end if;
+            --     end case;
+            -- end if;
 
-                            r_in.adsr_state(r.instance_counter)(r.index_array(PIPE_LEN_MUX)) <= attack;
-                        end if;
-                end case;
+            -- Pipeline stage 2: Mux new phase back to registers.
+            if r.update_phase = '1' then 
+                r_in.phase(r.instance_counter)(r.index_array(PIPE_SUM_PHASE)) <= r.phase_out;
             end if;
 
-            -- Pipeline stage 2: cordic phase input.
-            if r.valid_array(PIPE_SUM_PHASE) = '1' then 
+            -- Pipeline stage 2: Mux new state to registers.
+            if r.update_adsr_state = '1' then 
+                r_in.adsr_state(r.instance_counter)(r.index_array(PIPE_SUM_PHASE)) <= r.adsr_state_out;
+            end if;
+
+            -- Pipeline stage 2: Mux new release_amp to registers.
+            if r.update_release_amp = '1' then 
+                r_in.release_amp(r.instance_counter)(r.index_array(PIPE_SUM_PHASE)) <= r.release_amp_out;
+            end if;
+
+            -- Pipeline stage 3: cordic phase input.
+            if r.valid_array(PIPE_SUM_MUX_OUT) = '1' then 
                 s_phase_tvalid <= '1';
-                s_phase_tdata <= x"01" & std_logic_vector(r.phase(r.instance_counter)(r.index_array(PIPE_SUM_PHASE))); -- [0.5, 1] in signed 8.32 fixed point. 
+                s_phase_tdata <= x"01" & std_logic_vector(r.phase(r.instance_counter)(r.index_array(PIPE_SUM_MUX_OUT))); -- [0.5, 1] in signed 8.32 fixed point. 
             end if;
 
-            -- Pipeline stage 22: offset and scale cordic output.
+            -- Pipeline stage 25: offset and scale cordic output.
             if r.valid_array(PIPE_SUM_CORDIC) = '1' then 
 
                 case r.adsr_state(r.instance_counter)(r.index_array(PIPE_SUM_CORDIC)) is 
@@ -383,16 +472,12 @@ begin
                 end case;
             end if;
 
-            -- Pipeline stage 26: writeback.
+            -- Pipeline stage 29: writeback.
             if r.valid_array(PIPE_SUM_MULT) = '1' then 
                 r_in.envelope_buffer(r.instance_counter)(r.index_array(PIPE_SUM_MULT)) <= signed(s_mult_p(31 downto 16));
             end if;
 
-            -- Update shift registers.
-            r_in.valid_array(1 to PIPE_SUM_MULT) <= r.valid_array(0 to PIPE_SUM_MULT - 1);
-            r_in.index_array(1 to PIPE_SUM_MULT) <= r.index_array(0 to PIPE_SUM_MULT - 1);
-
-            -- End of pipeline.
+            -- Pipeline stage 29: Check for end of pipeline.
             if r.valid_array(PIPE_SUM_MULT) = '1' and r.index_array(PIPE_SUM_MULT) = POLYPHONY_MAX - 1 then 
 
                 r_in.state <= idle;
@@ -403,6 +488,10 @@ begin
                     r_in.pipeline_done <= '1';
                 end if;
             end if;
+
+            -- Update shift registers.
+            r_in.valid_array(1 to PIPE_SUM_MULT) <= r.valid_array(0 to PIPE_SUM_MULT - 1);
+            r_in.index_array(1 to PIPE_SUM_MULT) <= r.index_array(0 to PIPE_SUM_MULT - 1);
 
         end case;
 

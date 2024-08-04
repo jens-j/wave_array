@@ -126,6 +126,11 @@ package wave_array_pkg is
     constant ENV_MIN_RELEASE_T      : real := 1.0 / real(2**10);
     constant ENV_MAX_RELEASE_T      : real := real(2**3);   
 
+    -- Sample and hold constants.
+    constant SAMPLE_HOLD_N          : integer := 2;
+    constant SAMPLE_HOLD_MIN_T      : real := 1.0 / real(2**10); -- In seconds
+    constant SAMPLE_HOLD_MAX_T      : real := 4.0;
+
     -- Oscillator downsample halfband filter constants.
     -- The odd phase (m = 1) is all zeroes except c(0) = 1.
     -- The even phase is symmetric so only half of the coefficients for m = 0 are stored.
@@ -407,6 +412,14 @@ package wave_array_pkg is
 
     type t_envelope_input_array is array (natural range <>) of t_envelope_input;
 
+    type t_sample_hold_input is record 
+        binaural                : std_logic; 
+        amplitude               : t_ctrl_value;
+        velocity                : t_ctrl_value;
+    end record;
+
+    type t_sample_hold_input_array is array (natural range <>) of t_sample_hold_input;
+
     -- Register file outputs.
     type t_config is record
         led                     : std_logic;
@@ -455,10 +468,14 @@ package wave_array_pkg is
     end record;
 
     type t_addrgen2table is record
-        enable                  : std_logic; -- Oscillator enable (outputs zero when not enabled).
+        valid                   : std_logic;
         mipmap_level            : t_mipmap_level; -- Active mipmap level for each oscillator.
-        mipmap_address          : t_mipmap_address_array(0 to 1); -- Start mipmap address of input samples.
-        phase                   : t_osc_phase_array(0 to 1); -- Oscillator phase.
+        mipmap_address          : t_mipmap_address; -- Start mipmap address of input samples.
+        phase                   : t_osc_phase; -- Oscillator phase.
+    end record;
+
+    type t_table2addrgen is record
+        read_enable             : std_logic;
     end record;
 
     type t_dma2table is record
@@ -524,7 +541,6 @@ package wave_array_pkg is
 
     type t_osc_input_array is array (natural range <>) of t_osc_input;
     type t_sdram_input_array is array (natural range <>) of t_sdram_input;
-    type t_addrgen2table_array is array (natural range <>) of t_addrgen2table;
     type t_sdram_output_array is array (natural range <>) of t_sdram_output;
     type t_dma2table_array is array (natural range <>) of t_dma2table;
     type t_table2dma_array is array (natural range <>) of t_table2dma;
@@ -535,7 +551,6 @@ package wave_array_pkg is
     type t_spread_osc_inputs is array (0 to N_TABLES - 1) of t_osc_input_array(0 to N_VOICES - 1);
     type t_frame_ctrl_index is array (0 to N_VOICES - 1) of integer range 0 to POLYPHONY_MAX - 1;
     type t_unison_step_array is array (0 to N_TABLES - 1) of t_osc_phase_array(0 to POLYPHONY_MAX - 1);
-    type t_addrgen_output_array is array (0 to N_TABLES - 1) of t_addrgen2table_array(0 to N_VOICES - 1);
 
 
     constant MOD_MAPPING_INIT : t_mod_mapping := (
@@ -546,7 +561,7 @@ package wave_array_pkg is
     constant FRAME_DMA_INPUT_INIT : t_frame_dma_input := (
         new_table               => '0',             
         base_address            => (others => '0'), 
-        frames_log2             => 0              
+        frames_log2             => 1              
     );
 
     constant FLASH_DMA_INPUT_INIT : t_flash_dma_input := (
