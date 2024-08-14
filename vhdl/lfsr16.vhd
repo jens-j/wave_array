@@ -31,7 +31,7 @@ begin
         if rising_edge(clk) then
             if reset = '1' then
                 shift_reg <= INIT_VALUE;
-            else
+            elsif read_enable = '1' then
                 shift_reg(15 downto 1) <= shift_reg(14 downto 0);
                 shift_reg(0) <= shift_reg(15) xnor shift_reg(14) xnor shift_reg(12) xnor shift_reg(3);
             end if;

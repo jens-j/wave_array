@@ -36,7 +36,7 @@ class WaveArrayGui(QtWidgets.QMainWindow):
     PLOT_FREQUENCY = 50
     PLOT_PERIOD_MS = 1000 // PLOT_FREQUENCY
 
-    PLOT_T       = 4 # Seconds.
+    PLOT_T       = 2 # Seconds.
     PLOT_SAMPLES = PLOT_T * PLOT_FREQUENCY
 
     logger = logging.getLogger()
@@ -105,6 +105,7 @@ class WaveArrayGui(QtWidgets.QMainWindow):
         self.generate_mod_matrix()
         self.generate_lfo_ui()
         self.generate_envelope_ui()
+        self.generate_sh_ui()
         self.generate_plot_select()
         self.initialize_plots()
         self.load_stylesheets()
@@ -148,6 +149,7 @@ class WaveArrayGui(QtWidgets.QMainWindow):
         self.ui.box_filter_select.currentIndexChanged.connect(self.filter_select_changed)
         self.ui.box_lfo_waveform.currentIndexChanged.connect(self.lfo_waveform_changed)
         self.ui.box_noise_select.currentIndexChanged.connect(self.noise_select_changed)
+        self.ui.box_sh_input_select.currentIndexChanged.connect(self.box_sh_input_select_changed)
 
         self.ui.box_octaves_0.valueChanged.connect(partial(self.pitch_changed, 0))
         self.ui.box_octaves_1.valueChanged.connect(partial(self.pitch_changed, 1))
@@ -176,6 +178,7 @@ class WaveArrayGui(QtWidgets.QMainWindow):
         self.ui.slider_envelope_release.sliderMoved.connect(self.envelope_release_changed)
         self.ui.slider_sh_velocity.sliderMoved.connect(self.sh_velocity_changed)
         self.ui.slider_sh_amplitude.sliderMoved.connect(self.sh_amplitude_changed)
+        self.ui.slider_sh_slew_rate.sliderMoved.connect(self.sh_slew_rate_changed)
         self.ui.slider_mod_amount.sliderMoved.connect(self.set_mod_amount)
         
         # Connect mod matrix signals.
@@ -346,6 +349,9 @@ class WaveArrayGui(QtWidgets.QMainWindow):
         enabled = self.client.read(WaveArray.REG_SH_CTRL_BASE + 1)
         self.ui.btn_enable_sh_binaural.setChecked(enabled)
 
+        input_select = self.client.read(WaveArray.REG_SH_CTRL_BASE + 5)
+        self.ui.box_sh_input_select.setCurrentIndex(input_select)
+
         period = self.client.read(WaveArray.REG_WAVE_PERIOD)
         rate = 100E6 / (period * 1024)
         self.ui.box_oscilloscope_rate.setValue(int(rate))
@@ -365,6 +371,7 @@ class WaveArrayGui(QtWidgets.QMainWindow):
         unison_n = self.client.read(WaveArray.REG_UNISON_N)
         self.ui.box_unison.setValue(unison_n)
 
+        
         # Initialize sliders.
         amount = self.client.read(WaveArray.REG_MIX_CTRL_BASE)
         self.ui.slider_mix_0_position.setValue(amount)
@@ -441,6 +448,10 @@ class WaveArrayGui(QtWidgets.QMainWindow):
         amplitude = self.client.read(WaveArray.REG_SH_CTRL_BASE + 3)
         self.ui.slider_sh_amplitude.setValue(amplitude)  
         self.sh_amplitude_changed(velocity) 
+
+        slew_rate = self.client.read(WaveArray.REG_SH_CTRL_BASE + 4)
+        self.ui.slider_sh_slew_rate.setValue(slew_rate)  
+        self.sh_slew_rate_changed(slew_rate) 
 
         # Initialize pitch control.
         for index in range(2):
@@ -582,6 +593,12 @@ class WaveArrayGui(QtWidgets.QMainWindow):
             item.addStretch()
             
             layout.insertLayout(i, item)
+
+    
+    def generate_sh_ui(self):
+
+        for mods in list(ModMap.MODS_STRING_SHORT.values())[1:]:
+            self.ui.box_sh_input_select.addItem(mods)
 
 
     def initialize_plots(self):
@@ -845,6 +862,9 @@ class WaveArrayGui(QtWidgets.QMainWindow):
     def box_midi_channel_changed(self, channel):
         self.client.write(WaveArray.REG_MIDI_CHANNEL, np.uint16(channel - 1))
 
+    def box_sh_input_select_changed(self, index):
+        self.client.write(WaveArray.REG_SH_CTRL_BASE + 5, np.uint16(index + 1))
+
     def box_unison_n_changed(self, n):
         assert n in range(1, 17)
         self.client.write(WaveArray.REG_UNISON_N, n - 1)
@@ -964,6 +984,10 @@ class WaveArrayGui(QtWidgets.QMainWindow):
     def sh_amplitude_changed(self, control_value):
         self.client.write(WaveArray.REG_SH_CTRL_BASE + 3, control_value)
         self.ui.lbl_sh_amplitude.setText(f'{int(100 * control_value / (2**15 - 1)):3d}%')
+
+    def sh_slew_rate_changed(self, control_value):
+        self.client.write(WaveArray.REG_SH_CTRL_BASE + 4, max(1, control_value))
+        self.ui.lbl_sh_slew_rate.setText(f'{int(100 * control_value / (2**15 - 1)):3d}%')
 
     def appearanceActionClicked(self):
 

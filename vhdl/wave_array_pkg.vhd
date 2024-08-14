@@ -100,7 +100,7 @@ package wave_array_pkg is
     constant LFO_PHASE_FRAC         : integer := LFO_PHASE_SIZE - LFO_PHASE_INT; -- Fractional bit width of phase.
     constant LFO_MIN_RATE           : real := 0.125; -- in Hz.
     constant LFO_MAX_RATE           : real := 16.0;
-    constant LFO_N_WAVEFORMS        : integer := 3;
+    constant LFO_N_WAVEFORMS        : integer := 6;
 
     -- Some of these constants are to big to pre calculate using 32 bit integers.
     constant LFO_MIN_VELOCITY       : unsigned(CTRL_SIZE + 24 downto 0) := resize(x"aec33e1", CTRL_SIZE + 25); -- 0.125 Hz
@@ -298,12 +298,13 @@ package wave_array_pkg is
                                                -- x"0008XX4"; -- rw  1 bit          | One-shot mode to turn the LFO into an envelope.
                                                -- x"0008XX5"; -- wo  1 bit          | Reset LFO phase.
                                                -- x"0008XX6"; -- rw 15 bit unsigned | LFO ampitude base value.
+                                               -- x"0008XX7"; -- rw  1 bit          | Binaural split.
 
     -- Sample & hold registers base address. Contiguous blocks of 4 registers for each wavetable. Stride = 0x10.
-    constant REG_SH_BASE_CONTROL    : unsigned := x"0009000"; -- rw  1 bit          | Individual voice values enable. 
-                                               -- x"0009XX1"; -- rw  1 bit          | Binaural enable (different L/R values.).
-                                               -- x"0009XX2"; -- rw 15 bit          | velocity base value.
-                                               -- x"0009XX3"; -- rw 15 bit          | amplitude base value.
+    constant REG_SH_BASE_CONTROL    : unsigned := x"0009000"; -- rw 15 bit unsigned | velocity base value.
+                                               -- x"0009XX1"; -- rw 15 bit unsigned | amplitude base value.
+                                               -- x"0009XX2"; -- rw 15 bit unsigned | slew rate.
+                                               -- x"0009XX3"; -- rw 15 bit unsigned | input select.
      -- fault register (sticky-)bit indices.
     constant FAULT_UART_TIMEOUT     : integer := 0; -- UART packet engine timout.
     constant FAULT_REG_ADDRESS      : integer := 1; -- Register address undefined.
@@ -401,6 +402,7 @@ package wave_array_pkg is
         trigger                 : std_logic;
         phase_shift             : t_ctrl_value;
         oneshot                 : std_logic;
+        binaural                : std_logic;
     end record;
 
     type t_lfo_input_array is array (natural range <>) of t_lfo_input;
@@ -416,8 +418,8 @@ package wave_array_pkg is
     type t_envelope_input_array is array (natural range <>) of t_envelope_input;
 
     type t_sample_hold_input is record -- Amplitude and velocity are part of the status.mod_destinations.
-        individual              : std_logic; -- Each voice has a different value
-        binaural                : std_logic; -- Different values for binaural voice pairs.
+        input_select            : integer range 1 to MODS_LEN - 1;
+        slew_rate               : t_ctrl_value;
     end record;
 
     type t_sample_hold_input_array is array (natural range <>) of t_sample_hold_input;
@@ -743,7 +745,7 @@ package body wave_array_pkg is
                                         13 => x"3FFF",
                                         14 => x"3FFF",
                                         15 => x"0800",
-                                        16 => x"3FFF"),
+                                        16 => x"7FFF"),
             mod_mapping             => mapping, 
             hk_enable               => '0',
             hk_period               => x"07A1", -- 50 Hz (lsb is 1024 cycles).
@@ -752,9 +754,9 @@ package body wave_array_pkg is
             binaural_enable         => '0',
             unison_n                => 1,
             filter_select           => 0, -- Lowpass
-            lfo_input               => (others => (0, '0', (others => '0'), '0', x"0000", '0')),
+            lfo_input               => (others => (0, '0', (others => '0'), '0', x"0000", '0', '1')),
             envelope_input          => (others => (x"0000", x"0000", x"7FFF", x"0000", '0')),
-            sample_hold_input       => (others => ('1', '1')),
+            sample_hold_input       => (others => (MODS_LFO_0, x"0020")),
             frame_dma_input         => (others => FRAME_DMA_INPUT_INIT),
             flash_dma_input         => FLASH_DMA_INPUT_INIT,
             noise_select            => '0',

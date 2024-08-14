@@ -56,7 +56,7 @@ architecture arch of lfo is
     type t_sync is array (0 to N_INSTANCES - 1) of std_logic_vector(POLYPHONY_MAX - 1 downto 0);
     type t_phase_shift_array is array (0 to N_INSTANCES - 1) of signed(CTRL_SIZE + LFO_PHASE_INT - 2 downto 0);
 
-    type t_mixer_reg is record
+    type t_lfo_reg is record
         state                   : t_state;
         lfo_velocity_squared    : t_ctrl_value;
         lfo_velocity_clipped    : t_ctrl_value_array(0 to N_INSTANCES - 1);
@@ -83,9 +83,13 @@ architecture arch of lfo is
         prev_phase_raw          : signed(LFO_PHASE_SIZE - 1 downto 0);
         phase_shift_array       : t_phase_shift_array;
         phase_clipped           : signed(LFO_PHASE_SIZE - 1 downto 0);
+        block_wb                : std_logic_vector(PIPE_SUM_WRITEBACK - 1 downto PIPE_SUM_MUX);
+        lfsr_en_shift           : std_logic_vector(CTRL_SIZE - 1 downto 0);
+        lfsr_word               : std_logic_vector(CTRL_SIZE - 1 downto 0);
+        phase_overflow          : std_logic;
     end record;
 
-    constant REG_INIT : t_mixer_reg := (
+    constant REG_INIT : t_lfo_reg := (
         state                   => idle,
         lfo_velocity_squared    => (others => '0'),
         lfo_velocity_clipped    => (others => (others => '0')),
@@ -111,7 +115,11 @@ architecture arch of lfo is
         pipeline_done           => '0',
         prev_phase_raw          => (others => '0'),
         phase_shift_array       => (others => (others => '0')),
-        phase_clipped           => (others => '0')
+        phase_clipped           => (others => '0'),
+        block_wb                => (others => '0'),
+        lfsr_en_shift           => (others => '0'),
+        lfsr_word               => (others => '0'),
+        phase_overflow          => '0'
     );
 
     -- Clip the cordic output.
@@ -128,12 +136,14 @@ architecture arch of lfo is
         end if;
     end function;
 
-    signal r, r_in              : t_mixer_reg;
+    signal r, r_in              : t_lfo_reg;
 
     signal s_phase_tvalid       : std_logic;
     signal s_phase_tdata        : std_logic_vector(LFO_PHASE_SIZE - 1 downto 0);
     signal s_dout_tvalid        : std_logic;
     signal s_dout_tdata         : std_logic_vector(47 downto 0);
+
+    signal s_lfsr_out           : std_logic;
 
 begin
 
@@ -146,13 +156,31 @@ begin
         m_axis_dout_tdata       => s_dout_tdata
     );
 
-    combinatorial : process (r, config, status, next_sample, lfo_input, osc_inputs, s_dout_tvalid, s_dout_tdata)
+    lfsr : entity wave.lfsr16
+    generic map (
+        INIT_VALUE          => std_logic_vector(to_unsigned(1, 16))
+    )
+    port map (
+        clk                 => clk,
+        reset               => reset,
+        read_enable         => r.lfsr_en_shift(CTRL_SIZE - 1),
+        bit_out             => s_lfsr_out
+    );
+
+    combinatorial : process (r, config, status, next_sample, lfo_input, osc_inputs, s_dout_tdata)
+
         variable v_lfo_velocity_squared : signed(2 * CTRL_SIZE - 1 downto 0);
         variable v_index_unsigned : unsigned(15 downto 0);
         variable v_amp_mult : signed(2 * CTRL_SIZE - 1 downto 0);
+        variable v_phase_trunc : signed(CTRL_SIZE - 1 downto 0);
+        variable v_triangle_raw : signed(CTRL_SIZE downto 0);
     begin
 
         r_in <= r;
+        r_in.phase_overflow <= '0';
+
+        -- Trucate phase for ramp like LFO outputs.
+        v_phase_trunc := r.phase(r.instance_cordic)(r.index_cordic)(LFO_PHASE_FRAC downto LFO_PHASE_FRAC - CTRL_SIZE + 1);
 
         -- Default inputs.
         s_phase_tvalid <= '0';
@@ -163,7 +191,16 @@ begin
 
         -- Update shift registers.
         r_in.valid_shift(0) <= '0';
+        r_in.block_wb(PIPE_SUM_MUX) <= '1';
         r_in.valid_shift(PIPE_SUM_WRITEBACK - 1 downto 1) <= r.valid_shift(PIPE_SUM_WRITEBACK - 2 downto 0);
+        r_in.block_wb(PIPE_SUM_WRITEBACK - 1 downto PIPE_SUM_MUX + 1) 
+            <= r.block_wb(PIPE_SUM_WRITEBACK - 2 downto PIPE_SUM_MUX);
+
+        -- Lfsr shift registers.
+        r_in.lfsr_en_shift(CTRL_SIZE - 1 downto 0) <= r.lfsr_en_shift(CTRL_SIZE - 2 downto 0) & '0';
+        if r.lfsr_en_shift(CTRL_SIZE - 1) = '1' then 
+            r_in.lfsr_word <= r.lfsr_word(CTRL_SIZE - 2 downto 0) & s_lfsr_out;
+        end if;
 
         -- Index and instance shift registers are only used at the first part of the pipeline. 
         r_in.index_shift(1 to PIPE_SUM_CORDIC - 1) <= r.index_shift(0 to PIPE_SUM_CORDIC - 2);
@@ -199,6 +236,9 @@ begin
 
                 -- Load new output samples from buffer.
                 r_in.lfo_out <= r.lfo_buffer;
+
+                -- Update lfsr output once every cycle. This gives oscillators with the same phase the same random values. 
+                r_in.lfsr_en_shift <= (others => '1');
 
                 r_in.index_shift(0) <= 0;
                 r_in.instance_shift(0) <= 0; 
@@ -280,7 +320,9 @@ begin
                 v_index_unsigned := to_unsigned(r.index_shift(PIPE_SUM_CLIP - 1), 16);
 
                 -- Reset to zero of the phase offset if in binaural mode and voice is odd.
-                if config.binaural_enable = '1' and v_index_unsigned(0) = '1' then 
+                if config.binaural_enable = '1' and lfo_input(r.instance_shift(PIPE_SUM_CLIP - 1)).binaural = '1' 
+                        and v_index_unsigned(0) = '1' then 
+
                     r_in.phase_clipped <= r.phase_shift_array(r.instance_shift(PIPE_SUM_CLIP - 1)) 
                         & (0 to LFO_PHASE_FRAC - CTRL_SIZE => '0');
                 else 
@@ -289,6 +331,7 @@ begin
 
             elsif r.phase_offset >= shift_left(to_signed(1, LFO_PHASE_SIZE), LFO_PHASE_FRAC) then
                 r_in.phase_clipped <= r.phase_offset - shift_left(to_signed(1, LFO_PHASE_SIZE), LFO_PHASE_FRAC + 1);
+                r_in.phase_overflow <= '1';
 
             elsif r.phase_offset < shift_left(to_signed(-1, LFO_PHASE_SIZE), LFO_PHASE_FRAC) then
                 r_in.phase_clipped <= r.phase_offset + shift_left(to_signed(1, LFO_PHASE_SIZE), LFO_PHASE_FRAC + 1);
@@ -298,8 +341,17 @@ begin
         end if;
 
         -- Pipeline stage 5: mux clipped phase to voice/instance buffer.
-        r_in.phase(r.instance_shift(PIPE_SUM_MUX - 1))(r.index_shift(PIPE_SUM_MUX - 1)) <= r.phase_clipped;
-        
+        if r.valid_shift(PIPE_SUM_MUX - 1) = '1' then 
+            r_in.phase(r.instance_shift(PIPE_SUM_MUX - 1))(r.index_shift(PIPE_SUM_MUX - 1)) <= r.phase_clipped;
+        end if;
+
+        -- Pipeline stage 5: generate block_wb signal.
+        if lfo_input(r.instance_shift(PIPE_SUM_MUX - 1)).wave_select /= 4 then 
+            r_in.block_wb(PIPE_SUM_MUX) <= '0';
+        else 
+            r_in.block_wb(PIPE_SUM_MUX) <= not r.phase_overflow;
+        end if;
+
         -- Pipeline stage 6: input phase into cordic.
         if r.valid_shift(PIPE_SUM_CORDIC - 1) = '1' then 
             s_phase_tvalid <= '1';
@@ -315,17 +367,38 @@ begin
 
                 r_in.raw_buffer <= clip_sine(s_dout_tdata(40 downto 24));
 
-            -- Trunctate the phase to get the saw output.
+            -- Generate triangle output.
             elsif lfo_input(r.instance_cordic).wave_select = 1 then 
 
-                r_in.raw_buffer <=
-                    r.phase(r.instance_cordic)(r.index_cordic)(LFO_PHASE_FRAC downto LFO_PHASE_FRAC - CTRL_SIZE + 1);
+                if v_phase_trunc < to_signed(0, CTRL_SIZE) then 
+                    v_triangle_raw := to_signed(2**(CTRL_SIZE - 1) - 1, CTRL_SIZE + 1) 
+                        + shift_left(resize(v_phase_trunc, CTRL_SIZE + 1), 1);
+                else
+                    v_triangle_raw := to_signed(2**(CTRL_SIZE - 1) - 1, CTRL_SIZE + 1) 
+                        - shift_left(resize(v_phase_trunc, CTRL_SIZE + 1), 1);
+                end if;
+
+                r_in.raw_buffer <= v_triangle_raw(CTRL_SIZE - 1 downto 0);
+
+            -- Truncate the phase to get the ramp up output.
+            elsif lfo_input(r.instance_cordic).wave_select = 2 then 
+
+                r_in.raw_buffer <= v_phase_trunc;
+
+            -- Trunctate the phase and subtract to get the ramp down output.
+            elsif lfo_input(r.instance_cordic).wave_select = 3 then 
+
+                r_in.raw_buffer <= x"7FFF" - v_phase_trunc;
 
             -- Generate square output.
-            else  
+            elsif lfo_input(r.instance_cordic).wave_select = 4 then 
                 r_in.raw_buffer <= 
                     (CTRL_SIZE - 1 => '0', CTRL_SIZE - 2 downto 0 => '1') when r.phase(r.instance_cordic)(r.index_cordic) >= 0 
                     else (CTRL_SIZE - 1 => '1', CTRL_SIZE - 2 downto 0 => '0');
+
+            -- Take random value from lsfr.
+            else
+                r_in.raw_buffer <= signed(r.lfsr_word);
             end if;
 
             -- Mux scale value.
@@ -351,7 +424,10 @@ begin
 
         -- Pipeline stage 29: write scaled LFO value to buffer
         if r.valid_shift(PIPE_SUM_WRITEBACK - 1) = '1' then
-            r_in.lfo_buffer(r.instance_wb)(r.index_wb) <= r.scaled_buffer;
+
+            if r.block_wb(PIPE_SUM_WRITEBACK - 1) = '0' then
+                r_in.lfo_buffer(r.instance_wb)(r.index_wb) <= r.scaled_buffer;
+            end if;
 
             -- Inrement counters
             if r.index_wb < POLYPHONY_MAX - 1 then

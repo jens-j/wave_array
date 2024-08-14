@@ -9,7 +9,7 @@ use wave.wave_array_pkg.all;
 
 -- Maps control value input in [-2**15, 2**15-1] to exponential curve in [0.5, 2] using y = 2**(x / 2**15).
 -- Output value is in fixed point format. 
--- The 10 MSBs of the input value are used to lookup an value from a pre-calculated table. The 6 LSBs are used 
+-- The 10 MSBs of the input value are used to look up an value from a pre-calculated table. The 6 LSBs are used 
 -- to interpolate linearly between two values from the table. The interpolation is performed using
 -- A + d * (B - A). Where d is the 6 LSBs. 
 entity lin2exp is

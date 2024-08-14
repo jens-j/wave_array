@@ -33,6 +33,8 @@ add wave -divider envelope:
 add wave tb_wave_array/wave_array/synth_subsys/envelope/*
 add wave -divider lfo:
 add wave tb_wave_array/wave_array/synth_subsys/lfo/*
+add wave -divider lfo_lfsr:
+add wave tb_wave_array/wave_array/synth_subsys/lfo/lfsr/*
 add wave -divider sample_hold:
 add wave tb_wave_array/wave_array/synth_subsys/sample_hold/*
 add wave -divider pitch_mod:

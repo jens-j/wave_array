@@ -1,14 +1,17 @@
 read   00008002                                 # 
 write  00000002     0001                        # enable LED
 read   00000002                                 # read back LED
-write  00008000     4000                        # write LFO_0 velocity
+write  00008000     7000                        # write LFO_0 velocity
 write  00008006     3FFF                        # write LFO_0 amplitude
 #write  00008002     0001                        # Enable LFO_0 trigger
 write  00008003     8000                        # write LFO_0 phase (-180 degrees)
-write  00008010     6000                        # Write LFO_1 velocity
+write  00008010     7F00                        # Write LFO_1 velocity
 write  00008013     C000                        # write LFO_1 phase (-90 degrees)
-write  00008011     0001                        # set LFO_1 waveform to saw
-write  00008020     2000                        # set LFO_2 velocity 
+write  00008011     0004                        # set LFO_1 waveform to random
+write  00008020     7FFF                        # set LFO_2 velocity 
+write  00008021     0001                        # set LFO_2 waveform to triangle
+#write  00008022     0001                        # Enable LFO_2 trigger
+write  00008027     0000                        # Disable LFO_2 binaural mode
 
 write  00007000     0000                        # write envelope_0 attack
 write  00007001     0020                        # write envelope_0 decay
@@ -23,10 +26,10 @@ write  00007011     0110                        # write envelope_1 decay
 write  00007012     2DE7                        # write envelope_1 sustain
 write  00007013     0222                        # write envelope_1 release
 
-write  00009000     0001                        # Set individual enable 
-write  00009001     0001                        # Set binaural enable
-write  00009002     0004                        # Set S&H velocity 
-write  00009003     4000                        # Set S&H amp 
+write  00009000     7FC0                        # Set S&H velocity 
+write  00009001     4000                        # Set S&H amp
+write  00009002     0100                        # Set S&H slew rate
+write  00009003     0007                        # Set S&H input to lfo 2 
 
 write  00004000     4000                        # Set frame control base of osc 0 halfway.
 

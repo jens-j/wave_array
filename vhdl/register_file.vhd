@@ -349,8 +349,10 @@ begin
                 when x"6" => 
                     r_in.register_output.read_data <= std_logic_vector(
                         r.config.base_ctrl(MODD_LFO_0_AMPLITUDE + v_lfo_index));
+
+                when x"7" => 
+                    r_in.register_output.read_data(0) <= r.config.lfo_input(v_lfo_index).binaural;
                 
-                -- LFO reset register is not readable.
                 when others => 
                     r_in.register_output.valid <= '0';
                 end case;
@@ -363,17 +365,19 @@ begin
                 v_sh_index := to_integer(unsigned(v_rel_address(SAMPLE_HOLD_N_LOG2 + 4 downto 4))); -- Index slice is 1 bit wider than necessary to accomodate SAMPLE_HOLD_N_LOG2 = 0.
 
                 case v_rel_address(3 downto 0) is 
+
                 when x"0" => 
-                    r_in.register_output.read_data(0) <= r.config.sample_hold_input(v_lfo_index).individual;
+                    r_in.register_output.read_data <= std_logic_vector(r.config.base_ctrl(MODD_SH_VELOCITY + v_sh_index));
 
                 when x"1" => 
-                    r_in.register_output.read_data(0) <= r.config.sample_hold_input(v_lfo_index).binaural;
+                    r_in.register_output.read_data <= std_logic_vector(r.config.base_ctrl(MODD_SH_AMPLITUDE + v_sh_index));
 
                 when x"2" => 
-                    r_in.register_output.read_data <= std_logic_vector(r.config.base_ctrl(MODD_SH_VELOCITY + v_lfo_index));
+                    r_in.register_output.read_data <= std_logic_vector(r.config.sample_hold_input(v_sh_index).slew_rate);
 
                 when x"3" => 
-                    r_in.register_output.read_data <= std_logic_vector(r.config.base_ctrl(MODD_SH_AMPLITUDE + v_lfo_index));
+                    r_in.register_output.read_data <= std_logic_vector(
+                        to_unsigned(r.config.sample_hold_input(v_sh_index).input_select, REGISTER_WIDTH));
 
                 when others => 
                     r_in.register_output.valid <= '0';
@@ -623,6 +627,9 @@ begin
                 when x"6" => 
                     r_in.config_buffer.base_ctrl(MODD_LFO_0_AMPLITUDE + v_lfo_index) <= 
                         signed(register_input.write_data);
+
+                when x"7" => 
+                    r_in.config_buffer.lfo_input(v_lfo_index).binaural <= register_input.write_data(0);
                 
                 when others => 
                     r_in.register_output.valid <= '0';
@@ -635,18 +642,20 @@ begin
                 v_rel_address := register_input.address and x"0000_0FFF";
                 v_sh_index := to_integer(unsigned(v_rel_address(SAMPLE_HOLD_N_LOG2 + 4 downto 4)));
 
-                case v_rel_address(3 downto 0) is 
+                case v_rel_address(3 downto 0) is      
+
                 when x"0" => 
-                    r_in.config_buffer.sample_hold_input(v_sh_index).individual <= register_input.write_data(0);
-
-                when x"1" =>
-                    r_in.config_buffer.sample_hold_input(v_sh_index).binaural <= register_input.write_data(0);                
-
-                when x"2" => 
                     r_in.config_buffer.base_ctrl(MODD_SH_VELOCITY + v_sh_index) <= signed(register_input.write_data);
 
-                when x"3" => 
+                when x"1" => 
                     r_in.config_buffer.base_ctrl(MODD_SH_AMPLITUDE + v_sh_index) <= signed(register_input.write_data);
+
+                when x"2" =>
+                    r_in.config_buffer.sample_hold_input(v_sh_index).slew_rate <= signed(register_input.write_data);
+
+                when x"3" =>
+                    r_in.config_buffer.sample_hold_input(v_sh_index).input_select <= 
+                        maximum(1, minimum(MODS_LEN - 1, to_integer(unsigned(register_input.write_data))));
                 
                 when others => 
                     r_in.register_output.valid <= '0';

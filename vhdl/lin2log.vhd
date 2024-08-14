@@ -7,17 +7,21 @@ use wave.wave_array_pkg.all;
 
 library xil_defaultlib;
 
--- Convert a linear 15 bit control value to a 32-bit logaritmic mapping. 
+-- Convert a linear 15 bit control value to a n-bit logaritmic mapping. 
 -- A 1024 entry LUT is used with linear interpolation based on the remaining 6 lsb.
 -- Interpolation is performed by adding shifted values of B - A to A.
 entity lin2log is
+    generic (
+        WIDTH                   : integer;
+        INIT_FILE               : string
+    );
     port (
         clk                     : in  std_logic;
         reset                   : in  std_logic;
         data_in_valid           : in  std_logic;
         data_in                 : in  t_ctrl_value;
         data_out_valid          : out std_logic;
-        data_out                : out unsigned(31 downto 0)
+        data_out                : out unsigned(WIDTH - 1 downto 0)
     );
 end entity;
 
@@ -34,11 +38,11 @@ architecture arch of lin2log is
         state                   : t_state;
         address_b               : unsigned(9 downto 0);
         value_d                 : signed(5 downto 0);
-        diff_ab                 : signed(32 downto 0); 
-        accumulator             : signed(37 downto 0);
+        diff_ab                 : signed(WIDTH downto 0); 
+        accumulator             : signed(WIDTH + 5 downto 0);
         counter                 : integer range 0 to 5;
         data_out_valid          : std_logic;
-        data_out                : unsigned(31 downto 0);
+        data_out                : unsigned(WIDTH - 1 downto 0);
     end record;
 
     constant REG_INIT : t_envelope_reg := (
@@ -56,15 +60,15 @@ architecture arch of lin2log is
     signal r, r_in              : t_envelope_reg;
 
     signal s_rom_address        : std_logic_vector(9 downto 0);
-    signal s_rom_data           : std_logic_vector(31 downto 0);
+    signal s_rom_data           : std_logic_vector(WIDTH - 1 downto 0);
     
 begin 
 
     rom : entity wave.rom
     generic map (
-        WIDTH                   => 32,
+        WIDTH                   => WIDTH,
         DEPTH_LOG2              => 10,
-        INIT_FILE               => GET_INPUT_FILE_PATH & "log.hex"
+        INIT_FILE               => INIT_FILE
     )
     port map (
         clk                     => clk,
@@ -116,7 +120,7 @@ begin
         when store_b => 
 
             -- Store B - A.
-            r_in.diff_ab <= signed('0' & s_rom_data) - r.accumulator(37 downto 5);
+            r_in.diff_ab <= signed('0' & s_rom_data) - r.accumulator(WIDTH + 5 downto 5);
 
             r_in.counter <= 0;
             r_in.state <= interpolate;
@@ -125,7 +129,7 @@ begin
         when interpolate => 
 
             if r.value_d(r.counter) = '1' then 
-                r_in.accumulator <= r.accumulator + resize(shift_left(r.diff_ab, r.counter), 37);
+                r_in.accumulator <= r.accumulator + resize(shift_left(r.diff_ab, r.counter), WIDTH + 5);
             end if;
 
             if r.counter < 4 then 
@@ -137,7 +141,7 @@ begin
         when finalize => 
 
             r_in.data_out_valid <= '1';
-            r_in.data_out <= unsigned(r.accumulator(36 downto 5));
+            r_in.data_out <= unsigned(r.accumulator(WIDTH + 4 downto 5));
             r_in.state <= idle;
 
         end case;

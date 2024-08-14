@@ -123,51 +123,13 @@ architecture arch of envelope is
     signal s_data_out_valid     : std_logic;
     signal s_data_out           : unsigned(31 downto 0);
 
-
-    -- -- Increment phase with a velocity based on the adsr state (pipeline stage 1).
-    -- procedure increment_phase(signal r          : in  t_envelope_reg;
-    --                           signal r_in       : out t_envelope_reg;
-    --                           signal velocity   : in  unsigned(31 downto 0);
-    --                           constant next_state : in  t_adsr_state) is
-        
-    --     variable v_new_phase : unsigned(31 downto 0);
-    -- begin
-    --     -- Increment phase.
-    --     v_new_phase := r.phase_in + velocity;
-
-    --     r_in.update_phase <= '1';
-    --     r_in.adsr_state_out <= next_state; -- Only gets written when update_adsr_state = '1';
-
-    --     -- Check for overflow.
-    --     if v_new_phase(31) = '0' and r.phase_in(31) = '1' then 
-    --         r_in.phase_out <= (others => '0');
-    --         r_in.update_adsr_state <= '1';
-    --     else 
-    --         r_in.phase_out <= v_new_phase;
-    --     end if;
-    -- end procedure;   
-
- 
-    -- -- Check if the voice is still enabled and go to release state if not (pipeline stage 1).
-    -- procedure check_release(signal r          : in  t_envelope_reg;
-    --                         signal r_in       : out t_envelope_reg;
-    --                         signal osc_inputs : in  t_osc_input_array(0 to POLYPHONY_MAX - 1)) is
-    -- begin
-    --     if osc_inputs(r.index_array(PIPE_LEN_MUX_IN)).enable = '0' then 
-
-    --         r_in.update_phase <= '1';
-    --         r_in.update_adsr_state <= '1';
-    --         r_in.update_release_amp <= '1';
-
-    --         r_in.phase_out <= (others => '0');
-    --         r_in.adsr_state_out <= state_release;
-    --         r_in.release_amp_out <= r.envelope_buffer(r.instance_counter)(r.index_array(PIPE_LEN_MUX_IN));
-    --     end if;
-    -- end procedure;
-
 begin
 
     lin2log : entity wave.lin2log 
+    generic map (
+        WIDTH                   => 32,
+        INIT_FILE               => GET_INPUT_FILE_PATH & "log_velocity.hex"
+    )
     port map (
         clk                     => clk,
         reset                   => reset,
