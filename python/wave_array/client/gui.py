@@ -124,9 +124,8 @@ class WaveArrayGui(QtWidgets.QMainWindow):
         self.ui.btn_enable_hk.clicked.connect(self.btn_enable_hk_clicked)
         self.ui.btn_enable_oscilloscope.clicked.connect(self.btn_enable_oscilloscope_clicked)
         self.ui.btn_enable_lfo_trigger.clicked.connect(self.btn_enable_lfo_trigger_clicked)
+        self.ui.btn_enable_lfo_binaural.clicked.connect(self.btn_enable_lfo_binaural_clicked)
         self.ui.btn_enable_binaural.clicked.connect(self.btn_enable_binaural_clicked)
-        self.ui.btn_enable_sh_individual.clicked.connect(self.btn_enable_sh_individual_clicked)
-        self.ui.btn_enable_sh_binaural.clicked.connect(self.btn_enable_sh_binaural_clicked)
         self.ui.btn_mod_disable.clicked.connect(self.btn_mod_disable_clicked)
         self.ui.btn_mod_zero.clicked.connect(self.btn_mod_zero_clicked)
 
@@ -343,13 +342,13 @@ class WaveArrayGui(QtWidgets.QMainWindow):
         enabled = self.client.read(WaveArray.REG_LFO_CTRL_BASE + 2)
         self.ui.btn_enable_lfo_trigger.setChecked(enabled)
 
-        enabled = self.client.read(WaveArray.REG_SH_CTRL_BASE)
-        self.ui.btn_enable_sh_individual.setChecked(enabled)
+        enabled = self.client.read(WaveArray.REG_LFO_CTRL_BASE + 2)
+        self.ui.btn_enable_lfo_trigger.setChecked(enabled)
 
-        enabled = self.client.read(WaveArray.REG_SH_CTRL_BASE + 1)
-        self.ui.btn_enable_sh_binaural.setChecked(enabled)
+        enabled = self.client.read(WaveArray.REG_LFO_CTRL_BASE + 7)
+        self.ui.btn_enable_lfo_binaural.setChecked(enabled)
 
-        input_select = self.client.read(WaveArray.REG_SH_CTRL_BASE + 5)
+        input_select = self.client.read(WaveArray.REG_SH_CTRL_BASE + 3)
         self.ui.box_sh_input_select.setCurrentIndex(input_select)
 
         period = self.client.read(WaveArray.REG_WAVE_PERIOD)
@@ -441,15 +440,15 @@ class WaveArrayGui(QtWidgets.QMainWindow):
         self.ui.slider_envelope_release.setValue(release)  
         self.envelope_release_changed(release)
 
-        velocity = self.client.read(WaveArray.REG_SH_CTRL_BASE + 2)
+        velocity = self.client.read(WaveArray.REG_SH_CTRL_BASE + 0)
         self.ui.slider_sh_velocity.setValue(velocity)  
         self.sh_velocity_changed(velocity) 
 
-        amplitude = self.client.read(WaveArray.REG_SH_CTRL_BASE + 3)
+        amplitude = self.client.read(WaveArray.REG_SH_CTRL_BASE + 1)
         self.ui.slider_sh_amplitude.setValue(amplitude)  
         self.sh_amplitude_changed(velocity) 
 
-        slew_rate = self.client.read(WaveArray.REG_SH_CTRL_BASE + 4)
+        slew_rate = self.client.read(WaveArray.REG_SH_CTRL_BASE + 2)
         self.ui.slider_sh_slew_rate.setValue(slew_rate)  
         self.sh_slew_rate_changed(slew_rate) 
 
@@ -863,7 +862,7 @@ class WaveArrayGui(QtWidgets.QMainWindow):
         self.client.write(WaveArray.REG_MIDI_CHANNEL, np.uint16(channel - 1))
 
     def box_sh_input_select_changed(self, index):
-        self.client.write(WaveArray.REG_SH_CTRL_BASE + 5, np.uint16(index + 1))
+        self.client.write(WaveArray.REG_SH_CTRL_BASE + 3, np.uint16(index + 1))
 
     def box_unison_n_changed(self, n):
         assert n in range(1, 17)
@@ -878,6 +877,9 @@ class WaveArrayGui(QtWidgets.QMainWindow):
         # Reset phases when trigger is deselected
         if not checked:
             self.client.write(WaveArray.REG_LFO_CTRL_BASE + self.lfo_index * 0x10 + 5, 1)
+
+    def btn_enable_lfo_binaural_clicked(self, checked):
+        self.client.write(WaveArray.REG_LFO_CTRL_BASE + self.lfo_index * 0x10 + 7, int(checked))   
 
     def btn_reset_pitch_clicked(self, index):
         self.client.write(WaveArray.REG_FREQ_CTRL_BASE + index, 0)
@@ -904,12 +906,6 @@ class WaveArrayGui(QtWidgets.QMainWindow):
 
     def lfo_waveform_changed(self, waveform_index):
         self.client.write(WaveArray.REG_LFO_CTRL_BASE + self.lfo_index * 0x10 + 1, waveform_index)
-
-    def btn_enable_sh_individual_clicked(self, checked):
-        self.client.write(WaveArray.REG_SH_CTRL_BASE, int(checked))
-
-    def btn_enable_sh_binaural_clicked(self, checked):
-        self.client.write(WaveArray.REG_SH_CTRL_BASE + 1, int(checked))
 
     def set_mod_amount(self, control_value):
 
@@ -978,15 +974,15 @@ class WaveArrayGui(QtWidgets.QMainWindow):
         self.ui.lbl_envelope_release.setText(f'{int(100 * control_value / (2**15 - 1)):3d}%')
 
     def sh_velocity_changed(self, control_value):
-        self.client.write(WaveArray.REG_SH_CTRL_BASE + 2, control_value)
+        self.client.write(WaveArray.REG_SH_CTRL_BASE + 0, control_value)
         self.ui.lbl_sh_velocity.setText(f'{int(100 * control_value / (2**15 - 1)):3d}%')
 
     def sh_amplitude_changed(self, control_value):
-        self.client.write(WaveArray.REG_SH_CTRL_BASE + 3, control_value)
+        self.client.write(WaveArray.REG_SH_CTRL_BASE + 1, control_value)
         self.ui.lbl_sh_amplitude.setText(f'{int(100 * control_value / (2**15 - 1)):3d}%')
 
     def sh_slew_rate_changed(self, control_value):
-        self.client.write(WaveArray.REG_SH_CTRL_BASE + 4, max(1, control_value))
+        self.client.write(WaveArray.REG_SH_CTRL_BASE + 2, max(1, control_value))
         self.ui.lbl_sh_slew_rate.setText(f'{int(100 * control_value / (2**15 - 1)):3d}%')
 
     def appearanceActionClicked(self):
