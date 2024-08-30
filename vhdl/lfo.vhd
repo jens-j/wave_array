@@ -346,7 +346,7 @@ begin
         end if;
 
         -- Pipeline stage 5: generate block_wb signal.
-        if lfo_input(r.instance_shift(PIPE_SUM_MUX - 1)).wave_select /= 4 then 
+        if lfo_input(r.instance_shift(PIPE_SUM_MUX - 1)).wave_select /= LFO_WAVE_RANDOM then 
             r_in.block_wb(PIPE_SUM_MUX) <= '0';
         else 
             r_in.block_wb(PIPE_SUM_MUX) <= not r.phase_overflow;
@@ -363,12 +363,12 @@ begin
         if r.valid_shift(PIPE_SUM_PROCESS - 1) = '1' then
 
             -- Take sine and cosine sample from the cordic output.
-            if lfo_input(r.instance_cordic).wave_select = 0 then 
+            if lfo_input(r.instance_cordic).wave_select = LFO_WAVE_SINE then 
 
                 r_in.raw_buffer <= clip_sine(s_dout_tdata(40 downto 24));
 
             -- Generate triangle output.
-            elsif lfo_input(r.instance_cordic).wave_select = 1 then 
+            elsif lfo_input(r.instance_cordic).wave_select = LFO_WAVE_TRIANGLE then 
 
                 if v_phase_trunc < to_signed(0, CTRL_SIZE) then 
                     v_triangle_raw := to_signed(2**(CTRL_SIZE - 1) - 1, CTRL_SIZE + 1) 
@@ -381,17 +381,17 @@ begin
                 r_in.raw_buffer <= v_triangle_raw(CTRL_SIZE - 1 downto 0);
 
             -- Truncate the phase to get the ramp up output.
-            elsif lfo_input(r.instance_cordic).wave_select = 2 then 
+            elsif lfo_input(r.instance_cordic).wave_select = LFO_WAVE_RAMP_UP then 
 
                 r_in.raw_buffer <= v_phase_trunc;
 
             -- Trunctate the phase and subtract to get the ramp down output.
-            elsif lfo_input(r.instance_cordic).wave_select = 3 then 
+            elsif lfo_input(r.instance_cordic).wave_select = LFO_WAVE_RAMP_DOWN then 
 
                 r_in.raw_buffer <= x"7FFF" - v_phase_trunc;
 
             -- Generate square output.
-            elsif lfo_input(r.instance_cordic).wave_select = 4 then 
+            elsif lfo_input(r.instance_cordic).wave_select = LFO_WAVE_SQUARE then 
                 r_in.raw_buffer <= 
                     (CTRL_SIZE - 1 => '0', CTRL_SIZE - 2 downto 0 => '1') when r.phase(r.instance_cordic)(r.index_cordic) >= 0 
                     else (CTRL_SIZE - 1 => '1', CTRL_SIZE - 2 downto 0 => '0');
