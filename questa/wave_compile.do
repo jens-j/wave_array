@@ -54,9 +54,9 @@ vcom -2008 -work wave $SOURCE_DIR/lin2exp.vhd
 vcom -2008 -work wave $SOURCE_DIR/clk_subsystem.vhd
 vcom -2008 -work wave $SOURCE_DIR/reset_subsystem.vhd
 vcom -2008 -work wave $SOURCE_DIR/frame_dma.vhd
+vcom -2008 -work wave $SOURCE_DIR/lfsr16.vhd
 vcom -2008 -work wave $SOURCE_DIR/lfo.vhd
 vcom -2008 -work wave $SOURCE_DIR/envelope.vhd
-vcom -2008 -work wave $SOURCE_DIR/lfsr16.vhd
 vcom -2008 -work wave $SOURCE_DIR/sample_hold.vhd
 vcom -2008 -work wave $SOURCE_DIR/state_variable_filter.vhd
 vcom -2008 -work wave $SOURCE_DIR/pitch_modulator.vhd

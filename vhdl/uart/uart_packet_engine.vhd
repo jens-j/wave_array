@@ -39,12 +39,13 @@ entity uart_packet_engine is
         hk_write_enable         : in  std_logic;
         hk_data                 : in  std_logic_vector(15 downto 0);
         hk_full                 : out std_logic;
+        hk_count                : out std_logic_vector(10 downto 0);
 
         -- Waveform fifo interface.
         wave_write_enable       : in  std_logic;
         wave_data               : in  std_logic_vector(15 downto 0);
         wave_full               : out std_logic;
-        wave_count              : out std_logic_vector(12 downto 0);
+        wave_count              : out std_logic_vector(11 downto 0);
 
         debug_flags             : out std_logic_vector(3 downto 0);
         debug_state             : out integer;
@@ -122,14 +123,6 @@ architecture arch of uart_packet_engine is
 
     signal r, r_in              : t_packet_engine_reg;
 
-    
-    -- -- Somehow this FSM is not recognized by vivado. So not sure what the encoding would be otherwise.
-    -- -- Probably grey but that is not very readable.
-    -- attribute fsm_encoding_r : string;
-    -- attribute fsm_encoding_r of r.state : type is "sequential";
-    -- attribute fsm_encoding_r_in : string;
-    -- attribute fsm_encoding_r_in of r_in.state : type is "sequential";
-
     signal s_s2u_fifo_din       : std_logic_vector(15 downto 0);
     signal s_s2u_fifo_wr_en     : std_logic;
     signal s_s2u_fifo_rd_en     : std_logic;
@@ -142,13 +135,14 @@ architecture arch of uart_packet_engine is
     signal s_hk2u_fifo_dout     : std_logic_vector(7 downto 0);
     signal s_hk2u_fifo_full     : std_logic;
     signal s_hk2u_fifo_empty    : std_logic;
-    signal s_hk2u_fifo_rd_count : std_logic_vector(10 downto 0);
+    signal s_hk2u_fifo_rd_count : std_logic_vector(11 downto 0);
+    signal s_hk2u_fifo_wr_count : std_logic_vector(10 downto 0);
 
     signal s_wave2u_fifo_rd_en  : std_logic;
     signal s_wave2u_fifo_dout   : std_logic_vector(7 downto 0);
     signal s_wave2u_fifo_full   : std_logic;
     signal s_wave2u_fifo_empty  : std_logic;
-    signal s_wave2u_fifo_rd_count : std_logic_vector(12 downto 0);
+    signal s_wave2u_fifo_wr_count : std_logic_vector(11 downto 0);
 
     signal s_u2s_fifo_din       : std_logic_vector(7 downto 0);
     signal s_u2s_fifo_wr_en     : std_logic;
@@ -161,24 +155,25 @@ architecture arch of uart_packet_engine is
 begin
 
     hk_full <= s_hk2u_fifo_full;
+    hk_count <= s_hk2u_fifo_wr_count;
     wave_full <= s_wave2u_fifo_full;
-    wave_count <= s_wave2u_fifo_rd_count;
+    wave_count <= s_wave2u_fifo_wr_count;
 
     debug_flags <= s_s2u_fifo_full & s_u2s_fifo_full & s_hk2u_fifo_full & s_wave2u_fifo_full;
 
     -- 16 bit to 8 bit fifo to buffer HK data (1024 words).
-    hk_uart_fifo : entity xil_defaultlib.sdram_uart_fifo_gen
+    hk_uart_fifo : entity xil_defaultlib.hk_uart_fifo_gen
     port map (
-        rst                     => reset,
-        wr_clk                  => clk,
-        rd_clk                  => clk,
+        srst                    => reset,
+        clk                     => clk,
         din                     => hk_data,
         wr_en                   => hk_write_enable,
         rd_en                   => s_hk2u_fifo_rd_en,
         dout                    => s_hk2u_fifo_dout,
         full                    => s_hk2u_fifo_full,
         empty                   => s_hk2u_fifo_empty,
-        rd_data_count           => s_hk2u_fifo_rd_count
+        rd_data_count           => s_hk2u_fifo_rd_count,
+        wr_data_count           => s_hk2u_fifo_wr_count
     );
 
     -- 16 bit to 8 bit fifo to buffer wave data (2048 words).
@@ -192,7 +187,7 @@ begin
         dout                    => s_wave2u_fifo_dout,
         full                    => s_wave2u_fifo_full,
         empty                   => s_wave2u_fifo_empty,
-        rd_data_count           => s_wave2u_fifo_rd_count
+        wr_data_count           => s_wave2u_fifo_wr_count
     );
 
     -- 16 bit to 8 bit fifo to buffer SDRAM block data (1024 words).
@@ -241,7 +236,7 @@ begin
 
     comb_process : process (r, rx_empty, rx_data, tx_data_count, register_output, sdram_output, s_s2u_fifo_dout,
             s_s2u_fifo_empty, s_u2s_fifo_rd_count, s_s2u_fifo_rd_count, 
-            s_hk2u_fifo_rd_count, s_hk2u_fifo_dout, s_wave2u_fifo_rd_count, s_wave2u_fifo_dout, s_wave2u_fifo_empty)
+            s_hk2u_fifo_rd_count, s_hk2u_fifo_dout, s_wave2u_fifo_dout, s_wave2u_fifo_empty)
 
         variable v_burst_n : std_logic_vector(31 downto 0);
 

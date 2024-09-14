@@ -26,7 +26,7 @@ package wave_array_pkg is
     constant UART_MAX_BURST_LOG2    : integer := 12;
     constant UART_MAX_BURST         : integer := 2**UART_MAX_BURST_LOG2;
 
-    constant N_TABLES               : positive := 2; -- Number of parallel wave tables.
+    constant N_TABLES               : positive := 3; -- Number of parallel wave tables.
     constant N_TABLES_LOG2          : natural  := integer(ceil(log2(real(N_TABLES))));
     constant N_VOICES_MAX_LOG2      : positive := 6;
     constant N_VOICES_MAX           : positive := 2**N_VOICES_MAX_LOG2; -- Max number of parallel oscillators per table.
@@ -100,6 +100,12 @@ package wave_array_pkg is
     constant LFO_PHASE_FRAC         : integer := LFO_PHASE_SIZE - LFO_PHASE_INT; -- Fractional bit width of phase.
     constant LFO_MIN_RATE           : real := 0.125; -- in Hz.
     constant LFO_MAX_RATE           : real := 16.0;
+    constant LFO_WAVE_SINE          : integer := 0;
+    constant LFO_WAVE_TRIANGLE      : integer := 1;
+    constant LFO_WAVE_RAMP_UP       : integer := 2;
+    constant LFO_WAVE_RAMP_DOWN     : integer := 3;
+    constant LFO_WAVE_SQUARE        : integer := 4;
+    constant LFO_WAVE_RANDOM        : integer := 5;
     constant LFO_N_WAVEFORMS        : integer := 6;
 
     -- Some of these constants are to big to pre calculate using 32 bit integers.
@@ -176,18 +182,21 @@ package wave_array_pkg is
     constant MODD_VOLUME            : natural := 2;
     constant MODD_OSC_0_FRAME       : natural := 3;
     constant MODD_OSC_1_FRAME       : natural := 4;
-    constant MODD_OSC_0_MIX         : natural := 5;
-    constant MODD_OSC_1_MIX         : natural := 6;
-    constant MODD_NOISE_MIX         : natural := 7;
-    constant MODD_OSC_0_FREQ        : natural := 8;
-    constant MODD_OSC_1_FREQ        : natural := 9;
-    constant MODD_UNISON            : natural := 10;
-    constant MODD_LFO_0_AMPLITUDE   : natural := 11;
-    constant MODD_LFO_1_AMPLITUDE   : natural := 12;
-    constant MODD_LFO_2_AMPLITUDE   : natural := 13;
-    constant MODD_LFO_3_AMPLITUDE   : natural := 14;
-    constant MODD_SH_VELOCITY       : natural := 15;
-    constant MODD_SH_AMPLITUDE      : natural := 16;
+    constant MODD_OSC_2_FRAME       : natural := 5;
+    constant MODD_OSC_0_MIX         : natural := 6;
+    constant MODD_OSC_1_MIX         : natural := 7;
+    constant MODD_OSC_2_MIX         : natural := 8;
+    constant MODD_NOISE_MIX         : natural := 9;
+    constant MODD_OSC_0_FREQ        : natural := 10;
+    constant MODD_OSC_1_FREQ        : natural := 11;
+    constant MODD_OSC_2_FREQ        : natural := 12;
+    constant MODD_UNISON            : natural := 13;
+    constant MODD_LFO_0_AMPLITUDE   : natural := 14;
+    constant MODD_LFO_1_AMPLITUDE   : natural := 15;
+    constant MODD_LFO_2_AMPLITUDE   : natural := 16;
+    constant MODD_LFO_3_AMPLITUDE   : natural := 17;
+    constant MODD_SH_VELOCITY       : natural := 18;
+    constant MODD_SH_AMPLITUDE      : natural := 19;
     
     constant MODS_NONE              : natural := 0;
     constant MODS_ENVELOPE_0        : natural := 1;
@@ -203,7 +212,7 @@ package wave_array_pkg is
     constant MODS_TABLE_0           : natural := 11;
     constant MODS_TABLE_1           : natural := 12;
     
-    constant MODD_LEN               : natural := 17;
+    constant MODD_LEN               : natural := 20;
     constant MODS_LEN               : natural := 13;
     
     constant MODD_LEN_LOG2          : natural := integer(ceil(log2(real(MODD_LEN))));
@@ -278,33 +287,38 @@ package wave_array_pkg is
     constant REG_FREQ_CTRL_BASE     : unsigned := x"0006000"; -- rw 16 bit signed   | Oscillator frequency mod control base value for each voice.
 
     -- Wavetable registers base address. Contiguous blocks of 4 registers for each wavetable. Stride = 0x10.
-    constant REG_TABLE_BASE         : unsigned := x"0003000"; -- rw 16 bit unsigned | Bit 15 downto 0 of the wavetable base SDRAM address.
-                                               -- x"0003XX1"; -- rw 12 bit unsigned | Bit 27 downto 16 of the wavetable base SDRAM address.
-                                               -- x"0003XX2"; -- rw  4 bit unsigned | Log2 of the number of frames in the wavetable.
-                                               -- x"0003XX3"; -- wo  1 bit          | Writing to this register triggers initialization of the wavetable BRAMS.
+    constant REG_TABLE_BASE         : unsigned := x"0003000"; 
+    constant REF_TABLE_ADDR_LOW     : unsigned :=       x"0"; -- rw 16 bit unsigned | Bit 15 downto 0 of the wavetable base SDRAM address.
+    constant REF_TABLE_ADDR_HIGH    : unsigned :=       x"1"; -- rw 12 bit unsigned | Bit 27 downto 16 of the wavetable base SDRAM address.
+    constant REF_TABLE_FRAMES       : unsigned :=       x"2"; -- rw  4 bit unsigned | Log2 of the number of frames in the wavetable.
+    constant REF_TABLE_UPDATE       : unsigned :=       x"3"; -- wo  1 bit          | Writing to this register triggers initialization of the wavetable BRAMS.
     
     -- Envelope registers base address. Contiguous blocks of 4 registers for each wavetable. Stride = 0x10.
-    constant REG_ENVELOPE_CTRL_BASE : unsigned := x"0007000"; -- rw 15 bit unsigned | Envelope attack time control value.
-                                               -- x"0007XX1"; -- rw 15 bit unsigned | Envelope decay time control value.
-                                               -- x"0007XX2"; -- rw 15 bit unsigned | Envelope sustain level control value.
-                                               -- x"0007XX3"; -- rw 15 bit unsigned | Envelope release time control value.
-                                               -- x"0007XX4"; -- rw  1 bit          | Loop envelope to turn it into an LFO.
+    constant REG_ENVELOPE_BASE      : unsigned := x"0007000"; 
+    constant REG_ENVELOPE_ATTACK    : unsigned :=       x"0"; -- rw 15 bit unsigned | Envelope attack time control value.
+    constant REG_ENVELOPE_DECAY     : unsigned :=       x"1"; -- rw 15 bit unsigned | Envelope decay time control value.
+    constant REG_ENVELOPE_SUSTAIN   : unsigned :=       x"2"; -- rw 15 bit unsigned | Envelope sustain level control value.
+    constant REG_ENVELOPE_RELEASE   : unsigned :=       x"3"; -- rw 15 bit unsigned | Envelope release time control value.
+    constant REG_ENVELOPE_LOOP      : unsigned :=       x"4"; -- rw  1 bit          | Loop envelope to turn it into an LFO.
 
     -- LFO registers base address. Contiguous blocks of 7 registers for each wavetable. Stride = 0x10.
-    constant REG_LFO_CTRL_BASE      : unsigned := x"0008000"; -- rw 15 bit unsigned | LFO velocity control value. 
-                                               -- x"0008XX1"; -- rw 16 bit unsigned | Select LFO waveform. Clipped to LFO_N_WAVEFORMS - 1.
-                                               -- x"0008XX2"; -- rw  1 bit          | Write '1' to enable LFO sync to voices (trigger). 
-                                               -- x"0008XX3"; -- rw 15 bit unsigned | Binaural LFO phase difference, [-180 - 180] degrees.
-                                               -- x"0008XX4"; -- rw  1 bit          | One-shot mode to turn the LFO into an envelope.
-                                               -- x"0008XX5"; -- wo  1 bit          | Reset LFO phase.
-                                               -- x"0008XX6"; -- rw 15 bit unsigned | LFO ampitude base value.
-                                               -- x"0008XX7"; -- rw  1 bit          | Binaural split.
+    constant REG_LFO_BASE           : unsigned := x"0008000"; 
+    constant REG_LFO_VELOCITY       : unsigned :=       x"0"; -- rw 15 bit unsigned | LFO velocity control value. 
+    constant REG_LFO_WAVE           : unsigned :=       x"1"; -- rw 16 bit unsigned | Select LFO waveform. Clipped to LFO_N_WAVEFORMS - 1.
+    constant REG_LFO_TRIGGER        : unsigned :=       x"2"; -- rw  1 bit          | Write '1' to enable LFO sync to voices (trigger). 
+    constant REG_LFO_PHASE          : unsigned :=       x"3"; -- rw 15 bit unsigned | Binaural LFO phase difference, [-180 - 180] degrees.
+    constant REG_LFO_ONESHOT        : unsigned :=       x"4"; -- rw  1 bit          | One-shot mode to turn the LFO into an envelope.
+    constant REG_LFO_RESET          : unsigned :=       x"5"; -- wo  1 bit          | Reset LFO phase.
+    constant REG_LFO_AMPLITUDE      : unsigned :=       x"6"; -- rw 15 bit unsigned | LFO ampitude base value.
+    constant REG_LFO_BINAURAL       : unsigned :=       x"7"; -- rw  1 bit          | Binaural split.
 
     -- Sample & hold registers base address. Contiguous blocks of 4 registers for each wavetable. Stride = 0x10.
-    constant REG_SH_BASE_CONTROL    : unsigned := x"0009000"; -- rw 15 bit unsigned | velocity base value.
-                                               -- x"0009XX1"; -- rw 15 bit unsigned | amplitude base value.
-                                               -- x"0009XX2"; -- rw 15 bit unsigned | slew rate.
-                                               -- x"0009XX3"; -- rw 15 bit unsigned | input select.
+    constant REG_SH_BASE            : unsigned := x"0009000"; 
+    constant REG_SH_VELOCITY        : unsigned :=       x"0"; -- rw 15 bit unsigned | velocity base value.
+    constant REG_SH_AMPLITUDE       : unsigned :=       x"1"; -- rw 15 bit unsigned | amplitude base value.
+    constant REG_SH_SLEW            : unsigned :=       x"2"; -- rw 15 bit unsigned | slew rate.
+    constant REG_SH_INPUT           : unsigned :=       x"3"; -- rw 15 bit unsigned | input select.
+
      -- fault register (sticky-)bit indices.
     constant FAULT_UART_TIMEOUT     : integer := 0; -- UART packet engine timout.
     constant FAULT_REG_ADDRESS      : integer := 1; -- Register address undefined.
@@ -729,23 +743,26 @@ package body wave_array_pkg is
 
         config := (
             led                     => '0',
-            base_ctrl               => (0 => x"7FFF",
-                                        1 => x"0000",
-                                        2 => x"0000",
-                                        3 => x"0000",
-                                        4 => x"0000",
-                                        5 => x"7FFF",
-                                        6 => x"0000",
-                                        7 => x"0000",
-                                        8 => x"0000",
-                                        9 => x"0000",
-                                        10 => x"0000",
-                                        11 => x"3FFF",
-                                        12 => x"3FFF",
-                                        13 => x"3FFF",
-                                        14 => x"3FFF",
-                                        15 => x"0800",
-                                        16 => x"7FFF"),
+            base_ctrl               => (MODD_FILTER_CUTOFF      => x"7FFF",
+                                        MODD_FILTER_RESONANCE   => x"0000",
+                                        MODD_VOLUME             => x"0000",
+                                        MODD_OSC_0_FRAME        => x"0000",
+                                        MODD_OSC_1_FRAME        => x"0000",
+                                        MODD_OSC_2_FRAME        => x"0000",
+                                        MODD_OSC_0_MIX          => x"7FFF",
+                                        MODD_OSC_1_MIX          => x"0000",
+                                        MODD_OSC_2_MIX          => x"0000",
+                                        MODD_NOISE_MIX          => x"0000",
+                                        MODD_OSC_0_FREQ         => x"0000",
+                                        MODD_OSC_1_FREQ         => x"0000",
+                                        MODD_OSC_2_FREQ         => x"0000",
+                                        MODD_UNISON             => x"0000",
+                                        MODD_LFO_0_AMPLITUDE    => x"3FFF",
+                                        MODD_LFO_1_AMPLITUDE    => x"3FFF",
+                                        MODD_LFO_2_AMPLITUDE    => x"3FFF",
+                                        MODD_LFO_3_AMPLITUDE    => x"3FFF",
+                                        MODD_SH_VELOCITY        => x"0800",
+                                        MODD_SH_AMPLITUDE       => x"7FFF"),
             mod_mapping             => mapping, 
             hk_enable               => '0',
             hk_period               => x"07A1", -- 50 Hz (lsb is 1024 cycles).
@@ -756,7 +773,7 @@ package body wave_array_pkg is
             filter_select           => 0, -- Lowpass
             lfo_input               => (others => (0, '0', (others => '0'), '0', x"0000", '0', '1')),
             envelope_input          => (others => (x"0000", x"0000", x"7FFF", x"0000", '0')),
-            sample_hold_input       => (others => (MODS_LFO_0, x"0020")),
+            sample_hold_input       => (others => (MODS_LFO_0 - 1, x"0020")),
             frame_dma_input         => (others => FRAME_DMA_INPUT_INIT),
             flash_dma_input         => FLASH_DMA_INPUT_INIT,
             noise_select            => '0',

@@ -278,16 +278,16 @@ begin
                 v_table_index := to_integer(unsigned(v_rel_address(N_TABLES_LOG2 + 4 downto 4))); -- Index slice is 1 bit wider than necessary to accomodate N_TABLES_LOG2 = 0.
 
                 case v_rel_address(3 downto 0) is 
-                when x"0" =>
+                when REF_TABLE_ADDR_LOW =>
                     r_in.register_output.read_data <= std_logic_vector(
                         r.config.frame_dma_input(v_table_index).base_address(REGISTER_WIDTH - 1 downto 0));
                 
-                when x"1" => 
+                when REF_TABLE_ADDR_HIGH => 
                     r_in.register_output.read_data <= std_logic_vector(resize(
                         r.config.frame_dma_input(v_table_index).base_address(SDRAM_DEPTH_LOG2 - 1 downto REGISTER_WIDTH),
                         REGISTER_WIDTH));
 
-                when x"2" => 
+                when REF_TABLE_FRAMES => 
                     r_in.register_output.read_data <= std_logic_vector(
                             to_unsigned(r.config.frame_dma_input(v_table_index).frames_log2, REGISTER_WIDTH));
                 
@@ -296,26 +296,26 @@ begin
                 end case;
 
             -- Envelope registers.
-            elsif register_input.address >= REG_ENVELOPE_CTRL_BASE 
-                    and register_input.address < REG_ENVELOPE_CTRL_BASE + ENV_N * x"10" then
+            elsif register_input.address >= REG_ENVELOPE_BASE 
+                    and register_input.address < REG_ENVELOPE_BASE + ENV_N * x"10" then
 
                 v_rel_address := register_input.address and x"0000_0FFF";
                 v_env_index := to_integer(unsigned(v_rel_address(ENV_N_LOG2 + 4 downto 4))); -- Index slice is 1 bit wider than necessary to accomodate ENV_N_LOG2 = 0.
 
                 case v_rel_address(3 downto 0) is 
-                when x"0" =>
+                when REG_ENVELOPE_ATTACK =>
                     r_in.register_output.read_data <= std_logic_vector(r.config.envelope_input(v_env_index).attack);
                 
-                when x"1" => 
+                when REG_ENVELOPE_DECAY => 
                     r_in.register_output.read_data <= std_logic_vector(r.config.envelope_input(v_env_index).decay);
 
-                when x"2" => 
+                when REG_ENVELOPE_SUSTAIN => 
                     r_in.register_output.read_data <= std_logic_vector(r.config.envelope_input(v_env_index).sustain);
 
-                when x"3" => 
+                when REG_ENVELOPE_RELEASE => 
                     r_in.register_output.read_data <= std_logic_vector(r.config.envelope_input(v_env_index).release_value);
 
-                when x"4" => 
+                when REG_ENVELOPE_LOOP => 
                     r_in.register_output.read_data(0) <= r.config.envelope_input(v_env_index).loop_envelope;
 
                 when others => 
@@ -323,34 +323,34 @@ begin
                 end case;
 
             -- LFO registers.
-            elsif register_input.address >= REG_LFO_CTRL_BASE 
-                    and register_input.address < REG_LFO_CTRL_BASE + LFO_N * x"10" then
+            elsif register_input.address >= REG_LFO_BASE 
+                    and register_input.address < REG_LFO_BASE + LFO_N * x"10" then
 
                 v_rel_address := register_input.address and x"0000_0FFF";
                 v_lfo_index := to_integer(unsigned(v_rel_address(LFO_N_LOG2 + 4 downto 4))); -- Index slice is 1 bit wider than necessary to accomodate LFO_N_LOG2 = 0.
 
                 case v_rel_address(3 downto 0) is 
-                when x"0" => 
+                when REG_LFO_VELOCITY => 
                     r_in.register_output.read_data <= std_logic_vector(r.config.lfo_input(v_lfo_index).velocity);
 
-                when x"1" =>
+                when REG_LFO_WAVE =>
                     r_in.register_output.read_data <= 
                         std_logic_vector(to_unsigned(r.config.lfo_input(v_lfo_index).wave_select, REGISTER_WIDTH));
 
-                when x"2" => 
+                when REG_LFO_TRIGGER => 
                     r_in.register_output.read_data(0) <= r.config.lfo_input(v_lfo_index).trigger;
 
-                when x"3" => 
+                when REG_LFO_PHASE => 
                     r_in.register_output.read_data <= std_logic_vector(r.config.lfo_input(v_lfo_index).phase_shift);    
 
-                when x"4" => 
+                when REG_LFO_ONESHOT => 
                     r_in.register_output.read_data(0) <= r.config.lfo_input(v_lfo_index).oneshot;
 
-                when x"6" => 
+                when REG_LFO_AMPLITUDE => 
                     r_in.register_output.read_data <= std_logic_vector(
                         r.config.base_ctrl(MODD_LFO_0_AMPLITUDE + v_lfo_index));
 
-                when x"7" => 
+                when REG_LFO_BINAURAL => 
                     r_in.register_output.read_data(0) <= r.config.lfo_input(v_lfo_index).binaural;
                 
                 when others => 
@@ -358,24 +358,24 @@ begin
                 end case;
 
             -- Sample & hold registers.
-            elsif register_input.address >= REG_SH_BASE_CONTROL 
-                    and register_input.address < REG_SH_BASE_CONTROL + SAMPLE_HOLD_N * x"10" then
+            elsif register_input.address >= REG_SH_BASE 
+                    and register_input.address < REG_SH_BASE + SAMPLE_HOLD_N * x"10" then
 
                 v_rel_address := register_input.address and x"0000_0FFF";
                 v_sh_index := to_integer(unsigned(v_rel_address(SAMPLE_HOLD_N_LOG2 + 4 downto 4))); -- Index slice is 1 bit wider than necessary to accomodate SAMPLE_HOLD_N_LOG2 = 0.
 
                 case v_rel_address(3 downto 0) is 
 
-                when x"0" => 
+                when REG_SH_VELOCITY => 
                     r_in.register_output.read_data <= std_logic_vector(r.config.base_ctrl(MODD_SH_VELOCITY + v_sh_index));
 
-                when x"1" => 
+                when REG_SH_AMPLITUDE => 
                     r_in.register_output.read_data <= std_logic_vector(r.config.base_ctrl(MODD_SH_AMPLITUDE + v_sh_index));
 
-                when x"2" => 
+                when REG_SH_SLEW => 
                     r_in.register_output.read_data <= std_logic_vector(r.config.sample_hold_input(v_sh_index).slew_rate);
 
-                when x"3" => 
+                when REG_SH_INPUT => 
                     r_in.register_output.read_data <= std_logic_vector(
                         to_unsigned(r.config.sample_hold_input(v_sh_index).input_select, REGISTER_WIDTH));
 
@@ -547,19 +547,19 @@ begin
                 v_table_index := to_integer(unsigned(v_rel_address(N_TABLES_LOG2 + 4 downto 4)));
 
                 case v_rel_address(3 downto 0) is 
-                when x"0" =>
+                when REF_TABLE_ADDR_LOW =>
                     r_in.config_buffer.frame_dma_input(v_table_index).base_address(REGISTER_WIDTH - 1 downto 0) <= 
                         unsigned(register_input.write_data);
                 
-                when x"1" => 
+                when REF_TABLE_ADDR_HIGH => 
                     r_in.config_buffer.frame_dma_input(v_table_index).base_address(SDRAM_DEPTH_LOG2 - 1 downto REGISTER_WIDTH) <= 
                         unsigned(register_input.write_data(SDRAM_DEPTH_LOG2 - REGISTER_WIDTH - 1 downto 0));
 
-                when x"2" => 
+                when REF_TABLE_FRAMES => 
                     r_in.config_buffer.frame_dma_input(v_table_index).frames_log2 <= 
                         minimum(FRAMES_MAX_LOG2, to_integer(unsigned(register_input.write_data)));
                 
-                when x"3" => 
+                when REF_TABLE_UPDATE => 
                     r_in.config_buffer.frame_dma_input(v_table_index).new_table <= '1';
 
                 when others => 
@@ -569,26 +569,26 @@ begin
 
             -- Envelope registers.
             -- Each wavetable has 4 registers.
-            elsif register_input.address >= REG_ENVELOPE_CTRL_BASE 
-                    and register_input.address < REG_ENVELOPE_CTRL_BASE + ENV_N * x"10" then
+            elsif register_input.address >= REG_ENVELOPE_BASE 
+                    and register_input.address < REG_ENVELOPE_BASE + ENV_N * x"10" then
 
                 v_rel_address := register_input.address and x"0000_0FFF";
                 v_env_index := to_integer(unsigned(v_rel_address(ENV_N_LOG2 + 4 downto 4)));
 
                 case v_rel_address(3 downto 0) is 
-                when x"0" =>
+                when REG_ENVELOPE_ATTACK =>
                     r_in.config_buffer.envelope_input(v_env_index).attack <= signed(register_input.write_data);
                 
-                when x"1" => 
+                when REG_ENVELOPE_DECAY => 
                     r_in.config_buffer.envelope_input(v_env_index).decay <= signed(register_input.write_data);
 
-                when x"2" => 
+                when REG_ENVELOPE_SUSTAIN => 
                     r_in.config_buffer.envelope_input(v_env_index).sustain <= signed(register_input.write_data);
 
-                when x"3" => 
+                when REG_ENVELOPE_RELEASE => 
                     r_in.config_buffer.envelope_input(v_env_index).release_value <= signed(register_input.write_data);
 
-                when x"4" => 
+                when REG_ENVELOPE_LOOP => 
                     r_in.config_buffer.envelope_input(v_env_index).loop_envelope <= register_input.write_data(0);
                 
                 when others => 
@@ -598,37 +598,37 @@ begin
 
             -- LFO registers.
             -- Each wavetable has 5 registers.
-            elsif register_input.address >= REG_LFO_CTRL_BASE 
-                    and register_input.address < REG_LFO_CTRL_BASE + LFO_N * x"10" then
+            elsif register_input.address >= REG_LFO_BASE 
+                    and register_input.address < REG_LFO_BASE + LFO_N * x"10" then
 
                 v_rel_address := register_input.address and x"0000_0FFF";
                 v_lfo_index := to_integer(unsigned(v_rel_address(LFO_N_LOG2 + 4 downto 4)));
 
                 case v_rel_address(3 downto 0) is 
-                when x"0" => 
+                when REG_LFO_VELOCITY => 
                     r_in.config_buffer.lfo_input(v_lfo_index).velocity <= signed(register_input.write_data);
 
-                when x"1" =>
+                when REG_LFO_WAVE =>
                     r_in.config_buffer.lfo_input(v_lfo_index).wave_select <= 
                         minimum(LFO_N_WAVEFORMS - 1, to_integer(unsigned(register_input.write_data)));                
 
-                when x"2" => 
+                when REG_LFO_TRIGGER => 
                     r_in.config_buffer.lfo_input(v_lfo_index).trigger <= register_input.write_data(0);
 
-                when x"3" => 
+                when REG_LFO_PHASE => 
                     r_in.config_buffer.lfo_input(v_lfo_index).phase_shift <= signed(register_input.write_data);
 
-                when x"4" => 
+                when REG_LFO_ONESHOT => 
                     r_in.config_buffer.lfo_input(v_lfo_index).oneshot <= register_input.write_data(0);
 
-                when x"5" => 
+                when REG_LFO_RESET => 
                     r_in.config_buffer.lfo_input(v_lfo_index).reset <= '1';
 
-                when x"6" => 
+                when REG_LFO_AMPLITUDE => 
                     r_in.config_buffer.base_ctrl(MODD_LFO_0_AMPLITUDE + v_lfo_index) <= 
                         signed(register_input.write_data);
 
-                when x"7" => 
+                when REG_LFO_BINAURAL => 
                     r_in.config_buffer.lfo_input(v_lfo_index).binaural <= register_input.write_data(0);
                 
                 when others => 
@@ -636,24 +636,24 @@ begin
                 end case;
 
             -- Sample and hold registers.
-            elsif register_input.address >= REG_SH_BASE_CONTROL 
-                    and register_input.address < REG_SH_BASE_CONTROL + SAMPLE_HOLD_N * x"10" then
+            elsif register_input.address >= REG_SH_BASE 
+                    and register_input.address < REG_SH_BASE + SAMPLE_HOLD_N * x"10" then
 
                 v_rel_address := register_input.address and x"0000_0FFF";
                 v_sh_index := to_integer(unsigned(v_rel_address(SAMPLE_HOLD_N_LOG2 + 4 downto 4)));
 
                 case v_rel_address(3 downto 0) is      
 
-                when x"0" => 
+                when REG_SH_VELOCITY => 
                     r_in.config_buffer.base_ctrl(MODD_SH_VELOCITY + v_sh_index) <= signed(register_input.write_data);
 
-                when x"1" => 
+                when REG_SH_AMPLITUDE => 
                     r_in.config_buffer.base_ctrl(MODD_SH_AMPLITUDE + v_sh_index) <= signed(register_input.write_data);
 
-                when x"2" =>
+                when REG_SH_SLEW =>
                     r_in.config_buffer.sample_hold_input(v_sh_index).slew_rate <= signed(register_input.write_data);
 
-                when x"3" =>
+                when REG_SH_INPUT =>
                     r_in.config_buffer.sample_hold_input(v_sh_index).input_select <= 
                         maximum(1, minimum(MODS_LEN - 1, to_integer(unsigned(register_input.write_data))));
                 

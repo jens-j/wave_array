@@ -99,6 +99,7 @@ vcom -2008 -work xil_defaultlib $SOURCE_DIR/xilinx/envelope_cordic_gen_sim_netli
 vcom -2008 -work xil_defaultlib $SOURCE_DIR/xilinx/envelope_mult_gen_sim_netlist.vhdl
 vcom -2008 -work xil_defaultlib $SOURCE_DIR/xilinx/cordic_lfo_sine_sim_netlist.vhdl
 vcom -2008 -work xil_defaultlib $SOURCE_DIR/xilinx/wave_uart_fifo_gen_sim_netlist.vhdl
+vcom -2008 -work xil_defaultlib $SOURCE_DIR/xilinx/hk_uart_fifo_gen_sim_netlist.vhdl
 vcom -2008 -work xil_defaultlib $SOURCE_DIR/xilinx/wave_mem_gen_sim_netlist.vhdl
 vcom -2008 -work xil_defaultlib $SOURCE_DIR/xilinx/wave_offload_fifo_gen_sim_netlist.vhdl
 vcom -2008 -work xil_defaultlib $SOURCE_DIR/xilinx/svf_macc_gen_sim_netlist.vhdl

@@ -121,11 +121,12 @@ architecture arch of wave_array is
     signal s_hk_write_enable    : std_logic;
     signal s_hk_data            : std_logic_vector(15 downto 0);
     signal s_hk_full            : std_logic;
+    signal s_hk_count           : std_logic_vector(10 downto 0);
 
     signal s_wave_write_enable  : std_logic;
     signal s_wave_data          : std_logic_vector(15 downto 0);
     signal s_wave_full          : std_logic;
-    signal s_wave_count         : std_logic_vector(12 downto 0);
+    signal s_wave_count         : std_logic_vector(11 downto 0);
 
     signal s_polyphony          : integer range 1 to POLYPHONY_MAX;
     signal s_active_voices      : integer range 1 to POLYPHONY_MAX;
@@ -235,6 +236,7 @@ begin
         hk_write_enable         => s_hk_write_enable,
         hk_data                 => s_hk_data,
         hk_full                 => s_hk_full,
+        hk_count                => s_hk_count,
         wave_write_enable       => s_wave_write_enable,
         wave_data               => s_wave_data,
         wave_full               => s_wave_full,
@@ -254,7 +256,8 @@ begin
         status                  => s_status,
         hk_write_enable         => s_hk_write_enable,
         hk_data                 => s_hk_data,
-        hk_full                 => s_hk_full
+        hk_full                 => s_hk_full,
+        hk_count                => s_hk_count
     );
 
     wave_offload : entity wave.wave_offload
@@ -350,7 +353,7 @@ begin
     arbiter : entity sdram.ddr_arbiter
     generic map (
         NO_MIG                  => NO_MIG,
-        N_CLIENTS               => 1 + N_TABLES
+        N_CLIENTS               => 3
     )
     port map (
         mig_ctrl_clk            => s_mig_ctrl_clk,

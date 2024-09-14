@@ -21,7 +21,8 @@ entity hk_offload is
         -- Auto offload fifo interface.
         hk_write_enable         : out std_logic;
         hk_data                 : out std_logic_vector(CTRL_SIZE - 1 downto 0);
-        hk_full                 : in  std_logic
+        hk_full                 : in  std_logic;
+        hk_count                : in  std_logic_vector(10 downto 0)
     );
 end entity;
 
@@ -52,7 +53,7 @@ architecture arch of hk_offload is
 begin
 
 
-    comb_process : process (r, config, status, hk_full)
+    comb_process : process (r, config, status, hk_full, hk_count)
         variable v_status_ser : std_logic_vector(HK_DATA_WIDTH - 1 downto 0);
         variable v_value : std_logic_vector(15 downto 0);
         variable v_length : std_logic_vector(15 downto 0);
@@ -99,17 +100,19 @@ begin
         -- Write packet data to auto offload fifo.
         when hk_2 =>
 
-            r_in.hk_write_enable <= '1';
+            -- Wait until enough space is available in the fif0
+            if to_integer(unsigned(hk_count)) < 1022 then  
 
-            v_value := v_status_ser((r.hk_count + 1) * 16 - 1 downto r.hk_count * 16);
+                v_value := v_status_ser((r.hk_count + 1) * 16 - 1 downto r.hk_count * 16);
 
-            -- r_in.hk_data <= v_value;
-            r_in.hk_data <= v_value(7 downto 0) & v_value(15 downto 8); -- Switch bytes for little endian transfer.
-            
-            if r.hk_count < HK_DATA_WORDS - 1 then 
-                r_in.hk_count <= r.hk_count + 1;
-            else 
-                r_in.state <= idle;
+                r_in.hk_write_enable <= '1';
+                r_in.hk_data <= v_value(7 downto 0) & v_value(15 downto 8); -- Switch bytes for little endian transfer.
+                
+                if r.hk_count < HK_DATA_WORDS - 1 then 
+                    r_in.hk_count <= r.hk_count + 1;
+                else 
+                    r_in.state <= idle;
+                end if;
             end if;
 
         end case;

@@ -25,7 +25,7 @@ entity wave_offload is
         wave_write_enable       : out std_logic;
         wave_data               : out std_logic_vector(CTRL_SIZE - 1 downto 0);
         wave_full               : in  std_logic;
-        wave_count              : in  std_logic_vector(12 downto 0);
+        wave_count              : in  std_logic_vector(11 downto 0);
 
         debug_state             : out integer;
         debug_fifo_count        : out integer range 0 to 2047;

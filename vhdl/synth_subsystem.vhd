@@ -62,6 +62,7 @@ begin
 
     s_pitch_ctrl(0) <= s_mod_destinations(MODD_OSC_0_FREQ);
     s_pitch_ctrl(1) <= s_mod_destinations(MODD_OSC_1_FREQ);
+    s_pitch_ctrl(2) <= s_mod_destinations(MODD_OSC_2_FREQ);
     
     -- Connect mod source array.
     mods_assign : for i in 0 to POLYPHONY_MAX - 1 generate

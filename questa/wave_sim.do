@@ -59,6 +59,8 @@ add wave tb_wave_array/wave_array/flash_dma/*
 #add wave tb_wave_array/sdram/*
 add wave -divider wave_offload:
 add wave tb_wave_array/wave_array/wave_offload/*
+add wave -divider hk_offload:
+add wave tb_wave_array/wave_array/hk_offload/*
 add wave -divider uart_tester:
 add wave tb_wave_array/uart_tester/*
 add wave -divider uart_reader:
