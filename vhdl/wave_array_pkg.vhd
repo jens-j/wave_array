@@ -280,20 +280,24 @@ package wave_array_pkg is
     constant REG_QSPI_CONFIG        : unsigned := x"0000A03"; -- ro 16 bit          | FLASH config register. 
 
     -- Base addresses for stuff that has multiple similar registers.
-    constant REG_MOD_MAP_BASE       : unsigned := x"0001000"; -- Mod mapping starts here. Ordered major to minor, [destination, source (address, value)]
     constant REG_MOD_DEST_BASE      : unsigned := x"0002000"; -- ro 16 bit signed   | Modulation destinations start here. Ordered major to minor, [destination, voice].
     constant REG_FRAME_CTRL_BASE    : unsigned := x"0004000"; -- rw 15 bit unsigned | Frame control base value for each wavetable.    
     constant REG_MIX_CTRL_BASE      : unsigned := x"0005000"; -- rw 15 bit unsigned | Table mixer control base value for each wavetable and the noise source. 
     constant REG_FREQ_CTRL_BASE     : unsigned := x"0006000"; -- rw 16 bit signed   | Oscillator frequency mod control base value for each voice.
 
-    -- Wavetable registers base address. Contiguous blocks of 4 registers for each wavetable. Stride = 0x10.
+    -- Mod map registers base addres. Contiguous blocks of 4 x 2 registers for each mod destination.
+    constant REG_MOD_MAP_BASE       : unsigned := x"0001000";
+    constant REG_MOD_MAP_SOURCE     : unsigned :=        "0"; -- rw 16 bit unsigned | Mod source.
+    constant REG_MOD_MAP_AMOUNT     : unsigned :=        "1"; -- rw 16 bit signed   | Mod amount.
+
+    -- Wavetable registers base address. Contiguous blocks of 5 registers for each wavetable. Stride = 0x10.
     constant REG_TABLE_BASE         : unsigned := x"0003000"; 
     constant REF_TABLE_ADDR_LOW     : unsigned :=       x"0"; -- rw 16 bit unsigned | Bit 15 downto 0 of the wavetable base SDRAM address.
     constant REF_TABLE_ADDR_HIGH    : unsigned :=       x"1"; -- rw 12 bit unsigned | Bit 27 downto 16 of the wavetable base SDRAM address.
     constant REF_TABLE_FRAMES       : unsigned :=       x"2"; -- rw  4 bit unsigned | Log2 of the number of frames in the wavetable.
     constant REF_TABLE_UPDATE       : unsigned :=       x"3"; -- wo  1 bit          | Writing to this register triggers initialization of the wavetable BRAMS.
     
-    -- Envelope registers base address. Contiguous blocks of 4 registers for each wavetable. Stride = 0x10.
+    -- Envelope registers base address. Contiguous blocks of 5 registers for each wavetable. Stride = 0x10.
     constant REG_ENVELOPE_BASE      : unsigned := x"0007000"; 
     constant REG_ENVELOPE_ATTACK    : unsigned :=       x"0"; -- rw 15 bit unsigned | Envelope attack time control value.
     constant REG_ENVELOPE_DECAY     : unsigned :=       x"1"; -- rw 15 bit unsigned | Envelope decay time control value.
@@ -301,7 +305,7 @@ package wave_array_pkg is
     constant REG_ENVELOPE_RELEASE   : unsigned :=       x"3"; -- rw 15 bit unsigned | Envelope release time control value.
     constant REG_ENVELOPE_LOOP      : unsigned :=       x"4"; -- rw  1 bit          | Loop envelope to turn it into an LFO.
 
-    -- LFO registers base address. Contiguous blocks of 7 registers for each wavetable. Stride = 0x10.
+    -- LFO registers base address. Contiguous blocks of 8 registers for each wavetable. Stride = 0x10.
     constant REG_LFO_BASE           : unsigned := x"0008000"; 
     constant REG_LFO_VELOCITY       : unsigned :=       x"0"; -- rw 15 bit unsigned | LFO velocity control value. 
     constant REG_LFO_WAVE           : unsigned :=       x"1"; -- rw 16 bit unsigned | Select LFO waveform. Clipped to LFO_N_WAVEFORMS - 1.
@@ -312,12 +316,17 @@ package wave_array_pkg is
     constant REG_LFO_AMPLITUDE      : unsigned :=       x"6"; -- rw 15 bit unsigned | LFO ampitude base value.
     constant REG_LFO_BINAURAL       : unsigned :=       x"7"; -- rw  1 bit          | Binaural split.
 
-    -- Sample & hold registers base address. Contiguous blocks of 4 registers for each wavetable. Stride = 0x10.
+    -- Sample & hold registers base address. Contiguous blocks of 5 registers for each wavetable. Stride = 0x10.
     constant REG_SH_BASE            : unsigned := x"0009000"; 
     constant REG_SH_VELOCITY        : unsigned :=       x"0"; -- rw 15 bit unsigned | velocity base value.
     constant REG_SH_AMPLITUDE       : unsigned :=       x"1"; -- rw 15 bit unsigned | amplitude base value.
     constant REG_SH_SLEW            : unsigned :=       x"2"; -- rw 15 bit unsigned | slew rate.
     constant REG_SH_INPUT           : unsigned :=       x"3"; -- rw 15 bit unsigned | input select.
+
+    -- Hard sync registers base address. Contiguous blocks of 2 registers for each wavetable. Stride = 0x10.
+    constant REG_HARD_SYNC_BASE     : unsigned := x"000A000";
+    constant REG_HARD_SYNC_ENABLE   : unsigned :=        "0"; -- rw  1 bit          | Hard sync enable.
+    constant REG_HARD_SYNC_SOURCE   : unsigned :=        "1"; -- rw  2 bit          | Hard sync source table.
 
      -- fault register (sticky-)bit indices.
     constant FAULT_UART_TIMEOUT     : integer := 0; -- UART packet engine timout.
@@ -383,6 +392,10 @@ package wave_array_pkg is
 
     type t_polyphony_array is array (1 to UNISON_MAX) of integer range 1 to POLYPHONY_MAX;
 
+    -- Types used for hard sync indexing. 
+    subtype t_osc_index is integer range 0 to N_TABLES - 1;
+    type t_osc_index_array is array (0 to N_TABLES) of t_osc_index;
+
     -- Record holding modulation mapping of all sources enabled for one destination.
     type t_mod_mapping is record 
         source                  : integer range 0 to MODS_LEN - 1;
@@ -391,7 +404,6 @@ package wave_array_pkg is
 
     type t_mod_mapping_array is array (0 to MAX_MOD_SOURCES - 1) of t_mod_mapping;
     type t_mod_mapping_2d_array is array (0 to MODD_LEN - 1) of t_mod_mapping_array;
-
 
     type t_frame_dma_input is record 
         new_table               : std_logic;                               -- Pulse indicating a new table should be loaded.
@@ -457,6 +469,8 @@ package wave_array_pkg is
         flash_dma_input         : t_flash_dma_input;
         noise_select            : std_logic;
         midi_channel            : integer range 0 to 15;
+        hard_sync_enable        : std_logic_vector(N_TABLES - 1 downto 0);
+        hard_sync_source        : t_osc_index_array;
     end record;
 
     -- Register file inputs.
@@ -777,7 +791,9 @@ package body wave_array_pkg is
             frame_dma_input         => (others => FRAME_DMA_INPUT_INIT),
             flash_dma_input         => FLASH_DMA_INPUT_INIT,
             noise_select            => '0',
-            midi_channel            => 13
+            midi_channel            => 13,
+            hard_sync_enable        => (others => '0'),
+            hard_sync_source        => (2, 0, 1)
         );
 
         return config;

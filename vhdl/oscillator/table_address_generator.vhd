@@ -14,11 +14,17 @@ use wave.wave_array_pkg.all;
 -- This module performs a valid/read_enable handshake pattern with the table interpolator to output one set of data
 -- at a time. The module loops over all oscillators twice in a row. 
 entity table_address_generator is
+    generic (
+        TABLE_INDEX             : integer range 0 to N_TABLES - 1
+    );
     port (
         clk                     : in  std_logic;
         reset                   : in  std_logic;
+        config                  : in  t_config;
         next_sample             : in  std_logic; -- Next sample(s) trigger.
         osc_inputs              : in  t_osc_input_array(0 to N_VOICES - 1);
+        sync_in                 : in  std_logic_vector(N_TABLES - 1 downto 0);
+        sync_out                : out std_logic;
         table2addrgen           : in  t_table2addrgen;           
         addrgen2table           : out t_addrgen2table
     );
@@ -27,7 +33,7 @@ end entity;
 architecture arch of table_address_generator is
 
     type t_state is (idle, select_level_0, select_level_1, calculate_address_0, calculate_address_1, increment_phase, 
-        handshake);
+        update_phase, handshake);
 
     type t_tag_reg is record
         state                   : t_state;
@@ -38,8 +44,11 @@ architecture arch of table_address_generator is
         valid                   : std_logic;
         mipmap_address          : t_mipmap_address;
         phase                   : t_osc_phase;
+        new_phase               : t_osc_phase;
         mipmap_level            : t_mipmap_level; -- Both output samples always have the same mipmap level
         meet_threshold          : std_logic_vector(MIPMAP_LEVELS - 1 downto 1);
+        sync_out                : std_logic;
+        sync_in_sticky          : std_logic_vector(N_TABLES - 1 downto 0);
     end record;
 
     -- Generate initial phases that are shifted to accommodate binaural stuff.
@@ -71,8 +80,11 @@ architecture arch of table_address_generator is
         valid                   => '0',
         mipmap_address          => (others => '0'),
         phase                   => (others => '0'),
+        new_phase               => (others => '0'),
         mipmap_level            => 0,
-        meet_threshold          => (others => '0')
+        meet_threshold          => (others => '0'),
+        sync_out                => '0',
+        sync_in_sticky          => (others => '0')
     );
 
     signal r, r_in              : t_tag_reg;
@@ -84,12 +96,22 @@ begin
 
         r_in <= r;
         r_in.valid <= '0';
+        r_in.sync_out <= '0';
 
         -- Connect outputs
         addrgen2table.valid <= r.valid;
         addrgen2table.mipmap_level <= r.mipmap_level;
         addrgen2table.mipmap_address <= r.mipmap_address;
         addrgen2table.phase <= r.phase;
+
+        -- Hard sync input sticky bits.
+        if config.hard_sync_enable(TABLE_INDEX) = '1' then 
+            for i in 0 to N_TABLES loop 
+                r_in.sync_in_sticky(i) <= '1' when sync_in(i) = '1' else r.sync_in_sticky(i);
+            end loop;
+        else 
+            r_in.sync_in_sticky <= (others => '0');
+        end if;
 
         -- Wait for next cycle.
         if r.state = idle and next_sample = '1' then
@@ -137,8 +159,26 @@ begin
             -- Buffer old phase so it can be output to the table interpolator.
             r_in.phase <= r.table_phases(r.osc_counter);
 
-            -- Increment phase
-            r_in.table_phases(r.osc_counter) <= r.table_phases(r.osc_counter) + osc_inputs(r.osc_counter).velocity;
+            -- Increment phase or reset when sync pulse is received.
+            if r.sync_in_sticky(config.hard_sync_source(TABLE_INDEX)) = '1' then
+                r_in.sync_in_sticky(config.hard_sync_source(TABLE_INDEX)) <= '0';
+                r_in.new_phase <= (others => '0');
+            else 
+                r_in.new_phase <= r.table_phases(r.osc_counter) + osc_inputs(r.osc_counter).velocity;
+            end if;
+            
+            r_in.state <= update_phase;
+
+        -- Mux new phase value and check for overflow.
+        elsif r.state = update_phase then
+
+            -- Store new phase.
+            r_in.table_phases(r.osc_counter) <= r.new_phase;
+
+            -- Generate sync pulse if phase overflowed.
+            if r.new_phase < r.phase then  
+                r_in.sync_out <= '1';
+            end if;
 
             r_in.state <= handshake;
 

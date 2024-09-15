@@ -75,7 +75,8 @@ begin
         variable v_lfo_index : integer range 0 to LFO_N - 1;
         variable v_env_index : integer range 0 to ENV_N - 1;
         variable v_sh_index : integer range 0 to SAMPLE_HOLD_N - 1;
-        variable v_table_mix_index : integer range 0 to N_TABLES;
+        variable v_hard_sync_index : integer range 0 to N_TABLES - 1;
+        variable v_table_mix_index : integer range 0 to N_TABLES - 1;
         variable v_voice_index : integer range 0 to POLYPHONY_MAX - 1;
         variable v_unison_n : integer range 1 to UNISON_MAX;
     begin
@@ -382,6 +383,26 @@ begin
                 when others => 
                     r_in.register_output.valid <= '0';
                 end case;
+
+            -- Hard sync registers.
+            elsif register_input.address >= REG_HARD_SYNC_BASE 
+                    and register_input.address < REG_HARD_SYNC_BASE + N_TABLES * x"10" then
+
+                v_rel_address := register_input.address and x"0000_0FFF";
+                v_hard_sync_index := to_integer(unsigned(v_rel_address(N_TABLES_LOG2 + 4 downto 4)));
+                
+                case v_rel_address(0 downto 0) is 
+
+                when REG_HARD_SYNC_ENABLE => 
+                    r_in.register_output.read_data(0) <= r.config.hard_sync_enable(v_hard_sync_index);
+
+                when REG_HARD_SYNC_SOURCE => 
+                    r_in.register_output.read_data(N_TABLES_LOG2 - 1 downto 0) <= 
+                        std_logic_vector(to_unsigned(r.config.hard_sync_source(v_hard_sync_index), N_TABLES_LOG2));
+
+                when others => 
+                    r_in.register_output.valid <= '0';
+                end case;
                     
             -- Read mod mapping registers.
             elsif register_input.address >= REG_MOD_MAP_BASE 
@@ -394,14 +415,19 @@ begin
                 v_mod_source := to_integer(v_rel_address(MAX_MOD_SOURCES_LOG2 downto 1));
 
                 -- Differentiate between source_index and amount using the lsb.
-                if v_rel_address(0) = '0' then 
+                case v_rel_address(0 downto 0) is
 
+                when REG_MOD_MAP_SOURCE =>
                     r_in.register_output.read_data <= std_logic_vector(to_unsigned(
                         r.config.mod_mapping(v_mod_dest)(v_mod_source).source, REGISTER_WIDTH));
-                else 
+
+                when REG_MOD_MAP_AMOUNT => 
                     r_in.register_output.read_data <= std_logic_vector(
                         r.config.mod_mapping(v_mod_dest)(v_mod_source).amount);
-                end if;
+
+                when others => 
+                    r_in.register_output.valid <= '0';
+                end case;
 
             -- Read mod destination control value for specific destination + voice.
             elsif register_input.address >= REG_MOD_DEST_BASE 
@@ -474,6 +500,9 @@ begin
             elsif register_input.address = REG_FILTER_RESONANCE then
                 r_in.config_buffer.base_ctrl(MODD_FILTER_RESONANCE) <= signed(register_input.write_data);
 
+            elsif register_input.address = REG_VOLUME_CTRL then
+                r_in.config_buffer.base_ctrl(MODD_VOLUME) <= signed(register_input.write_data);
+
             elsif register_input.address = REG_FILTER_SELECT then
                 if unsigned(register_input.write_data) < 4 then 
                     r_in.config_buffer.filter_select <= to_integer(unsigned(register_input.write_data));
@@ -507,6 +536,8 @@ begin
             elsif register_input.address = REG_DMA_SECTOR_N then
                 r_in.config_buffer.flash_dma_input.sector_n 
                     <= to_integer(unsigned(register_input.write_data(FLASH_SECTOR_N_LOG2 - 1 downto 0)));
+
+                
             
             -- oscillator frequency mod control base value registers.
             -- One for each wavetable.
@@ -661,6 +692,26 @@ begin
                     r_in.register_output.valid <= '0';
                 end case;
 
+            -- Hard sync registers.
+            elsif register_input.address >= REG_HARD_SYNC_BASE 
+                    and register_input.address < REG_HARD_SYNC_BASE + N_TABLES * x"10" then
+
+                v_rel_address := register_input.address and x"0000_0FFF";
+                v_hard_sync_index := to_integer(unsigned(v_rel_address(N_TABLES_LOG2 + 4 downto 4)));
+
+                case v_rel_address(0 downto 0) is      
+
+                when REG_HARD_SYNC_ENABLE => 
+                    r_in.config_buffer.hard_sync_enable(v_hard_sync_index) <= register_input.write_data(0);
+
+                when REG_HARD_SYNC_SOURCE => 
+                    r_in.config_buffer.hard_sync_source(v_hard_sync_index) <= 
+                        minimum(N_TABLES - 1, to_integer(unsigned(register_input.write_data(N_TABLES_LOG2 - 1 downto 0))));
+                
+                when others => 
+                    r_in.register_output.valid <= '0';
+                end case;
+
             -- Mod matrix registers. 
             -- Each mod destination holds a list length MAX_MOD_SOURCES containing a (source_index, amount) pair.
             elsif register_input.address >= REG_MOD_MAP_BASE 
@@ -673,12 +724,18 @@ begin
                 v_mod_source := to_integer(v_rel_address(MAX_MOD_SOURCES_LOG2 downto 1));
                 
                 -- Differentiate between source_index and amount using the lsb.
-                if v_rel_address(0) = '0' then 
+                case v_rel_address(0 downto 0) is
+
+                when REG_MOD_MAP_SOURCE =>
                     r_in.config_buffer.mod_mapping(v_mod_dest)(v_mod_source).source
                         <= minimum(MODS_LEN - 1, to_integer(unsigned(register_input.write_data))); 
-                else 
+
+                when REG_MOD_MAP_AMOUNT =>
                     r_in.config_buffer.mod_mapping(v_mod_dest)(v_mod_source).amount <= signed(register_input.write_data); 
-                end if;
+                
+                when others => 
+                    r_in.register_output.valid <= '0';
+                end case;
 
             else
                 r_in.register_output.fault <= '1';

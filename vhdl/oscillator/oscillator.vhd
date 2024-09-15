@@ -9,6 +9,9 @@ library osc;
 
 
 entity oscillator is
+    generic (
+        TABLE_INDEX             : integer range 0 to N_TABLES - 1
+    );
     port (
         clk                     : in  std_logic;
         reset                   : in  std_logic;
@@ -17,6 +20,8 @@ entity oscillator is
         next_sample             : in  std_logic; -- Next sample trigger.
         osc_inputs              : in  t_osc_input_array(0 to N_VOICES - 1);
         frame_ctrl_index        : in  t_frame_ctrl_index;
+        sync_in                 : in  std_logic_vector(N_TABLES - 1 downto 0);
+        sync_out                : out std_logic;
         dma2table               : in  t_dma2table;
         table2dma               : out t_table2dma;
         frame_control           : in  t_ctrl_value_array(0 to POLYPHONY_MAX - 1);
@@ -33,11 +38,17 @@ architecture arch of oscillator is
 begin
 
     table_addr_gen : entity osc.table_address_generator
+    generic map (
+        TABLE_INDEX             => TABLE_INDEX
+    )
     port map (
         clk                     => clk,
         reset                   => reset,
+        config                  => config,
         next_sample             => next_sample,
         osc_inputs              => osc_inputs,
+        sync_in                 => sync_in,
+        sync_out                => sync_out,
         table2addrgen           => s_table2addrgen,
         addrgen2table           => s_addrgen2table
     );

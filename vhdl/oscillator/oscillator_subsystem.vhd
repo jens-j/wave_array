@@ -38,6 +38,7 @@ architecture arch of oscillator_subsystem is
     signal s_unison_mixer_output : t_unison_mixer_output;
     signal s_table_mixer_input : t_table_mixer_input;
     signal s_noise_samples : t_mono_sample_array(POLYPHONY_MAX - 1 downto 0);
+    signal s_hard_sync : std_logic_vector(N_TABLES - 1 downto 0);
 
 begin 
 
@@ -69,6 +70,9 @@ begin
 
     osc_gen : for n in 0 to N_TABLES - 1 generate
         osc_n : entity osc.oscillator
+        generic map (
+            TABLE_INDEX             => n
+        )
         port map (
             clk                     => clk,
             reset                   => reset,
@@ -77,6 +81,8 @@ begin
             next_sample             => next_sample,
             osc_inputs              => s_spread_osc_inputs(n),
             frame_ctrl_index        => s_frame_ctrl_index,
+            sync_in                 => s_hard_sync,
+            sync_out                => s_hard_sync(n),
             dma2table               => dma2table(n),
             table2dma               => table2dma(n),
             frame_control           => mod_destinations(MODD_OSC_0_FRAME + n),
