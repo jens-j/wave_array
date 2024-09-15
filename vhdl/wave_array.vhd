@@ -156,9 +156,11 @@ architecture arch of wave_array is
 
 begin
     
-    LEDS(0) <= s_config.led;
-    LEDS(1) <= s_system_reset;
-    LEDS(2) <= s_i2s_reset;
+    -- LEDS(0) <= s_config.led;
+    -- LEDS(1) <= s_system_reset;
+    -- LEDS(2) <= s_i2s_reset;
+    LEDS(3 downto 0) <= s_debug_uart_flags;
+
     gen_voice_led : for i in 0 to minimum(3, POLYPHONY_MAX - 1) generate
         LEDS(4 + i) <= s_voices(i).enable;
     end generate;

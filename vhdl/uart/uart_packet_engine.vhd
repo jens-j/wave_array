@@ -93,6 +93,7 @@ architecture arch of uart_packet_engine is
         error_code              : std_logic_vector(7 downto 0);
         output_valid_sticky     : std_logic;
         length_byte_counter     : integer range 0 to 3;
+        debug_flags_sticky      : std_logic_vector(3 downto 0);
     end record;
 
     constant REG_INIT : t_packet_engine_reg := (
@@ -118,7 +119,8 @@ architecture arch of uart_packet_engine is
         length_lsb              => (others => '0'),
         error_code              => x"00",
         output_valid_sticky     => '0',
-        length_byte_counter     => 0
+        length_byte_counter     => 0,
+        debug_flags_sticky      => (others => '0')
     );
 
     signal r, r_in              : t_packet_engine_reg;
@@ -158,9 +160,10 @@ begin
     hk_count <= s_hk2u_fifo_wr_count;
     wave_full <= s_wave2u_fifo_full;
     wave_count <= s_wave2u_fifo_wr_count;
-
-    debug_flags <= s_s2u_fifo_full & s_u2s_fifo_full & s_hk2u_fifo_full & s_wave2u_fifo_full;
-
+    debug_flags <= r.debug_flags_sticky;
+    debug_state <= t_state'pos(r.state);
+    debug_hk_fifo_count <= to_integer(unsigned(s_hk2u_fifo_rd_count));
+    
     -- 16 bit to 8 bit fifo to buffer HK data (1024 words).
     hk_uart_fifo : entity xil_defaultlib.hk_uart_fifo_gen
     port map (
@@ -251,8 +254,10 @@ begin
         r_in.sdram_address <= (others => '0');
         r_in.timeout <= '0';
 
-        debug_state <= t_state'pos(r.state);
-        debug_hk_fifo_count <= to_integer(unsigned(s_hk2u_fifo_rd_count));
+        r_in.debug_flags_sticky(3) <= '1' when s_s2u_fifo_full else r.debug_flags_sticky(3);
+        r_in.debug_flags_sticky(2) <= '1' when s_u2s_fifo_full else r.debug_flags_sticky(2);
+        r_in.debug_flags_sticky(1) <= '1' when s_hk2u_fifo_full else r.debug_flags_sticky(1);
+        r_in.debug_flags_sticky(0) <= '1' when s_wave2u_fifo_full else r.debug_flags_sticky(0);
 
         -- Default fifo inputs.
         s_s2u_fifo_wr_en <= '0';
