@@ -221,7 +221,7 @@ begin
         when map_attack =>
 
             s_data_in_valid <= '1';
-            s_data_in <= x"0020" when envelope_input(r.instance_counter).attack < x"0020" 
+            s_data_in <= x"0020" when envelope_input(r.instance_counter).attack < x"0040" 
                 else envelope_input(r.instance_counter).attack; -- Use small minimum value to avoid clicking noise.
 
             r_in.state <= map_decay;
@@ -242,7 +242,7 @@ begin
             if s_data_out_valid = '1' then 
                 r_in.velocity_decay <= s_data_out;
                 s_data_in_valid <= '1';
-                s_data_in <= x"0020" when envelope_input(r.instance_counter).release_value < x"0020" 
+                s_data_in <= x"0020" when envelope_input(r.instance_counter).release_value < x"0040" 
                     else envelope_input(r.instance_counter).release_value; -- Use small minimum value to avoid clicking noise.
 
                 r_in.state <= wait_valid;
