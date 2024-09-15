@@ -53,8 +53,8 @@ architecture arch of wave_offload is
         next_sample             : std_logic; -- Delay one cycle to sample after values update.
         fifo_overflow           : std_logic;
         fifo_underflow          : std_logic;
-        lowest_phase            : t_osc_phase;
-        lowest_phase_prev       : t_osc_phase;
+        lowest_velocity         : t_osc_phase;
+        lowest_velocity_prev    : t_osc_phase;
     end record;
 
     constant REG_INIT : t_packet_engine_reg := (
@@ -69,8 +69,8 @@ architecture arch of wave_offload is
         next_sample             => '0',
         fifo_overflow           => '0',
         fifo_underflow          => '0',
-        lowest_phase            => (others => '0'),
-        lowest_phase_prev       => (others => '1')
+        lowest_velocity         => (others => '0'),
+        lowest_velocity_prev    => (others => '1')
     );
 
     signal r, r_in              : t_packet_engine_reg;
@@ -126,8 +126,8 @@ begin
 
         if next_sample = '1' then 
             -- Multiply velocity by two because this is the velocity before downsampling by two in the oscillator.
-            r_in.lowest_phase <= r.lowest_phase + shift_left(lowest_velocity(OSC_PHASE_SIZE - 2 downto 0), 1); 
-            r_in.lowest_phase_prev <= r.lowest_phase;
+            r_in.lowest_velocity <= r.lowest_velocity + shift_left(lowest_velocity(OSC_PHASE_SIZE - 2 downto 0), 1); 
+            r_in.lowest_velocity_prev <= r.lowest_velocity;
         end if;
 
         
@@ -141,7 +141,7 @@ begin
                 r_in.state <= offload_wave_0;
 
             -- Fill fifo with samples of one period of the lowest note.
-            elsif next_sample = '1' and r.wave_ready = '0' and r.lowest_phase < r.lowest_phase_prev then 
+            elsif next_sample = '1' and r.wave_ready = '0' and r.lowest_velocity < r.lowest_velocity_prev then 
 
                 s_fifo_write_enable <= '1';
                 r_in.state <= collect_samples; 
@@ -152,7 +152,7 @@ begin
             if r.next_sample = '1' then 
 
                 -- Collect samples until the start of a new period or until the fifo is full.
-                if r.lowest_phase < r.lowest_phase_prev 
+                if r.lowest_velocity < r.lowest_velocity_prev 
                         or s_fifo_count = std_logic_vector(to_unsigned(MAX_SAMPLE_COUNT, 12)) then
 
                     if s_fifo_count = std_logic_vector(to_unsigned(MAX_SAMPLE_COUNT, 12)) then 
