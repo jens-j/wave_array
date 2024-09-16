@@ -38,7 +38,7 @@ architecture arch of oscillator_subsystem is
     signal s_unison_mixer_output : t_unison_mixer_output;
     signal s_table_mixer_input : t_table_mixer_input;
     signal s_noise_samples : t_mono_sample_array(POLYPHONY_MAX - 1 downto 0);
-    signal s_hard_sync : std_logic_vector(N_TABLES - 1 downto 0);
+    signal s_hard_sync : t_hard_sync_array;
 
 begin 
 

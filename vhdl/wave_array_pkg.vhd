@@ -394,7 +394,8 @@ package wave_array_pkg is
 
     -- Types used for hard sync indexing. 
     subtype t_osc_index is integer range 0 to N_TABLES - 1;
-    type t_osc_index_array is array (0 to N_TABLES) of t_osc_index;
+    type t_osc_index_array is array (0 to N_TABLES - 1) of t_osc_index;
+    type t_hard_sync_array is array (0 to N_TABLES - 1) of std_logic_vector(N_VOICES - 1 downto 0);
 
     -- Record holding modulation mapping of all sources enabled for one destination.
     type t_mod_mapping is record 

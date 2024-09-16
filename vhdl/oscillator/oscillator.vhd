@@ -20,8 +20,8 @@ entity oscillator is
         next_sample             : in  std_logic; -- Next sample trigger.
         osc_inputs              : in  t_osc_input_array(0 to N_VOICES - 1);
         frame_ctrl_index        : in  t_frame_ctrl_index;
-        sync_in                 : in  std_logic_vector(N_TABLES - 1 downto 0);
-        sync_out                : out std_logic;
+        sync_in                 : in  t_hard_sync_array;
+        sync_out                : out std_logic_vector(N_VOICES - 1 downto 0);
         dma2table               : in  t_dma2table;
         table2dma               : out t_table2dma;
         frame_control           : in  t_ctrl_value_array(0 to POLYPHONY_MAX - 1);

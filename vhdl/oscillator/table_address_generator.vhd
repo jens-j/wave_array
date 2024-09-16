@@ -23,8 +23,8 @@ entity table_address_generator is
         config                  : in  t_config;
         next_sample             : in  std_logic; -- Next sample(s) trigger.
         osc_inputs              : in  t_osc_input_array(0 to N_VOICES - 1);
-        sync_in                 : in  std_logic_vector(N_TABLES - 1 downto 0);
-        sync_out                : out std_logic;
+        sync_in                 : in  t_hard_sync_array;
+        sync_out                : out std_logic_vector(N_VOICES - 1 downto 0);
         table2addrgen           : in  t_table2addrgen;           
         addrgen2table           : out t_addrgen2table
     );
@@ -47,8 +47,8 @@ architecture arch of table_address_generator is
         new_phase               : t_osc_phase;
         mipmap_level            : t_mipmap_level; -- Both output samples always have the same mipmap level
         meet_threshold          : std_logic_vector(MIPMAP_LEVELS - 1 downto 1);
-        sync_out                : std_logic;
-        sync_in_sticky          : std_logic_vector(N_TABLES - 1 downto 0);
+        sync_out                : std_logic_vector(N_VOICES - 1 downto 0);
+        sync_in_sticky          : t_hard_sync_array;
     end record;
 
     -- Generate initial phases that are shifted to accommodate binaural stuff.
@@ -83,34 +83,38 @@ architecture arch of table_address_generator is
         new_phase               => (others => '0'),
         mipmap_level            => 0,
         meet_threshold          => (others => '0'),
-        sync_out                => '0',
-        sync_in_sticky          => (others => '0')
+        sync_out                => (others => '0'),
+        sync_in_sticky          => (others => (others => '0'))
     );
 
     signal r, r_in              : t_tag_reg;
 
 begin
 
-    combinatorial : process (r, next_sample, osc_inputs, table2addrgen)
+    combinatorial : process (r, next_sample, osc_inputs, table2addrgen, sync_in)
     begin
 
         r_in <= r;
         r_in.valid <= '0';
-        r_in.sync_out <= '0';
+        r_in.sync_out <= (others => '0');
 
         -- Connect outputs
         addrgen2table.valid <= r.valid;
         addrgen2table.mipmap_level <= r.mipmap_level;
         addrgen2table.mipmap_address <= r.mipmap_address;
         addrgen2table.phase <= r.phase;
+        sync_out <= r.sync_out;
 
         -- Hard sync input sticky bits.
         if config.hard_sync_enable(TABLE_INDEX) = '1' then 
-            for i in 0 to N_TABLES loop 
-                r_in.sync_in_sticky(i) <= '1' when sync_in(i) = '1' else r.sync_in_sticky(i);
+            for i in 0 to N_TABLES - 1 loop 
+                for j in 0 to N_VOICES - 1 loop
+                    -- Prevent double syncing just after overflow when source and target oscillators are in phase. 
+                    r_in.sync_in_sticky(i)(j) <= '1' when sync_in(i)(j) = '1' and r.sync_out(j) = '0' else r.sync_in_sticky(i)(j);
+                end loop;
             end loop;
         else 
-            r_in.sync_in_sticky <= (others => '0');
+            r_in.sync_in_sticky <= (others => (others => '0'));
         end if;
 
         -- Wait for next cycle.
@@ -159,9 +163,9 @@ begin
             -- Buffer old phase so it can be output to the table interpolator.
             r_in.phase <= r.table_phases(r.osc_counter);
 
-            -- Increment phase or reset when sync pulse is received.
-            if r.sync_in_sticky(config.hard_sync_source(TABLE_INDEX)) = '1' then
-                r_in.sync_in_sticky(config.hard_sync_source(TABLE_INDEX)) <= '0';
+            -- Increment phase or reset when sync pulse is received (only for sample 0).
+            if r.sample_counter = 0 and r.sync_in_sticky(config.hard_sync_source(TABLE_INDEX))(r.osc_counter) = '1' then
+                r_in.sync_in_sticky(config.hard_sync_source(TABLE_INDEX))(r.osc_counter) <= '0';
                 r_in.new_phase <= (others => '0');
             else 
                 r_in.new_phase <= r.table_phases(r.osc_counter) + osc_inputs(r.osc_counter).velocity;
@@ -177,7 +181,7 @@ begin
 
             -- Generate sync pulse if phase overflowed.
             if r.new_phase < r.phase then  
-                r_in.sync_out <= '1';
+                r_in.sync_out(r.osc_counter) <= '1';
             end if;
 
             r_in.state <= handshake;
