@@ -38,6 +38,7 @@ class Uart:
         self.hk_signal = hk_signal
         self.wave_signal = wave_signal
         self.uart = serial.Serial(port, baudrate=baudrate, timeout=1)
+        # self.uart.set_buffer_size(rx_size = 12800, tx_size = 12800)
         self.rep_queue = Queue()
         self.ao_queue = Queue()
         self.stop_thread = False

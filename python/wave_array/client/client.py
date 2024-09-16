@@ -71,13 +71,44 @@ class WaveArray:
     
     REG_MOD_MAP_BASE            = 0x00001000
     REG_MOD_DEST_BASE           = 0x00002000
-    REG_TABLE_BASE              = 0x00003000
     REG_FRAME_CTRL_BASE         = 0x00004000
     REG_MIX_CTRL_BASE           = 0x00005000
     REG_FREQ_CTRL_BASE          = 0x00006000 
+
+    REG_TABLE_BASE              = 0x00003000
+    REF_TABLE_ADDR_LOW          = 0x00000000
+    REF_TABLE_ADDR_HIGH         = 0x00000001
+    REF_TABLE_FRAMES            = 0x00000002
+    REF_TABLE_UPDATE            = 0x00000003
+
     REG_ENVELOPE_CTRL_BASE      = 0x00007000
+    REG_ENVELOPE_ATTACK         = 0x00000000
+    REG_ENVELOPE_DECAY          = 0x00000001
+    REG_ENVELOPE_SUSTAIN        = 0x00000002
+    REG_ENVELOPE_RELEASE        = 0x00000003
+    REG_ENVELOPE_LOOP           = 0x00000004
+
     REG_LFO_CTRL_BASE           = 0x00008000
+    REG_LFO_VELOCITY            = 0x00000000
+    REG_LFO_WAVE                = 0x00000001
+    REG_LFO_TRIGGER             = 0x00000002
+    REG_LFO_PHASE               = 0x00000003
+    REG_LFO_ONESHOT             = 0x00000004
+    REG_LFO_RESET               = 0x00000005
+    REG_LFO_AMPLITUDE           = 0x00000006
+    REG_LFO_BINAURAL            = 0x00000007
+    
     REG_SH_CTRL_BASE            = 0x00009000
+    REG_SH_VELOCITY             = 0x00000000
+    REG_SH_AMPLITUDE            = 0x00000001
+    REG_SH_SLEW                 = 0x00000002
+    REG_SH_INPUT                = 0x00000003
+
+    REG_HARD_SYNC_BASE          = 0x0000A000
+    REG_HARD_SYNC_ENABLE        = 0x00000000
+    REG_HARD_SYNC_SOURCE        = 0x00000001
+
+
 
     def __init__(self, hk_signal=None, wave_signal=None, port='COM3'):
         self.protocol = UartProtocol(port, 2_000_000, hk_signal, wave_signal)

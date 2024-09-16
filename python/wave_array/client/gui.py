@@ -63,7 +63,7 @@ class WaveArrayGui(QtWidgets.QMainWindow):
         self.mod_destination = None
         self.mod_button = None
         self.modmap = ModMap(self.client)
-        self.wavetables = [None, None]
+        self.wavetables = [None, None, None]
         self.status = Status(self.client)
         self.oscilloscope_samples = np.zeros(100, dtype=np.int16)
         self.voice_enabled_buttons = []
@@ -77,7 +77,7 @@ class WaveArrayGui(QtWidgets.QMainWindow):
         self.envelope_index = 0
 
         self.curve_oscilloscope = None
-        self.curves_waveforms = [[None] * self.client.n_voices, [None] * self.client.n_voices]
+        self.curves_waveforms = [[None] * self.client.n_voices, [None] * self.client.n_voices, [None] * self.client.n_voices]
         self.plots_mods = []
         self.plots_modd = []
         self.curves_mods = [[] for i in range(len(ModMap.MODS_STRING) - 1)]
@@ -128,6 +128,9 @@ class WaveArrayGui(QtWidgets.QMainWindow):
         self.ui.btn_enable_binaural.clicked.connect(self.btn_enable_binaural_clicked)
         self.ui.btn_mod_disable.clicked.connect(self.btn_mod_disable_clicked)
         self.ui.btn_mod_zero.clicked.connect(self.btn_mod_zero_clicked)
+        self.ui.box_sync_enable_0.clicked.connect(partial(self.box_sync_enable_clicked, 0))
+        self.ui.box_sync_enable_1.clicked.connect(partial(self.box_sync_enable_clicked, 1))
+        self.ui.box_sync_enable_2.clicked.connect(partial(self.box_sync_enable_clicked, 2))
 
         for btn in self.lfo_select_buttons:
             btn.clicked.connect(self.btn_lfo_index_changed)
@@ -139,6 +142,7 @@ class WaveArrayGui(QtWidgets.QMainWindow):
         self.ui.btn_reg_write.released.connect(self.btn_reg_write_clicked)
         self.ui.btn_reset_pitch_0.released.connect(partial(self.btn_reset_pitch_clicked, 0))
         self.ui.btn_reset_pitch_1.released.connect(partial(self.btn_reset_pitch_clicked, 1))
+        self.ui.btn_reset_pitch_2.released.connect(partial(self.btn_reset_pitch_clicked, 2))
         self.ui.btn_lfo_reset.released.connect(self.btn_lfo_reset_clicked)
 
         self.ui.box_unison.valueChanged.connect(self.box_unison_n_changed)
@@ -149,22 +153,30 @@ class WaveArrayGui(QtWidgets.QMainWindow):
         self.ui.box_lfo_waveform.currentIndexChanged.connect(self.lfo_waveform_changed)
         self.ui.box_noise_select.currentIndexChanged.connect(self.noise_select_changed)
         self.ui.box_sh_input_select.currentIndexChanged.connect(self.box_sh_input_select_changed)
+        self.ui.box_sync_source_0.currentTextChanged.connect(partial(self.box_sync_source_changed, 0))
+        self.ui.box_sync_source_1.currentTextChanged.connect(partial(self.box_sync_source_changed, 1))
+        self.ui.box_sync_source_2.currentTextChanged.connect(partial(self.box_sync_source_changed, 2))       
 
         self.ui.box_octaves_0.valueChanged.connect(partial(self.pitch_changed, 0))
         self.ui.box_octaves_1.valueChanged.connect(partial(self.pitch_changed, 1))
+        self.ui.box_octaves_2.valueChanged.connect(partial(self.pitch_changed, 2))
         self.ui.box_semitones_0.valueChanged.connect(partial(self.pitch_changed, 0))
         self.ui.box_semitones_1.valueChanged.connect(partial(self.pitch_changed, 1))
+        self.ui.box_semitones_2.valueChanged.connect(partial(self.pitch_changed, 2))
 
         self.ui.action_load_config.triggered.connect(self.load_config)
         self.ui.action_reset.triggered.connect(self.software_reset)
 
         self.ui.slider_mix_0_position.sliderMoved.connect(partial(self.mix_amount_changed, 0))
         self.ui.slider_mix_1_position.sliderMoved.connect(partial(self.mix_amount_changed, 1))
-        self.ui.slider_mix_noise_position.sliderMoved.connect(partial(self.mix_amount_changed, 2))
+        self.ui.slider_mix_2_position.sliderMoved.connect(partial(self.mix_amount_changed, 2))
+        self.ui.slider_mix_noise_position.sliderMoved.connect(partial(self.mix_amount_changed, 3))
         self.ui.slider_frame_0_position.sliderMoved.connect(partial(self.frame_position_changed, 0))
         self.ui.slider_frame_1_position.sliderMoved.connect(partial(self.frame_position_changed, 1))
+        self.ui.slider_frame_2_position.sliderMoved.connect(partial(self.frame_position_changed, 2))
         self.ui.slider_pitch_0.sliderMoved.connect(partial(self.pitch_changed, 0))
         self.ui.slider_pitch_1.sliderMoved.connect(partial(self.pitch_changed, 1))
+        self.ui.slider_pitch_2.sliderMoved.connect(partial(self.pitch_changed, 2))
         self.ui.slider_unison_spread.sliderMoved.connect(self.unison_spread_changed)
         self.ui.slider_lfo_velocity.sliderMoved.connect(self.lfo_velocity_changed)
         self.ui.slider_lfo_phase.sliderMoved.connect(self.lfo_phase_changed)
@@ -267,13 +279,13 @@ class WaveArrayGui(QtWidgets.QMainWindow):
                 else:
                     curves[i].hide()
                             
-            # Update both wavetable plots.
-            for j in range(2):
+            # Update all wavetable plots.
+            for j in range(3):
 
                 wavetable = self.wavetables[j]
                 n_frames_log2 = wavetable.descriptor.n_frames_log2
 
-                dest = ModMap.MODD_OSC_0_FRAME if j == 0 else ModMap.MODD_OSC_1_FRAME
+                dest = getattr(ModMap, f'MODD_OSC_{j}_FRAME')
             
                 # Set waveform plot data.
                 if n_frames_log2 == 0:
@@ -339,16 +351,13 @@ class WaveArrayGui(QtWidgets.QMainWindow):
         enabled = self.client.read(WaveArray.REG_WAVE_ENABLE)
         self.ui.btn_enable_oscilloscope.setChecked(enabled)
 
-        enabled = self.client.read(WaveArray.REG_LFO_CTRL_BASE + 2)
+        enabled = self.client.read(WaveArray.REG_LFO_CTRL_BASE + WaveArray.REG_LFO_TRIGGER)
         self.ui.btn_enable_lfo_trigger.setChecked(enabled)
 
-        enabled = self.client.read(WaveArray.REG_LFO_CTRL_BASE + 2)
-        self.ui.btn_enable_lfo_trigger.setChecked(enabled)
-
-        enabled = self.client.read(WaveArray.REG_LFO_CTRL_BASE + 7)
+        enabled = self.client.read(WaveArray.REG_LFO_CTRL_BASE + WaveArray.REG_LFO_BINAURAL)
         self.ui.btn_enable_lfo_binaural.setChecked(enabled)
 
-        input_select = self.client.read(WaveArray.REG_SH_CTRL_BASE + 3)
+        input_select = self.client.read(WaveArray.REG_SH_CTRL_BASE + WaveArray.REG_SH_INPUT)
         self.ui.box_sh_input_select.setCurrentIndex(input_select)
 
         period = self.client.read(WaveArray.REG_WAVE_PERIOD)
@@ -358,7 +367,7 @@ class WaveArrayGui(QtWidgets.QMainWindow):
         index = self.client.read(WaveArray.REG_FILTER_SELECT)
         self.ui.box_filter_select.setCurrentIndex(index)
 
-        index = self.client.read(WaveArray.REG_LFO_CTRL_BASE + 1)
+        index = self.client.read(WaveArray.REG_LFO_CTRL_BASE + WaveArray.REG_LFO_WAVE)
         self.ui.box_lfo_waveform.setCurrentIndex(index)
 
         index = self.client.read(WaveArray.REG_NOISE_SELECT)
@@ -370,6 +379,15 @@ class WaveArrayGui(QtWidgets.QMainWindow):
         unison_n = self.client.read(WaveArray.REG_UNISON_N)
         self.ui.box_unison.setValue(unison_n)
 
+        # Sync config.
+        for i in range(3):
+            enabled = self.client.read(WaveArray.REG_HARD_SYNC_BASE + i * 0x10 + WaveArray.REG_HARD_SYNC_ENABLE)
+            getattr(self.ui, f'box_sync_enable_{i}').setChecked(enabled)
+
+            labels = ['table A', 'table B', 'table C']
+            source = self.client.read(WaveArray.REG_HARD_SYNC_BASE + i * 0x10 + WaveArray.REG_HARD_SYNC_SOURCE)
+            text = labels[source]
+            getattr(self.ui, f'box_sync_source_{i}').setCurrentText(text)
         
         # Initialize sliders.
         amount = self.client.read(WaveArray.REG_MIX_CTRL_BASE)
@@ -380,9 +398,13 @@ class WaveArrayGui(QtWidgets.QMainWindow):
         self.ui.slider_mix_1_position.setValue(amount)
         self.mix_amount_changed(1, amount)
 
-        amount = self.client.read(WaveArray.REG_MIX_CTRL_BASE + 2) # Noise mix slider
-        self.ui.slider_mix_noise_position.setValue(amount)
+        amount = self.client.read(WaveArray.REG_MIX_CTRL_BASE + 2)
+        self.ui.slider_mix_2_position.setValue(amount)
         self.mix_amount_changed(2, amount)
+
+        amount = self.client.read(WaveArray.REG_MIX_CTRL_BASE + 3) # Noise mix slider
+        self.ui.slider_mix_noise_position.setValue(amount)
+        self.mix_amount_changed(3, amount)
 
         position = self.client.read(WaveArray.REG_FRAME_CTRL_BASE)
         self.ui.slider_frame_0_position.setValue(position)
@@ -392,6 +414,10 @@ class WaveArrayGui(QtWidgets.QMainWindow):
         self.ui.slider_frame_1_position.setValue(position)
         self.frame_position_changed(1, position)
 
+        position = self.client.read(WaveArray.REG_FRAME_CTRL_BASE + 2)
+        self.ui.slider_frame_2_position.setValue(position)
+        self.frame_position_changed(2, position)
+
         frequency = self.client.read(WaveArray.REG_FREQ_CTRL_BASE, signed=True)
         self.ui.slider_pitch_0.setValue(frequency)
         self.frame_position_changed(0, frequency)
@@ -400,19 +426,23 @@ class WaveArrayGui(QtWidgets.QMainWindow):
         self.ui.slider_pitch_1.setValue(frequency)
         self.frame_position_changed(1, frequency)
 
+        frequency = self.client.read(WaveArray.REG_FREQ_CTRL_BASE + 2, signed=True)
+        self.ui.slider_pitch_2.setValue(frequency)
+        self.frame_position_changed(2, frequency)
+
         spread = self.client.read(WaveArray.REG_UNISON_SPREAD)
         self.ui.slider_unison_spread.setValue(spread)
         self.unison_spread_changed(spread)
 
-        velocity = self.client.read(WaveArray.REG_LFO_CTRL_BASE)
+        velocity = self.client.read(WaveArray.REG_LFO_CTRL_BASE + WaveArray.REG_LFO_VELOCITY)
         self.ui.slider_lfo_velocity.setValue(velocity)
         self.lfo_velocity_changed(velocity)
 
-        phase = self.client.read(WaveArray.REG_LFO_CTRL_BASE + 3)
+        phase = self.client.read(WaveArray.REG_LFO_CTRL_BASE + WaveArray.REG_LFO_PHASE)
         self.ui.slider_lfo_phase.setValue(phase)
         self.lfo_phase_changed(phase)
 
-        amplitude = self.client.read(WaveArray.REG_LFO_CTRL_BASE + 6)
+        amplitude = self.client.read(WaveArray.REG_LFO_CTRL_BASE + WaveArray.REG_LFO_AMPLITUDE)
         self.ui.slider_lfo_amplitude.setValue(amplitude)
         self.lfo_amplitude_changed(amplitude)
 
@@ -424,44 +454,42 @@ class WaveArrayGui(QtWidgets.QMainWindow):
         self.ui.slider_filter_resonance.setValue(resonance)
         self.filter_resonance_changed(resonance)
 
-        attack = self.client.read(WaveArray.REG_ENVELOPE_CTRL_BASE)
+        attack = self.client.read(WaveArray.REG_ENVELOPE_CTRL_BASE + WaveArray.REG_ENVELOPE_ATTACK)
         self.ui.slider_envelope_attack.setValue(attack)
         self.envelope_attack_changed(attack)
 
-        decay = self.client.read(WaveArray.REG_ENVELOPE_CTRL_BASE + 1)
+        decay = self.client.read(WaveArray.REG_ENVELOPE_CTRL_BASE + WaveArray.REG_ENVELOPE_DECAY)
         self.ui.slider_envelope_decay.setValue(decay)
         self.envelope_decay_changed(decay)
 
-        sustain = self.client.read(WaveArray.REG_ENVELOPE_CTRL_BASE + 2)
+        sustain = self.client.read(WaveArray.REG_ENVELOPE_CTRL_BASE + WaveArray.REG_ENVELOPE_SUSTAIN)
         self.ui.slider_envelope_sustain.setValue(sustain)
         self.envelope_sustain_changed(sustain)
 
-        release = self.client.read(WaveArray.REG_ENVELOPE_CTRL_BASE + 3)
+        release = self.client.read(WaveArray.REG_ENVELOPE_CTRL_BASE + WaveArray.REG_ENVELOPE_RELEASE)
         self.ui.slider_envelope_release.setValue(release)  
         self.envelope_release_changed(release)
 
-        velocity = self.client.read(WaveArray.REG_SH_CTRL_BASE + 0)
+        velocity = self.client.read(WaveArray.REG_SH_CTRL_BASE + WaveArray.REG_SH_VELOCITY)
         self.ui.slider_sh_velocity.setValue(velocity)  
         self.sh_velocity_changed(velocity) 
 
-        amplitude = self.client.read(WaveArray.REG_SH_CTRL_BASE + 1)
+        amplitude = self.client.read(WaveArray.REG_SH_CTRL_BASE + WaveArray.REG_SH_AMPLITUDE)
         self.ui.slider_sh_amplitude.setValue(amplitude)  
         self.sh_amplitude_changed(velocity) 
 
-        slew_rate = self.client.read(WaveArray.REG_SH_CTRL_BASE + 2)
+        slew_rate = self.client.read(WaveArray.REG_SH_CTRL_BASE + WaveArray.REG_SH_SLEW)
         self.ui.slider_sh_slew_rate.setValue(slew_rate)  
         self.sh_slew_rate_changed(slew_rate) 
 
         # Initialize pitch control.
-        for index in range(2):
+        for index in range(3):
 
             pitch_control = self.client.read(WaveArray.REG_FREQ_CTRL_BASE + index, signed=True)
 
             oct = int(np.round(pitch_control / ModMap.MOD_FREQ_STEP_OCTAVE))
             semi = int(np.fmod(pitch_control, ModMap.MOD_FREQ_STEP_OCTAVE) / ModMap.MOD_FREQ_STEP_SEMITONE)
             cent = int(np.fmod(pitch_control, ModMap.MOD_FREQ_STEP_SEMITONE) / ModMap.MOD_FREQ_STEP_CENT)
-
-            print(oct, semi, cent)
             
             getattr(self.ui, f'box_octaves_{index}').setValue(oct)
             getattr(self.ui, f'box_semitones_{index}').setValue(semi)
@@ -607,6 +635,7 @@ class WaveArrayGui(QtWidgets.QMainWindow):
         # Add callback to wavetable write when a table is dropped on the oscillator plots.
         self.ui.plot_waveform_0.addDropCallback(self.change_wavetable)
         self.ui.plot_waveform_1.addDropCallback(self.change_wavetable)
+        self.ui.plot_waveform_2.addDropCallback(self.change_wavetable)
 
         self.ui.plot_waveform_0.setBackground(bg_color)
         self.ui.plot_waveform_0.setTitle('wavetable A')
@@ -619,6 +648,12 @@ class WaveArrayGui(QtWidgets.QMainWindow):
         self.ui.plot_waveform_1.setYRange(-2**15, 2**15, padding=0)
         self.ui.plot_waveform_1.hideAxis('left')
         self.ui.plot_waveform_1.hideAxis('bottom')
+
+        self.ui.plot_waveform_2.setBackground(bg_color)
+        self.ui.plot_waveform_2.setTitle('wavetable C')
+        self.ui.plot_waveform_2.setYRange(-2**15, 2**15, padding=0)
+        self.ui.plot_waveform_2.hideAxis('left')
+        self.ui.plot_waveform_2.hideAxis('bottom')
 
         self.ui.plot_oscilloscope.setBackground(bg_color)
         self.ui.plot_oscilloscope.setTitle('oscilloscope')
@@ -664,6 +699,7 @@ class WaveArrayGui(QtWidgets.QMainWindow):
 
             self.curves_waveforms[0][i] = self.ui.plot_waveform_0.plot(np.zeros(2048), name=f'voice {i}', pen=pen)
             self.curves_waveforms[1][i] = self.ui.plot_waveform_1.plot(np.zeros(2048), name=f'voice {i}', pen=pen)
+            self.curves_waveforms[2][i] = self.ui.plot_waveform_2.plot(np.zeros(2048), name=f'voice {i}', pen=pen)
 
             for j in range(len(ModMap.MODD_STRING)):
                 self.curves_modd[j].append(self.plots_modd[j].plot(
@@ -688,9 +724,30 @@ class WaveArrayGui(QtWidgets.QMainWindow):
             label = QListWidgetItem(descriptor.name)
             self.ui.list_tables.addItem(label)
 
-        # Load first wavetable from list.
-        self.change_wavetable(list(self.table_manager.descriptors.keys())[0], 0)
-        self.change_wavetable(list(self.table_manager.descriptors.keys())[0], 1)
+        # Load current active wavetables.
+        # Read the active base_addresses and find the corresponding table names.
+        for table_index in range(3):
+
+            base_address = self.client.read(WaveArray.REG_TABLE_BASE + table_index * 0x10 + WaveArray.REF_TABLE_ADDR_LOW) \
+                + self.client.read(WaveArray.REG_TABLE_BASE + table_index * 0x10 + WaveArray.REF_TABLE_ADDR_HIGH) * 2**16
+            
+            print(f'load wavetable {table_index}')
+            print(f'base_address = {base_address}')
+            
+            # If base_address is zero, no table is loaded yet.
+            if base_address == 0:
+                descriptor = list(self.table_manager.descriptors.values())[0]
+            else:
+                descriptor = list(filter(lambda x: x.base_address == base_address, self.table_manager.descriptors.values()))[0]
+            
+            print(f'table name = {descriptor.name}')
+
+            self.change_wavetable(descriptor.name, table_index)
+
+        # # Load first wavetable from list.
+        # self.change_wavetable(list(self.table_manager.descriptors.keys())[0], 0)
+        # self.change_wavetable(list(self.table_manager.descriptors.keys())[0], 1)
+        # self.change_wavetable(list(self.table_manager.descriptors.keys())[0], 2)
 
     
     # Load available stylesheet names from directory and add a menu item for each.
@@ -727,10 +784,10 @@ class WaveArrayGui(QtWidgets.QMainWindow):
         plot.setTitle(f'{osc_id}: {descriptor.name}')
 
         # Update table registers.
-        self.client.write(WaveArray.REG_TABLE_BASE + index * 0x10    , descriptor.base_address & 0xFFFF)
-        self.client.write(WaveArray.REG_TABLE_BASE + index * 0x10 + 1, (descriptor.base_address >> 16) & 0xFFFF)
-        self.client.write(WaveArray.REG_TABLE_BASE + index * 0x10 + 2, descriptor.n_frames_log2)
-        self.client.write(WaveArray.REG_TABLE_BASE + index * 0x10 + 3, 0x0001)
+        self.client.write(WaveArray.REG_TABLE_BASE + index * 0x10 + WaveArray.REF_TABLE_ADDR_LOW, descriptor.base_address & 0xFFFF)
+        self.client.write(WaveArray.REG_TABLE_BASE + index * 0x10 + WaveArray.REF_TABLE_ADDR_HIGH, (descriptor.base_address >> 16) & 0xFFFF)
+        self.client.write(WaveArray.REG_TABLE_BASE + index * 0x10 + WaveArray.REF_TABLE_FRAMES, descriptor.n_frames_log2)
+        self.client.write(WaveArray.REG_TABLE_BASE + index * 0x10 + WaveArray.REF_TABLE_UPDATE, 0x0001)
 
 
     def mod_button_clicked(self, button, destination, source, state):
@@ -802,10 +859,10 @@ class WaveArrayGui(QtWidgets.QMainWindow):
                 self.envelope_index = i 
                 break 
 
-        attack  = self.client.read(WaveArray.REG_ENVELOPE_CTRL_BASE + self.envelope_index * 0x10)
-        decay   = self.client.read(WaveArray.REG_ENVELOPE_CTRL_BASE + self.envelope_index * 0x10 + 1)
-        sustain = self.client.read(WaveArray.REG_ENVELOPE_CTRL_BASE + self.envelope_index * 0x10 + 2)
-        release = self.client.read(WaveArray.REG_ENVELOPE_CTRL_BASE + self.envelope_index * 0x10 + 3)
+        attack  = self.client.read(WaveArray.REG_ENVELOPE_CTRL_BASE + self.envelope_index * 0x10 + WaveArray.REG_ENVELOPE_ATTACK)
+        decay   = self.client.read(WaveArray.REG_ENVELOPE_CTRL_BASE + self.envelope_index * 0x10 + WaveArray.REG_ENVELOPE_DECAY)
+        sustain = self.client.read(WaveArray.REG_ENVELOPE_CTRL_BASE + self.envelope_index * 0x10 + WaveArray.REG_ENVELOPE_SUSTAIN)
+        release = self.client.read(WaveArray.REG_ENVELOPE_CTRL_BASE + self.envelope_index * 0x10 + WaveArray.REG_ENVELOPE_RELEASE)
 
         self.ui.slider_envelope_attack.setValue(attack) 
         self.ui.slider_envelope_decay.setValue(decay) 
@@ -829,14 +886,17 @@ class WaveArrayGui(QtWidgets.QMainWindow):
 
         # Load settings.
         self.ui.btn_enable_lfo_trigger.setChecked(
-            bool(self.client.read(WaveArray.REG_LFO_CTRL_BASE + self.lfo_index * 0x10 + 2)))
+            bool(self.client.read(WaveArray.REG_LFO_CTRL_BASE + self.lfo_index * 0x10 + WaveArray.REG_LFO_TRIGGER)))
+        
+        self.ui.btn_enable_lfo_binaural.setChecked(
+            bool(self.client.read(WaveArray.REG_LFO_CTRL_BASE + self.lfo_index * 0x10 + WaveArray.REG_LFO_BINAURAL)))
             
         self.ui.box_lfo_waveform.setCurrentIndex(
-            self.client.read(WaveArray.REG_LFO_CTRL_BASE + self.lfo_index * 0x10 + 1))
+            self.client.read(WaveArray.REG_LFO_CTRL_BASE + self.lfo_index * 0x10 + WaveArray.REG_LFO_WAVE))
 
-        velocity = self.client.read(WaveArray.REG_LFO_CTRL_BASE + self.lfo_index * 0x10)
-        phase = self.client.read(WaveArray.REG_LFO_CTRL_BASE + self.lfo_index * 0x10 + 3)
-        amplitude = self.client.read(WaveArray.REG_LFO_CTRL_BASE + self.lfo_index * 0x10 + 6) 
+        velocity = self.client.read(WaveArray.REG_LFO_CTRL_BASE + self.lfo_index * 0x10 + WaveArray.REG_LFO_VELOCITY)
+        phase = self.client.read(WaveArray.REG_LFO_CTRL_BASE + self.lfo_index * 0x10 + WaveArray.REG_LFO_PHASE)
+        amplitude = self.client.read(WaveArray.REG_LFO_CTRL_BASE + self.lfo_index * 0x10 + WaveArray.REG_LFO_AMPLITUDE) 
 
         self.ui.slider_lfo_velocity.setValue(velocity)
         self.ui.slider_lfo_phase.setValue(phase)  
@@ -852,7 +912,7 @@ class WaveArrayGui(QtWidgets.QMainWindow):
         self.client.write(WaveArray.REG_NOISE_SELECT, np.uint16(index));                               
 
     def btn_lfo_reset_clicked(self):
-        self.client.write(WaveArray.REG_LFO_CTRL_BASE + self.lfo_index * 0x10 + 5, 1)
+        self.client.write(WaveArray.REG_LFO_CTRL_BASE + self.lfo_index * 0x10 + WaveArray.REG_LFO_RESET, 1)
 
     def box_hk_rate_changed(self, rate):
         period = 100E6 / (1024 * rate)
@@ -862,7 +922,7 @@ class WaveArrayGui(QtWidgets.QMainWindow):
         self.client.write(WaveArray.REG_MIDI_CHANNEL, np.uint16(channel - 1))
 
     def box_sh_input_select_changed(self, index):
-        self.client.write(WaveArray.REG_SH_CTRL_BASE + 3, np.uint16(index + 1))
+        self.client.write(WaveArray.REG_SH_CTRL_BASE + WaveArray.REG_SH_INPUT, np.uint16(index + 1))
 
     def box_unison_n_changed(self, n):
         assert n in range(1, 17)
@@ -872,14 +932,14 @@ class WaveArrayGui(QtWidgets.QMainWindow):
         self.client.write(WaveArray.REG_WAVE_ENABLE, int(checked))
 
     def btn_enable_lfo_trigger_clicked(self, checked):
-        self.client.write(WaveArray.REG_LFO_CTRL_BASE + self.lfo_index * 0x10 + 2, int(checked))   
+        self.client.write(WaveArray.REG_LFO_CTRL_BASE + self.lfo_index * 0x10 + WaveArray.REG_LFO_TRIGGER, int(checked))   
 
         # Reset phases when trigger is deselected
         if not checked:
-            self.client.write(WaveArray.REG_LFO_CTRL_BASE + self.lfo_index * 0x10 + 5, 1)
+            self.client.write(WaveArray.REG_LFO_CTRL_BASE + self.lfo_index * 0x10 + WaveArray.REG_LFO_RESET, 1)
 
     def btn_enable_lfo_binaural_clicked(self, checked):
-        self.client.write(WaveArray.REG_LFO_CTRL_BASE + self.lfo_index * 0x10 + 7, int(checked))   
+        self.client.write(WaveArray.REG_LFO_CTRL_BASE + self.lfo_index * 0x10 + WaveArray.REG_LFO_BINAURAL, int(checked))   
 
     def btn_reset_pitch_clicked(self, index):
         self.client.write(WaveArray.REG_FREQ_CTRL_BASE + index, 0)
@@ -901,11 +961,18 @@ class WaveArrayGui(QtWidgets.QMainWindow):
     def btn_reg_write_clicked(self):
         self.client.write(self.ui.box_reg_address.value(), self.ui.box_reg_data.value())
 
+    def box_sync_enable_clicked(self, index, checked):
+        self.client.write(WaveArray.REG_HARD_SYNC_BASE + index * 0x10 + WaveArray.REG_HARD_SYNC_ENABLE, int(checked))
+
+    def box_sync_source_changed(self, index, text):
+        source = 0 if text == 'table A' else 1 if text == 'table B' else 2
+        self.client.write(WaveArray.REG_HARD_SYNC_BASE + index * 0x10 + WaveArray.REG_HARD_SYNC_SOURCE, source)
+
     def filter_select_changed(self, index):
         self.client.write(WaveArray.REG_FILTER_SELECT, index)
 
     def lfo_waveform_changed(self, waveform_index):
-        self.client.write(WaveArray.REG_LFO_CTRL_BASE + self.lfo_index * 0x10 + 1, waveform_index)
+        self.client.write(WaveArray.REG_LFO_CTRL_BASE + self.lfo_index * 0x10 + WaveArray.REG_LFO_WAVE, waveform_index)
 
     def set_mod_amount(self, control_value):
 
@@ -924,15 +991,15 @@ class WaveArrayGui(QtWidgets.QMainWindow):
             self.ui.lbl_amount.setText(f'{int(100 * control_value / 2**15):3d}%')
 
     def lfo_velocity_changed(self, control_value):
-        self.client.write(WaveArray.REG_LFO_CTRL_BASE + self.lfo_index * 0x10, control_value)
+        self.client.write(WaveArray.REG_LFO_CTRL_BASE + self.lfo_index * 0x10 + WaveArray.REG_LFO_VELOCITY, control_value)
         self.ui.lbl_lfo_velocity.setText(f'{int(100 * control_value / (2**15 - 1)):3d}%')
 
     def lfo_phase_changed(self, control_value):
-        self.client.write(WaveArray.REG_LFO_CTRL_BASE + self.lfo_index * 0x10 + 3, control_value)
+        self.client.write(WaveArray.REG_LFO_CTRL_BASE + self.lfo_index * 0x10 + WaveArray.REG_LFO_PHASE, control_value)
         self.ui.lbl_lfo_phase.setText(f'{int(100 * control_value / (2**15 - 1)):3d}%')
 
     def lfo_amplitude_changed(self, control_value):
-        self.client.write(WaveArray.REG_LFO_CTRL_BASE + self.lfo_index * 0x10 + 6, control_value)
+        self.client.write(WaveArray.REG_LFO_CTRL_BASE + self.lfo_index * 0x10 + WaveArray.REG_LFO_AMPLITUDE, control_value)
         self.ui.lbl_lfo_amplitude.setText(f'{int(100 * control_value / (2**15 - 1)):3d}%')
 
     def mix_amount_changed(self, index, control_value):
@@ -958,31 +1025,31 @@ class WaveArrayGui(QtWidgets.QMainWindow):
         self.ui.lbl_filter_resonance.setText(f'{int(100 * control_value / (2**15 - 1)):3d}%')
 
     def envelope_attack_changed(self, control_value):
-        self.client.write(WaveArray.REG_ENVELOPE_CTRL_BASE + 0x10 * self.envelope_index, control_value)
+        self.client.write(WaveArray.REG_ENVELOPE_CTRL_BASE + 0x10 * self.envelope_index + WaveArray.REG_ENVELOPE_ATTACK, control_value)
         self.ui.lbl_envelope_attack.setText(f'{int(100 * control_value / (2**15 - 1)):3d}%')
         
     def envelope_decay_changed(self, control_value):
-        self.client.write(WaveArray.REG_ENVELOPE_CTRL_BASE + 0x10 * self.envelope_index + 1, control_value)
+        self.client.write(WaveArray.REG_ENVELOPE_CTRL_BASE + 0x10 * self.envelope_index + WaveArray.REG_ENVELOPE_DECAY, control_value)
         self.ui.lbl_envelope_decay.setText(f'{int(100 * control_value / (2**15 - 1)):3d}%')
 
     def envelope_sustain_changed(self, control_value):
-        self.client.write(WaveArray.REG_ENVELOPE_CTRL_BASE + 0x10 * self.envelope_index + 2, control_value)
+        self.client.write(WaveArray.REG_ENVELOPE_CTRL_BASE + 0x10 * self.envelope_index + WaveArray.REG_ENVELOPE_SUSTAIN, control_value)
         self.ui.lbl_envelope_sustain.setText(f'{int(100 * control_value / (2**15 - 1)):3d}%')
 
     def envelope_release_changed(self, control_value):
-        self.client.write(WaveArray.REG_ENVELOPE_CTRL_BASE + 0x10 * self.envelope_index + 3, control_value)
+        self.client.write(WaveArray.REG_ENVELOPE_CTRL_BASE + 0x10 * self.envelope_index + WaveArray.REG_ENVELOPE_RELEASE, control_value)
         self.ui.lbl_envelope_release.setText(f'{int(100 * control_value / (2**15 - 1)):3d}%')
 
     def sh_velocity_changed(self, control_value):
-        self.client.write(WaveArray.REG_SH_CTRL_BASE + 0, control_value)
+        self.client.write(WaveArray.REG_SH_CTRL_BASE + WaveArray.REG_SH_VELOCITY, control_value)
         self.ui.lbl_sh_velocity.setText(f'{int(100 * control_value / (2**15 - 1)):3d}%')
 
     def sh_amplitude_changed(self, control_value):
-        self.client.write(WaveArray.REG_SH_CTRL_BASE + 1, control_value)
+        self.client.write(WaveArray.REG_SH_CTRL_BASE + WaveArray.REG_SH_AMPLITUDE, control_value)
         self.ui.lbl_sh_amplitude.setText(f'{int(100 * control_value / (2**15 - 1)):3d}%')
 
     def sh_slew_rate_changed(self, control_value):
-        self.client.write(WaveArray.REG_SH_CTRL_BASE + 2, max(1, control_value))
+        self.client.write(WaveArray.REG_SH_CTRL_BASE + WaveArray.REG_SH_SLEW, max(1, control_value))
         self.ui.lbl_sh_slew_rate.setText(f'{int(100 * control_value / (2**15 - 1)):3d}%')
 
     def appearanceActionClicked(self):

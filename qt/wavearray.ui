@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>2193</width>
-    <height>981</height>
+    <width>2273</width>
+    <height>985</height>
    </rect>
   </property>
   <property name="maximumSize">
@@ -2608,6 +2608,134 @@ destination</string>
          </widget>
         </item>
         <item>
+         <widget class="QGroupBox" name="groupBox_3">
+          <property name="font">
+           <font>
+            <weight>75</weight>
+            <bold>true</bold>
+           </font>
+          </property>
+          <property name="title">
+           <string>Hard Sync</string>
+          </property>
+          <layout class="QVBoxLayout" name="verticalLayout_3">
+           <item>
+            <widget class="QCheckBox" name="box_sync_enable_0">
+             <property name="font">
+              <font>
+               <weight>50</weight>
+               <bold>false</bold>
+              </font>
+             </property>
+             <property name="text">
+              <string>table A</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QComboBox" name="box_sync_source_0">
+             <property name="font">
+              <font>
+               <weight>50</weight>
+               <bold>false</bold>
+              </font>
+             </property>
+             <item>
+              <property name="text">
+               <string>table B</string>
+              </property>
+             </item>
+             <item>
+              <property name="text">
+               <string>table C</string>
+              </property>
+             </item>
+            </widget>
+           </item>
+           <item>
+            <widget class="Line" name="line_54">
+             <property name="orientation">
+              <enum>Qt::Horizontal</enum>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QCheckBox" name="box_sync_enable_1">
+             <property name="font">
+              <font>
+               <weight>50</weight>
+               <bold>false</bold>
+              </font>
+             </property>
+             <property name="text">
+              <string>table B</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QComboBox" name="box_sync_source_1">
+             <property name="font">
+              <font>
+               <weight>50</weight>
+               <bold>false</bold>
+              </font>
+             </property>
+             <item>
+              <property name="text">
+               <string>table A</string>
+              </property>
+             </item>
+             <item>
+              <property name="text">
+               <string>table C</string>
+              </property>
+             </item>
+            </widget>
+           </item>
+           <item>
+            <widget class="Line" name="line_55">
+             <property name="orientation">
+              <enum>Qt::Horizontal</enum>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QCheckBox" name="box_sync_enable_2">
+             <property name="font">
+              <font>
+               <weight>50</weight>
+               <bold>false</bold>
+              </font>
+             </property>
+             <property name="text">
+              <string>table C</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QComboBox" name="box_sync_source_2">
+             <property name="font">
+              <font>
+               <weight>50</weight>
+               <bold>false</bold>
+              </font>
+             </property>
+             <item>
+              <property name="text">
+               <string>table A</string>
+              </property>
+             </item>
+             <item>
+              <property name="text">
+               <string>table B</string>
+              </property>
+             </item>
+            </widget>
+           </item>
+          </layout>
+         </widget>
+        </item>
+        <item>
          <widget class="QGroupBox" name="groupBox_2">
           <property name="font">
            <font>
@@ -2692,19 +2820,6 @@ destination</string>
                 <enum>Qt::Horizontal</enum>
                </property>
               </widget>
-             </item>
-             <item>
-              <spacer name="verticalSpacer_5">
-               <property name="orientation">
-                <enum>Qt::Vertical</enum>
-               </property>
-               <property name="sizeHint" stdset="0">
-                <size>
-                 <width>20</width>
-                 <height>40</height>
-                </size>
-               </property>
-              </spacer>
              </item>
              <item>
               <widget class="QPushButton" name="btn_reset_pitch_0">
@@ -5632,7 +5747,7 @@ destination</string>
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>2193</width>
+     <width>2273</width>
      <height>21</height>
     </rect>
    </property>

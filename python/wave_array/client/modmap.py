@@ -33,18 +33,21 @@ class ModMap:
     MODD_VOLUME             = 2
     MODD_OSC_0_FRAME        = 3
     MODD_OSC_1_FRAME        = 4
-    MODD_OSC_0_MIX          = 5
-    MODD_OSC_1_MIX          = 6
-    MODD_NOISE_MIX          = 7
-    MODD_OSC_0_FREQ         = 8
-    MODD_OSC_1_FREQ         = 9
-    MODD_UNISON             = 10
-    MODD_LFO_0_AMPLITUDE    = 11
-    MODD_LFO_1_AMPLITUDE    = 12
-    MODD_LFO_2_AMPLITUDE    = 13
-    MODD_LFO_3_AMPLITUDE    = 14
-    MODD_SH_VELOCITY        = 15
-    MODD_SH_AMPLITUDE       = 16
+    MODD_OSC_2_FRAME        = 5
+    MODD_OSC_0_MIX          = 6
+    MODD_OSC_1_MIX          = 7
+    MODD_OSC_2_MIX          = 8
+    MODD_NOISE_MIX          = 9
+    MODD_OSC_0_FREQ         = 10
+    MODD_OSC_1_FREQ         = 11
+    MODD_OSC_2_FREQ         = 12
+    MODD_UNISON             = 13
+    MODD_LFO_0_AMPLITUDE    = 14
+    MODD_LFO_1_AMPLITUDE    = 15
+    MODD_LFO_2_AMPLITUDE    = 16
+    MODD_LFO_3_AMPLITUDE    = 17
+    MODD_SH_VELOCITY        = 18
+    MODD_SH_AMPLITUDE       = 19
 
     MODS_NONE               = 0
     MODS_ENVELOPE_0         = 1
@@ -60,7 +63,7 @@ class ModMap:
     MODS_TABLE_0            = 11
     MODS_TABLE_1            = 12
     
-    MODD_LEN                = 17
+    MODD_LEN                = 20
     MODS_LEN                = 13
     
     MODD_LEN_LOG2           = int(np.ceil(np.log2(MODD_LEN)))
@@ -73,11 +76,14 @@ class ModMap:
         MODD_VOLUME             : 'voice mixer volume',
         MODD_OSC_0_FRAME        : 'osc 0 frame',     
         MODD_OSC_1_FRAME        : 'osc 1 frame',     
+        MODD_OSC_2_FRAME        : 'osc 2 frame',     
         MODD_OSC_0_MIX          : 'osc 0 mix',     
         MODD_OSC_1_MIX          : 'osc 1 mix',
+        MODD_OSC_2_MIX          : 'osc 2 mix',
         MODD_NOISE_MIX          : 'noise mix',
         MODD_OSC_0_FREQ         : 'osc 0 frequency',     
         MODD_OSC_1_FREQ         : 'osc 1 frequency',
+        MODD_OSC_2_FREQ         : 'osc 2 frequency',
         MODD_UNISON             : 'unison',
         MODD_LFO_0_AMPLITUDE    : 'lfo 0 amplitude',
         MODD_LFO_1_AMPLITUDE    : 'lfo 1 amplitude',
@@ -94,11 +100,14 @@ class ModMap:
         MODD_VOLUME             : 'volume',
         MODD_OSC_0_FRAME        : 'frame 0',     
         MODD_OSC_1_FRAME        : 'frame 1',     
+        MODD_OSC_2_FRAME        : 'frame 2',     
         MODD_OSC_0_MIX          : 'mix 0',     
         MODD_OSC_1_MIX          : 'mix 1',
+        MODD_OSC_2_MIX          : 'mix 2',
         MODD_NOISE_MIX          : 'mix noise',
         MODD_OSC_0_FREQ         : 'frequency 0',     
         MODD_OSC_1_FREQ         : 'frequency 1',
+        MODD_OSC_2_FREQ         : 'frequency 2',
         MODD_UNISON             : 'unison',
         MODD_LFO_0_AMPLITUDE    : 'lfo 0 depth',
         MODD_LFO_1_AMPLITUDE    : 'lfo 1 depth',
