@@ -1,9 +1,7 @@
 Issues: 
-- GUI: wave view overflow
 - Testbench UART reader does not handle error replies well
-- LFO: sine overflow on max value sometimes
 - software reset does not work well
-- No oscilloscope during envelope
+- Reading back pitch does not work correctly
 
 Features:
 - envelope looping
@@ -13,13 +11,11 @@ Features:
 - ring modulator 
 - LFO: single cycle mode (only in trigger mode)
 - more waveforms 
-- n_frames in waveform name
 - high frequency LFO mode
 - Step like frame interpolation
 - filter: allow filter to open further
 - better noise source
 - envelope parameters as mod destinations
-- sample & hold mod source
 - double click to disable mod in mod matrix.
 - spectrum analyzer
 
@@ -33,3 +29,4 @@ Optimizations:
 
 Open Problems:
 - integrating midi velocity in the voice mixer (mapping to sustain works)
+- Hardwire envelope 0 to volume? Would enable better voice muting based on envelope active.
