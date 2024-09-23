@@ -454,8 +454,8 @@ begin
 
             r_in.register_output.valid <= '1';
 
-            if register_input.address = REG_LED then
-                r_in.software_reset <= '0';
+            if register_input.address = REG_RESET then
+                r_in.software_reset <= '1';
 
             elsif register_input.address = REG_LED then
                 r_in.config_buffer.led <= register_input.write_data(0);
