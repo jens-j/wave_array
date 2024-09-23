@@ -79,6 +79,7 @@ begin
         s_mod_sources(MODS_KEY_VELOCITY)(i) <= '0' & signed(voices(i).midi_velocity) & (0 to 7 => '0'); -- Extend 7 bit midi velocity to signed 16 bit control value.
         s_mod_sources(MODS_TABLE_0)(i)      <= s_unison_mixer_output(0)(i);
         s_mod_sources(MODS_TABLE_1)(i)      <= s_unison_mixer_output(1)(i);
+        s_mod_sources(MODS_TABLE_2)(i)      <= s_unison_mixer_output(2)(i);
     end generate;
 
     osc_controller : entity osc.osc_controller
@@ -181,6 +182,8 @@ begin
         config                  => config,
         status                  => status,
         next_sample             => next_sample,
+        osc_inputs              => s_osc_inputs,
+        envelope_active         => s_envelope_active,
         ctrl_in                 => s_mod_destinations(MODD_VOLUME),
         sample_in               => s_filter_samples,
         sample_out              => sample

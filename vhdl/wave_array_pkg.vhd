@@ -211,9 +211,10 @@ package wave_array_pkg is
     constant MODS_KEY_VELOCITY      : natural := 10;
     constant MODS_TABLE_0           : natural := 11;
     constant MODS_TABLE_1           : natural := 12;
+    constant MODS_TABLE_2           : natural := 13;
     
     constant MODD_LEN               : natural := 20;
-    constant MODS_LEN               : natural := 13;
+    constant MODS_LEN               : natural := 14;
     
     constant MODD_LEN_LOG2          : natural := integer(ceil(log2(real(MODD_LEN))));
     constant MODS_LEN_LOG2          : natural := integer(ceil(log2(real(MODS_LEN))));
