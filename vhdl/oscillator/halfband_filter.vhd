@@ -73,6 +73,7 @@ architecture arch of halfband_filter is
     signal s_write_data_a_even  : std_logic_vector(HALFBAND_COEFF_SIZE - 1 downto 0);
     signal s_read_data_a_even   : std_logic_vector(HALFBAND_COEFF_SIZE - 1 downto 0);
     
+    signal s_enable_b_even      : std_logic;
     signal s_address_b_even     : std_logic_vector(HALFBAND_DEPTH_EVEN_LOG2 - 1 downto 0);
     signal s_read_data_b_even   : std_logic_vector(HALFBAND_COEFF_SIZE - 1 downto 0);
 
@@ -81,6 +82,7 @@ architecture arch of halfband_filter is
     signal s_address_a_odd      : std_logic_vector(HALFBAND_DEPTH_ODD_LOG2 - 1 downto 0);
     signal s_write_data_a_odd   : std_logic_vector(HALFBAND_COEFF_SIZE - 1 downto 0);
 
+    signal s_enable_b_odd       : std_logic;
     signal s_address_b_odd      : std_logic_vector(HALFBAND_DEPTH_ODD_LOG2 - 1 downto 0);
     signal s_read_data_b_odd    : std_logic_vector(HALFBAND_COEFF_SIZE - 1 downto 0);
 
@@ -95,6 +97,7 @@ begin
         dina                    => s_write_data_a_even,
         douta                   => s_read_data_a_even,
         clkb                    => clk,
+        enb                     => s_enable_b_even,
         web                     => "0",
         addrb                   => s_address_b_even, 
         dinb                    => (others => '0'),
@@ -109,6 +112,7 @@ begin
         addra                   => s_address_a_odd,
         dina                    => s_write_data_a_odd,
         clkb                    => clk,
+        enb                     => s_enable_b_odd,
         addrb                   => s_address_b_odd, 
         doutb                   => s_read_data_b_odd
     );
@@ -148,6 +152,10 @@ begin
         s_address_b_even        <= (others => '0');
         s_address_a_odd         <= (others => '0');
         s_address_b_odd         <= (others => '0');
+
+        -- Disable second port when writing to prevent collision warnings during simulation.
+        s_enable_b_even <= '0' when r.state = load_samples else '1';
+        s_enable_b_odd <= '0' when r.state = load_samples else '1';
 
         if r.state = idle then
             if next_sample = '1' then
