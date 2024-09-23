@@ -176,7 +176,7 @@ begin
 
             -- Wait for a number of ms.
             if v_command = "wait  " then
-                -- Read wait time in ms from line
+                -- Read wait time from line.
                 read(v_line_in, v_wait_time, v_hread_success);
                 report "wait " & integer'image(v_wait_time) & " us";
                 wait for v_wait_time * 1 us;
@@ -204,6 +204,9 @@ begin
             elsif v_command = "write " then
                 hread(v_line_in, v_address);
                 hread(v_line_in, v_write_data(15 downto 0));
+
+                report "write [0x" & to_hstring(unsigned(v_address)) & "] <= 0x" & to_hstring(unsigned(v_write_data(15 downto 0)));
+
                 v_serial_length := 7;
                 v_serial_packet := (2119 downto 8 * v_serial_length => '0') & UART_WRITE_REQ
                     & v_address & v_write_data(15 downto 0);
