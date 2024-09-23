@@ -327,7 +327,7 @@ class WaveArrayGui(QtWidgets.QMainWindow):
     def software_reset(self):
 
         try:
-            self.client.write(WaveArray.REG_RESET, 1) # This will timeout.
+            self.client.reset() # This will timeout.
         except:
             pass 
 
@@ -744,11 +744,6 @@ class WaveArrayGui(QtWidgets.QMainWindow):
 
             self.change_wavetable(descriptor.name, table_index)
 
-        # # Load first wavetable from list.
-        # self.change_wavetable(list(self.table_manager.descriptors.keys())[0], 0)
-        # self.change_wavetable(list(self.table_manager.descriptors.keys())[0], 1)
-        # self.change_wavetable(list(self.table_manager.descriptors.keys())[0], 2)
-
     
     # Load available stylesheet names from directory and add a menu item for each.
     def load_stylesheets(self):
@@ -779,7 +774,7 @@ class WaveArrayGui(QtWidgets.QMainWindow):
         self.wavetables[index] = self.table_manager.tables[descriptor.name]
 
         # Update plot title.
-        plot = self.ui.plot_waveform_0 if index == 0 else self.ui.plot_waveform_1
+        plot = getattr(self.ui, f'plot_waveform_{index}')
         osc_id = 'A' if index == 0 else 'B'
         plot.setTitle(f'{osc_id}: {descriptor.name}')
 
