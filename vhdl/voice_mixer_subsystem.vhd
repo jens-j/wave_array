@@ -13,6 +13,8 @@ entity voice_mixer_subsystem is
         config                  : in  t_config;
         status                  : in  t_status;
         next_sample             : in  std_logic;
+        osc_inputs              : in  t_osc_input_array(0 to POLYPHONY_MAX - 1);
+        envelope_active         : in  std_logic_vector(POLYPHONY_MAX - 1 downto 0);
         sample_in               : in  t_mono_sample_array(0 to POLYPHONY_MAX - 1);
         ctrl_in                 : in  t_ctrl_value_array(0 to POLYPHONY_MAX - 1);
         sample_out              : out t_stereo_sample
@@ -31,6 +33,10 @@ architecture arch of voice_mixer_subsystem is
         sample_in_right         : t_mono_sample_array(0 to POLYPHONY_MAX - 1);
         ctrl_left               : t_ctrl_value_array(0 to POLYPHONY_MAX - 1);
         ctrl_right              : t_ctrl_value_array(0 to POLYPHONY_MAX - 1);
+        voice_enable_left       : std_logic_vector(POLYPHONY_MAX - 1 downto 0);
+        voice_enable_right      : std_logic_vector(POLYPHONY_MAX - 1 downto 0);
+        envelope_active_left    : std_logic_vector(POLYPHONY_MAX - 1 downto 0);
+        envelope_active_right   : std_logic_vector(POLYPHONY_MAX - 1 downto 0);
     end record;
 
     constant REG_INIT : t_mixer_subsys_reg := (
@@ -38,10 +44,15 @@ architecture arch of voice_mixer_subsystem is
         sample_in_left          => (others => (others => '0')),
         sample_in_right         => (others => (others => '0')),
         ctrl_left               => (others => (others => '0')),
-        ctrl_right              => (others => (others => '0'))
+        ctrl_right              => (others => (others => '0')),
+        voice_enable_left       => (others => '0'),
+        voice_enable_right      => (others => '0'),
+        envelope_active_left    => (others => '0'),
+        envelope_active_right   => (others => '0')
     );
 
     signal r, r_in              : t_mixer_subsys_reg;
+    signal s_voice_enable       : std_logic_vector(POLYPHONY_MAX - 1 downto 0);
 
 begin 
 
@@ -51,6 +62,8 @@ begin
         reset                   => reset,
         next_sample             => next_sample,
         n_inputs                => r.n_inputs,
+        voice_enable            => r.voice_enable_left,
+        envelope_active         => r.voice_enable_right,
         ctrl_in                 => r.ctrl_left,
         sample_in               => r.sample_in_left,
         sample_out              => sample_out(0)
@@ -62,6 +75,8 @@ begin
         reset                   => reset,
         next_sample             => next_sample,
         n_inputs                => r.n_inputs,
+        voice_enable            => r.envelope_active_left,
+        envelope_active         => r.envelope_active_right,
         ctrl_in                 => r.ctrl_right,
         sample_in               => r.sample_in_right,
         sample_out              => sample_out(1)
@@ -74,6 +89,11 @@ begin
         r_in <= r;
         r_in.n_inputs <= status.polyphony;
 
+        -- Combine voice active bits into array.
+        for i in 0 to POLYPHONY_MAX - 1 loop 
+            s_voice_enable(i) <= osc_inputs(i).enable;
+        end loop;
+
         -- Assign the same samples to the left and right channel.
         if config.binaural_enable = '0' then 
             
@@ -83,11 +103,19 @@ begin
                     r_in.sample_in_right(i) <= sample_in(i);
                     r_in.ctrl_left(i) <= ctrl_in(i);
                     r_in.ctrl_right(i) <= ctrl_in(i);
+                    r_in.voice_enable_left(i) <= osc_inputs(i).enable;
+                    r_in.voice_enable_right(i) <= osc_inputs(i).enable;
+                    r_in.envelope_active_left(i) <= envelope_active(i);
+                    r_in.envelope_active_right(i) <= envelope_active(i);
                 else 
                     r_in.sample_in_left(i) <= (others => '0');
                     r_in.sample_in_right(i) <= (others => '0');
                     r_in.ctrl_left(i) <= (others => '0');
                     r_in.ctrl_right(i) <= (others => '0');
+                    r_in.voice_enable_left(i) <= '0';
+                    r_in.voice_enable_right(i) <= '0';
+                    r_in.envelope_active_left(i) <= '0';
+                    r_in.envelope_active_right(i) <= '0';
                 end if;
             end loop;
         
@@ -98,6 +126,10 @@ begin
             r_in.sample_in_right <= (others => (others => '0'));
             r_in.ctrl_left <= (others => (others => '0'));
             r_in.ctrl_right <= (others => (others => '0'));
+            r_in.voice_enable_left <= (others => '0');
+            r_in.voice_enable_right <= (others => '0');
+            r_in.envelope_active_left <= (others => '0');
+            r_in.envelope_active_right <= (others => '0');
 
             for i in 0 to POLYPHONY_MAX / 2 - 1 loop
                 if i < status.active_voices then  
@@ -105,11 +137,10 @@ begin
                     r_in.sample_in_right(i) <= sample_in(2 * i + 1);
                     r_in.ctrl_left(i) <= ctrl_in(2 * i);
                     r_in.ctrl_right(i) <= ctrl_in(2 * i + 1);
-                else 
-                    r_in.sample_in_left(i) <= (others => '0');
-                    r_in.sample_in_right(i) <= (others => '0');
-                    r_in.ctrl_left(i) <= (others => '0');
-                    r_in.ctrl_right(i) <= (others => '0');
+                    r_in.voice_enable_left(i) <= osc_inputs(2 * i).enable;
+                    r_in.voice_enable_right(i) <= osc_inputs(2 * i + 1).enable;
+                    r_in.envelope_active_left(i) <= envelope_active(2 * i);
+                    r_in.envelope_active_right(i) <= envelope_active(2 * i + 1);
                 end if;
             end loop;
         end if;
