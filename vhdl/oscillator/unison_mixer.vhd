@@ -27,6 +27,8 @@ architecture arch of unison_mixer is
 
     type t_state is (idle, running, normalize);
     subtype t_mix_buffer is signed(BUFFER_SIZE - 1 downto 0);
+    type t_poly_index_array is array (0 to 1) of integer range 0 to POLYPHONY_MAX - 1; 
+    type t_table_index_array is array (0 to 1) of integer range 0 to N_TABLES - 1; 
 
     type t_mixer_reg is record
         state                   : t_state;
@@ -39,10 +41,12 @@ architecture arch of unison_mixer is
         mix_buffer              : t_mix_buffer;
         unison_minus_one        : integer range 0 to UNISON_MAX - 1;
         active_oscillators_minus_one : integer range 0 to N_VOICES - 1;
-        group_done              : std_logic;
-        poly_index              : integer range 0 to POLYPHONY_MAX - 1; 
-        table_index             : integer range 0 to N_TABLES - 1;
+        multipy_enable          : std_logic;
+        wb_enable               : std_logic;
+        poly_index_array        : t_poly_index_array;
+        table_index_array       : t_table_index_array;
         gain_coeff              : t_ctrl_value;
+        mult_result             : t_mono_sample;
     end record;
 
     constant REG_INIT : t_mixer_reg := (
@@ -56,10 +60,12 @@ architecture arch of unison_mixer is
         mix_buffer              => (others => '0'),
         unison_minus_one        => 0,
         active_oscillators_minus_one => 0,
-        group_done              => '0',
-        poly_index              => 0,
-        table_index             => 0,
-        gain_coeff              => (others => '0')
+        multipy_enable          => '0',
+        wb_enable               => '0',
+        poly_index_array        => (others => 0),
+        table_index_array       => (others => 0),
+        gain_coeff              => (others => '0'),
+        mult_result             => (others => '0')
     );
 
     signal r, r_in              : t_mixer_reg;
@@ -73,7 +79,14 @@ begin
     begin
 
         r_in <= r;
-        r_in.group_done <= '0';
+
+        -- Reset one-shots.
+        r_in.multipy_enable <= '0';
+        r_in.wb_enable <= '0';
+
+        -- Shift index arrays.
+        r_in.poly_index_array <= (0, r.poly_index_array(0));
+        r_in.table_index_array <= (0, r.table_index_array(0));
 
         sample_out <= r.sample_out;
 
@@ -108,16 +121,16 @@ begin
                 if r.unison_count < r.unison_minus_one then 
                     r_in.unison_count <= r.unison_count + 1;
                 else 
-                    r_in.group_done <= '1';
-                    r_in.poly_index <= r.poly_count;
-                    r_in.table_index <= r.table_count;
+                    r_in.multipy_enable <= '1';
+                    r_in.poly_index_array(0) <= r.poly_count;
+                    r_in.table_index_array(0) <= r.table_count;
                     r_in.unison_count <= 0;
                     r_in.poly_count <= minimum(POLYPHONY_MAX - 1, r.poly_count + 1);
                 end if;
             else 
-                r_in.group_done <= '1';
-                r_in.poly_index <= r.poly_count;
-                r_in.table_index <= r.table_count;
+                r_in.multipy_enable <= '1';
+                r_in.poly_index_array(0) <= r.poly_count;
+                r_in.table_index_array(0) <= r.table_count;
 
                 r_in.unison_count <= 0;
                 r_in.osc_count <= 0;
@@ -132,11 +145,17 @@ begin
         end if;
 
         -- Multiply with gain normalization coefficient.
-        if r.group_done = '1' then 
+        if r.multipy_enable = '1' then 
 
             -- After normalization the signal is attenuated by POLYPHONY_MAX. Slice mult_result accordingly.
             v_mult_result := r.mix_buffer * r.gain_coeff;
-            r_in.sample_out_buffer(r.table_index)(r.poly_index) <= v_mult_result(SAMPLE_SIZE + CTRL_SIZE - 2 downto CTRL_SIZE - 1);
+            r_in.mult_result <= v_mult_result(SAMPLE_SIZE + CTRL_SIZE - 2 downto CTRL_SIZE - 1);
+            r_in.wb_enable <= '1';
+        end if;
+
+        -- Writeback mutiplication result.
+        if r.wb_enable = '1' then 
+            r_in.sample_out_buffer(r.table_index_array(1))(r.poly_index_array(1)) <=  r.mult_result;
         end if;
             
     end process;
