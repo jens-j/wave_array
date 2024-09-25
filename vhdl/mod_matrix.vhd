@@ -143,7 +143,14 @@ begin
 
         -- Pipeline stage 1: read mod source values and mod amount.
         if r.source_counter(1) = MAX_MOD_SOURCES then 
-            r_in.source_values <= (others => config.base_ctrl(r.dest_counter(1)));
+
+            -- Use replace base value with envelope 0 for volume.
+            -- This is an easy way to hardwire envelope 0 to volume control and a base value for volume does not make sense anyway.
+            if r.dest_counter(1) = MODD_VOLUME then 
+                r_in.source_values <= mod_sources(MODS_ENVELOPE_0);
+            else
+                r_in.source_values <= (others => config.base_ctrl(r.dest_counter(1)));
+            end if;
             r_in.amount <= x"7FFF";
         else  
             if r.source_index /= MODS_NONE then 
