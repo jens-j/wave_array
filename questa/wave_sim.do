@@ -27,8 +27,14 @@ add wave -divider table_interpolator:
 add wave tb_wave_array/wave_array/synth_subsys/osc_subsys/osc_gen(0)/osc_n/table_interpolator/*
 add wave -divider halfband:
 add wave tb_wave_array/wave_array/synth_subsys/osc_subsys/osc_gen(0)/osc_n/halfband/*
+add wave -divider unison_mixer:
+add wave tb_wave_array/wave_array/synth_subsys/osc_subsys/unison_mixer/*
 add wave -divider mixer:
 add wave tb_wave_array/wave_array/synth_subsys/voice_mixer_subsys/*
+add wave -divider mixer_left:
+add wave tb_wave_array/wave_array/synth_subsys/voice_mixer_subsys/voice_mixer_left/*
+add wave -divider filter:
+add wave tb_wave_array/wave_array/synth_subsys/filter/*
 add wave -divider envelope:
 add wave tb_wave_array/wave_array/synth_subsys/envelope/*
 add wave -divider lfo:

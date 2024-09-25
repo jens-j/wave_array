@@ -48,8 +48,9 @@ package midi_pkg is
     constant MIDI_VOICE_MSG_PROGRAM         : std_logic_vector(3 downto 0) := x"C";
     constant MIDI_VOICE_MSG_CH_PRESS        : std_logic_vector(3 downto 0) := x"D";
     constant MIDI_VOICE_MSG_BEND            : std_logic_vector(3 downto 0) := x"E";
+    constant MIDI_SYSTEM                    : std_logic_vector(3 downto 0) := x"F"; 
 
-    -- Midi channel message opcodes.
+    -- Midi channel message opcodes (subset of MIDI_VOICE_MSG_CONTROL messages).
     constant MIDI_CH_MODE_MSG_SOUND_OFF     : t_midi_word := 7x"78";
     constant MIDI_CH_MODE_MSG_RESET         : t_midi_word := 7x"79";
     constant MIDI_CH_MODE_MSG_LOCAL         : t_midi_word := 7x"7A";
@@ -60,7 +61,7 @@ package midi_pkg is
     constant MIDI_CH_MODE_MSG_POLY          : t_midi_word := 7x"7F";
 
     -- Midi system message opcodes
-    constant MIDI_SYS_CLOCK                 : t_byte := x"F8";
+    constant MIDI_SYSTEM_CLOCK              : t_byte := x"F8";
 
 
 end package;
