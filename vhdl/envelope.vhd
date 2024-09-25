@@ -23,7 +23,8 @@ entity envelope is
         envelope_input          : in  t_envelope_input_array(0 to N_INSTANCES - 1);
         osc_inputs              : in  t_osc_input_array(0 to POLYPHONY_MAX - 1);
         envelope_out            : out t_envelope_out;
-        envelope_active         : out std_logic_vector(POLYPHONY_MAX - 1 downto 0) -- Array of envelope active OR-ed per voice.
+        envelope_0_active       : out std_logic_vector(POLYPHONY_MAX - 1 downto 0); -- Array of envelope active for (volume) envelope 0.
+        envelope_active         : out std_logic_vector(POLYPHONY_MAX - 1 downto 0)  -- Array of envelope active OR-ed for all voices.
     );
 end entity;
 
@@ -73,6 +74,7 @@ architecture arch of envelope is
         release_amp_out         : t_ctrl_value;
         instance_counter        : integer range 0 to N_INSTANCES - 1;
         pipeline_done           : std_logic;
+        envelope_0_active       : std_logic_vector(POLYPHONY_MAX - 1 downto 0);
         envelope_active         : std_logic_vector(POLYPHONY_MAX - 1 downto 0);
     end record;
 
@@ -98,6 +100,7 @@ architecture arch of envelope is
         release_amp_out         => (others => '0'),
         instance_counter        => 0,
         pipeline_done           => '0',
+        envelope_0_active       => (others => '0'),
         envelope_active         => (others => '0')
     ); 
 
@@ -173,14 +176,16 @@ begin
 
         -- Connect outputs.
         envelope_out <= r.envelope_out;
+        envelope_0_active <= r.envelope_0_active;
         envelope_active <= r.envelope_active;
 
         -- OR all adsr states into single array.
         v_envelope_active := (others => '0');
-        for i in 0 to N_INSTANCES - 1 loop 
-            for j in 0 to POLYPHONY_MAX - 1 loop 
+        for j in 0 to POLYPHONY_MAX - 1 loop 
+            for i in 0 to N_INSTANCES - 1 loop 
                 v_envelope_active(j) := v_envelope_active(j) when r.adsr_state(i)(j) = closed else '1';
             end loop;
+            r_in.envelope_0_active(j) <= '0' when r.adsr_state(0)(j) = closed else '1';
         end loop;
         r_in.envelope_active <= v_envelope_active;
 
@@ -221,7 +226,7 @@ begin
         when map_attack =>
 
             s_data_in_valid <= '1';
-            s_data_in <= x"0020" when envelope_input(r.instance_counter).attack < x"0020" 
+            s_data_in <= x"0040" when envelope_input(r.instance_counter).attack < x"0040" 
                 else envelope_input(r.instance_counter).attack; -- Use small minimum value to avoid clicking noise.
 
             r_in.state <= map_decay;
@@ -231,7 +236,7 @@ begin
             if s_data_out_valid = '1' then 
                 r_in.velocity_attack <= s_data_out;
                 s_data_in_valid <= '1';
-                s_data_in <= x"0020" when envelope_input(r.instance_counter).decay < x"0020" 
+                s_data_in <= x"0040" when envelope_input(r.instance_counter).decay < x"0040" 
                     else envelope_input(r.instance_counter).decay; -- Use small minimum value to avoid clicking noise when sustain < max.
 
                 r_in.state <= map_release;
@@ -242,7 +247,7 @@ begin
             if s_data_out_valid = '1' then 
                 r_in.velocity_decay <= s_data_out;
                 s_data_in_valid <= '1';
-                s_data_in <= x"0020" when envelope_input(r.instance_counter).release_value < x"0020" 
+                s_data_in <= x"0040" when envelope_input(r.instance_counter).release_value < x"0040" 
                     else envelope_input(r.instance_counter).release_value; -- Use small minimum value to avoid clicking noise.
 
                 r_in.state <= wait_valid;

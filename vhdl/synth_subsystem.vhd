@@ -47,6 +47,7 @@ architecture arch of synth_subsystem is
     signal s_lfo_out                : t_lfo_out;
     signal s_envelope_out           : t_envelope_out;
     signal s_sample_hold_out        : t_sample_hold_out;
+    signal s_envelope_0_active      : std_logic_vector(POLYPHONY_MAX - 1 downto 0);
     signal s_envelope_active        : std_logic_vector(POLYPHONY_MAX - 1 downto 0);
     signal s_unison_mixer_output    : t_unison_mixer_output;
 
@@ -159,6 +160,7 @@ begin
         next_sample             => next_sample,
         osc_inputs              => s_osc_inputs,
         envelope_out            => s_envelope_out,
+        envelope_0_active       => s_envelope_0_active,
         envelope_active         => s_envelope_active
     );
 
@@ -183,7 +185,7 @@ begin
         status                  => status,
         next_sample             => next_sample,
         osc_inputs              => s_osc_inputs,
-        envelope_active         => s_envelope_active,
+        envelope_0_active       => s_envelope_0_active,
         ctrl_in                 => s_mod_destinations(MODD_VOLUME),
         sample_in               => s_filter_samples,
         sample_out              => sample

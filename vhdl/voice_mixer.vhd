@@ -16,7 +16,7 @@ entity voice_mixer is
         next_sample             : in  std_logic;
         n_inputs                : in  integer range 1 to POLYPHONY_MAX;
         voice_enable            : in  std_logic_vector(POLYPHONY_MAX - 1 downto 0);
-        envelope_active         : in  std_logic_vector(POLYPHONY_MAX - 1 downto 0);
+        envelope_0_active       : in  std_logic_vector(POLYPHONY_MAX - 1 downto 0);
         ctrl_in                 : in  t_ctrl_value_array(0 to POLYPHONY_MAX - 1);
         sample_in               : in  t_mono_sample_array(0 to POLYPHONY_MAX - 1);
         sample_out              : out t_mono_sample
@@ -61,7 +61,7 @@ architecture arch of voice_mixer is
 
 begin
 
-    combinatorial : process (r, n_inputs, sample_in, voice_enable, envelope_active, next_sample, ctrl_in)
+    combinatorial : process (r, n_inputs, sample_in, voice_enable, envelope_0_active, next_sample, ctrl_in)
         variable v_mult_buffer : signed(SAMPLE_SIZE + POLYPHONY_MAX_LOG2 + CTRL_SIZE downto 0);
     begin
 
@@ -87,7 +87,7 @@ begin
             -- Pipeline stage 0: clip control value to positive only. 
             if r.counter < r.n_inputs then 
                 r_in.ctrl_clipped <= x"0000" when ctrl_in(r.counter) < 0 else ctrl_in(r.counter);
-                r_in.zero_voice(0) <= voice_enable(r.counter) nand envelope_active(r.counter); -- Zero when voice and envelope are not active.
+                r_in.zero_voice(0) <= voice_enable(r.counter) nand envelope_0_active(r.counter); -- Zero when voice and envelope are not active.
             end if;
 
             -- Pipeline stage 1: multiply sample with control value.
