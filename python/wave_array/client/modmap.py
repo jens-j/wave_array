@@ -62,9 +62,10 @@ class ModMap:
     MODS_KEY_VELOCITY       = 10
     MODS_TABLE_0            = 11
     MODS_TABLE_1            = 12
+    MODS_TABLE_2            = 13
     
     MODD_LEN                = 20
-    MODS_LEN                = 13
+    MODS_LEN                = 14
     
     MODD_LEN_LOG2           = int(np.ceil(np.log2(MODD_LEN)))
     MODS_LEN_LOG2           = int(np.ceil(np.log2(MODS_LEN)))
@@ -131,7 +132,8 @@ class ModMap:
         MODS_SH             : 'sample & hold',
         MODS_KEY_VELOCITY   : 'key velocity',
         MODS_TABLE_0        : 'oscillator 0',
-        MODS_TABLE_1        : 'oscillator 1'
+        MODS_TABLE_1        : 'oscillator 1',
+        MODS_TABLE_2        : 'oscillator 2'
     }
 
     # Modulation source short strings.
@@ -148,7 +150,8 @@ class ModMap:
         MODS_SH             : 's/h',
         MODS_KEY_VELOCITY   : 'vel',
         MODS_TABLE_0        : 'osc 0',
-        MODS_TABLE_1        : 'osc 1'
+        MODS_TABLE_1        : 'osc 1',
+        MODS_TABLE_2        : 'osc 2'
     }
 
     logger = logging.getLogger()
