@@ -177,9 +177,9 @@ package wave_array_pkg is
     constant REGISTER_WIDTH         : integer := 16;
 
     -- Modulation source and destination constants.
-    constant MODD_FILTER_CUTOFF     : natural := 0; 
-    constant MODD_FILTER_RESONANCE  : natural := 1; 
-    constant MODD_VOLUME            : natural := 2;
+    constant MODD_VOLUME            : natural := 0;
+    constant MODD_FILTER_CUTOFF     : natural := 1; 
+    constant MODD_FILTER_RESONANCE  : natural := 2; 
     constant MODD_OSC_0_FRAME       : natural := 3;
     constant MODD_OSC_1_FRAME       : natural := 4;
     constant MODD_OSC_2_FRAME       : natural := 5;
